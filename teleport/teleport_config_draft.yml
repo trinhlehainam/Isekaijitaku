@@ -1,0 +1,32 @@
+version: v3
+teleport:
+  nodename: homelab
+  data_dir: /var/lib/teleport
+  join_params:
+    token_name: c3f93aa3c63ab30107f7939a103536ee
+    method: token
+  proxy_server: isekaijitaku.rip:443
+  log:
+    output: stderr
+    severity: INFO
+    format:
+      output: text
+  ca_pin: ""
+  diag_addr: ""
+auth_service:
+  enabled: "no"
+ssh_service:
+  enabled: "no"
+proxy_service:
+  enabled: "no"
+  https_keypairs: []
+  https_keypairs_reload_interval: 0s
+  acme: {}
+app_service:
+  enabled: "yes"
+  debug_app: false
+  apps:
+  - name: uptimekuma
+    uri: http://uptime-kuma:3001
+    public_addr: ""
+    insecure_skip_verify: false

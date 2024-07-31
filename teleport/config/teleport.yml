@@ -1,0 +1,103 @@
+# A Sample Teleport configuration file.
+#
+# Things to update:
+#  1. license.pem: Retrieve a license from your Teleport account https://teleport.sh
+#     if you are an Enterprise customer.
+#
+version: v3
+teleport:
+  nodename: homelab
+  data_dir: /var/lib/teleport
+  log:
+    output: stderr
+    severity: INFO
+    format:
+      output: text
+  ca_pin: ""
+  diag_addr: ""
+
+auth_service:
+  enabled: "yes"
+  listen_addr: 0.0.0.0:3025
+  proxy_listener_mode: multiplex
+  cluster_name: isekaijitaku.rip
+
+ssh_service:
+  enabled: "no"
+
+proxy_service:
+  enabled: "yes"
+  listen_addr: 0.0.0.0:3080
+  web_listen_addr: 0.0.0.0:443
+  public_addr: isekaijitaku.rip:443
+  https_keypairs: []
+  https_keypairs_reload_interval: 0s
+  acme: {}
+
+app_service:
+  enabled: yes
+  # Teleport provides a small debug app called "dumper" that can be used
+  # to make sure application access is working correctly. It outputs JWTs,
+  #  so it can be useful when extending your application.
+  debug_app: true
+  # This section contains definitions of all applications proxied by this
+  # service. It can contain multiple items.
+  apps:
+    - name: "proxmox"
+      uri: "https://192.168.1.x:8006"
+      public_addr: "proxmox.isekaijitaku.rip"
+      insecure_skip_verify: true
+
+    - name: "nginx-proxy-manager"
+      uri: "http://nginx-proxy-manager:81"
+      public_addr: "gateway.isekaijitaku.rip"
+      insecure_skip_verify: true
+
+    # Docker Manager
+    - name: "portainer"
+      uri: "https://portainer:9443"
+      public_addr: "portainer.isekaijitaku.rip"
+      insecure_skip_verify: true
+
+    # Mail Server
+    - name: "stalwart"
+      uri: "https://stalwart:443"
+      public_addr: "stalwart.isekaijitaku.rip"
+      insecure_skip_verify: true
+      rewrite:
+        headers:
+          - "Host: stalwart.isekaijitaku.rip"
+          - "Origin: https://stalwart.isekaijitaku.rip"
+
+    # region Monitors
+    - name: "prometheus"
+      uri: "http://prometheus:9090"
+      public_addr: "prometheus.isekaijitaku.rip"
+      insecure_skip_verify: true
+    
+    - name: "grafana"
+      uri: "http://grafana:3000"
+      public_addr: "grafana.isekaijitaku.rip"
+      insecure_skip_verify: true
+      rewrite:
+        headers:
+          - "Host: grafana.isekaijitaku.rip"
+          - "Origin: https://grafana.isekaijitaku.rip"
+
+    - name: "uptime-kuma"
+      uri: "http://uptime-kuma:3001"
+      public_addr: "uptimekuma.isekaijitaku.rip"
+      insecure_skip_verify: true
+    
+    - name: "myspeed"
+      uri: "http://myspeed:5216"
+      public_addr: "myspeed.isekaijitaku.rip"
+      insecure_skip_verify: true
+      rewrite:
+        headers:
+          - "Host: myspeed.isekaijitaku.rip"
+          - "Origin: https://myspeed.isekaijitaku.rip"
+          - "Access-Control-Allow-Origin: https://isekaijitaku.rip"
+          - "Access-Control-Allow-Methods: GET, POST, OPTIONS"
+          - "Access-Control-Allow-Headers: Origin, Content-Type, Accept, Authorization, X-Requested-With, Access-Control-Allow-Origin, Access-Control-Allow-Credentials, Access-Control-Allow-Headers"
+    # endregion Monitors

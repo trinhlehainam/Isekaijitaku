@@ -1,0 +1,25 @@
+# https://github.com/ranareehanaslam/Docker-Swarm-Setup-with-Nginx-Proxy-Manager
+
+version: '3.2'
+
+services:
+  app:
+    image: 'jc21/nginx-proxy-manager:latest'
+    environment:
+      PUID: 1000
+      PGID: 1000
+    ports:
+      - '80:80'
+      - '81:81'
+      - '443:443'
+      - '465:465'
+    volumes:
+      - ./98-themepark:/etc/cont-init.d/99-themepark
+      - ./data:/data
+      - ./letsencrypt:/etc/letsencrypt
+    networks:
+      - nginx_network
+
+networks:
+  nginx_network:
+    external: true
