@@ -1,0 +1,28 @@
+# https://github.com/dani-garcia/vaultwarden/wiki/Starting-a-Container
+# https://github.com/dani-garcia/vaultwarden/wiki/Using-Docker-Compose
+# https://github.com/dani-garcia/vaultwarden/wiki/SMTP-Configuration
+
+services:
+  vaultwarden:
+    container_name: vaultwarden
+    image: vaultwarden/server:1.31.0-alpine
+    restart: unless-stopped
+    environment:
+      - SMTP_HOST=<smtp.domain.tld>
+      - SMTP_FROM=<vaultwarden@domain.tld>
+      - SMTP_PORT=587
+      - SMTP_SECURITY=starttls
+      # only use when access mail-server with same docker network
+      - SMTP_ACCEPT_INVALID_CERTS=true
+      - SMTP_USERNAME=<username>
+      - SMTP_PASSWORD=<password>
+    # ports:
+    #   - '80:80'
+    volumes:
+      - <VAULTWARDEN_DIR>:/data/
+    networks:
+      - nginx_network
+
+networks:
+  nginx_network:
+    external: true

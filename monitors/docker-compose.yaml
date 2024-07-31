@@ -80,10 +80,22 @@ services:
     networks:
       - nginx_network
 
+  uptime-kuma:
+    image: 'louislam/uptime-kuma:1.23.13-alpine'
+    container_name: uptime-kuma
+    #ports:
+    #  - '3001:3001'
+    volumes:
+      - uptime-kuma:/app/data
+    networks:
+      - nginx_network
+
 volumes:
   grafana-data:
     driver: local
   prometheus-data:
+    driver: local
+  uptime-kuma:
     driver: local
 
 networks:

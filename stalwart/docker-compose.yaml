@@ -1,0 +1,21 @@
+# https://stalw.art/docs/install/docker/
+# https://stalw.art/docs/get-started#choosing-network-ports
+
+services:
+  stalwart:
+    container_name: stalwart
+    image: 'stalwartlabs/mail-server:v0.8.5'
+    restart: unless-stopped
+    # ports:
+    #   - '25:25'
+    #   - '465:465'
+    #   - '993:993'
+    #   - '443:443'
+    volumes:
+      - <STALWART_DIR>:/opt/stalwart-mail
+    networks:
+      - nginx_network
+
+networks:
+  nginx_network:
+    external: true
