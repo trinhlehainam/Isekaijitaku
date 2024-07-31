@@ -1,0 +1,91 @@
+services:
+  prometheus:
+    image: docker.io/prom/prometheus:v2.53.1
+    container_name: prometheus
+    #ports:
+    #  - 9090:9090
+    command: "--config.file=/etc/prometheus/prometheus.yaml"
+    volumes:
+      - /root/monitors/prometheus/config/prometheus.yaml:/etc/prometheus/prometheus.yaml:ro
+      - prometheus-data:/prometheus
+    restart: unless-stopped
+    networks:
+      - nginx_network
+
+  grafana:
+    image: docker.io/grafana/grafana-oss:11.1.3
+    container_name: grafana
+    #ports:
+    #  - "3000:3000"
+    volumes:
+      - grafana-data:/var/lib/grafana
+    restart: unless-stopped
+    networks:
+      - nginx_network
+
+  node_exporter:
+    image: quay.io/prometheus/node-exporter:v1.8.2
+    container_name: node_exporter
+    command: "--path.rootfs=/host"
+    pid: host
+    restart: unless-stopped
+    volumes:
+      - /:/host:ro,rslave
+    networks:
+      - nginx_network
+
+  cadvisor:
+    image: gcr.io/cadvisor/cadvisor:v0.50.0
+    container_name: cadvisor
+    #ports:
+    # - 8080:8080
+    volumes:
+      - /:/rootfs:ro
+      - /run:/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    devices:
+      - /dev/kmsg
+    privileged: true
+    restart: unless-stopped
+    networks:
+      - nginx_network
+
+  goaccess:
+    image: xavierh/goaccess-for-nginxproxymanager:v1.1.29
+    container_name: goaccess
+    restart: always
+    #ports:
+    #    - '7880:7880'
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=America/New_York
+      - SKIP_ARCHIVED_LOGS=False #optional
+      - DEBUG=False #optional
+      - BASIC_AUTH=False #optional
+      - BASIC_AUTH_USERNAME=user #optional
+      - BASIC_AUTH_PASSWORD=pass #optional   
+      - EXCLUDE_IPS=127.0.0.1 #optional - comma delimited 
+      - LOG_TYPE=NPM #optional - more information below
+      - ENABLE_BROWSERS_LIST=True #optional - more information below
+      - CUSTOM_BROWSERS=Kuma:Uptime,TestBrowser:Crawler #optional - comma delimited, more information below
+      - HTML_REFRESH=5 #optional - Refresh the HTML report every X seconds. https://goaccess.io/man
+      - KEEP_LAST=30 #optional - Keep the last specified number of days in storage. https://goaccess.io/man
+      - PROCESSING_THREADS=1 #optional - This parameter sets the number of concurrent processing threads in the program's execution, affecting log data analysis, typically adjusted based on CPU cores. Default is 1. https://goaccess.io/man
+    volumes:
+      - /root/nginx-proxy-manager/data/logs:/opt/log
+      #- /path/to/host/custom:/opt/custom #optional, required if using log_type = CUSTOM
+    networks:
+      - nginx_network
+
+volumes:
+  grafana-data:
+    driver: local
+  prometheus-data:
+    driver: local
+
+networks:
+  nginx_network:
+    external: true

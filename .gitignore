@@ -1,0 +1,7 @@
+# Ignore data and letsencrypt folder in nginx-proxy-manager directory, don't need to know where ngix-proxy-manager root is
+
+**/nginx-proxy-manager/data/**
+**/nginx-proxy-manager/letsencrypt/**
+wazuh/single-node/wazuh_indexer_ssl_certs
+wazuh/single-node/wazuh-agent.deb
+

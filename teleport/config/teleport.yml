@@ -84,20 +84,13 @@ app_service:
           - "Host: grafana.isekaijitaku.rip"
           - "Origin: https://grafana.isekaijitaku.rip"
 
+    - name: "goaccess"
+      uri: "http://goaccess:7880"
+      public_addr: "goaccess.isekaijitaku.rip"
+      insecure_skip_verify: true
+
     - name: "uptime-kuma"
       uri: "http://uptime-kuma:3001"
       public_addr: "uptimekuma.isekaijitaku.rip"
       insecure_skip_verify: true
-    
-    - name: "myspeed"
-      uri: "http://myspeed:5216"
-      public_addr: "myspeed.isekaijitaku.rip"
-      insecure_skip_verify: true
-      rewrite:
-        headers:
-          - "Host: myspeed.isekaijitaku.rip"
-          - "Origin: https://myspeed.isekaijitaku.rip"
-          - "Access-Control-Allow-Origin: https://isekaijitaku.rip"
-          - "Access-Control-Allow-Methods: GET, POST, OPTIONS"
-          - "Access-Control-Allow-Headers: Origin, Content-Type, Accept, Authorization, X-Requested-With, Access-Control-Allow-Origin, Access-Control-Allow-Credentials, Access-Control-Allow-Headers"
     # endregion Monitors
