@@ -19,7 +19,7 @@ jobs:
       - uses: actions/checkout@v4
         with:
           fetch-depth: 0
-          ref: master
+          ref: main
       - uses: ./ # Runs the action that's in the root directory of the repo checked out above. i.e. This action itself.
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
