@@ -5,7 +5,25 @@
 tunnel: UUID
 credentials-file: /home/nonroot/.cloudflared/UUID.json
 
+# NOTE: Fixed tls issues for Nginx Proxy Manager by enabling HTTP/2 and install CF (Cloudflare) origin certificate
+# https://github.com/aeleos/cloudflared?tab=readme-ov-file#certificate-not-valid-for-any-names
+# ingress:
+#   - service: https://<PROXY_IP|PROXY_CONTAINER_NAME>:<PORT>
+#     originRequest:
+#       originServerName: yourdomain.com
+
+# INFO: https://github.com/NginxProxyManager/nginx-proxy-manager/issues/2696
 ingress:
-  - service: https://<PROXY_IP|PROXY_CONTAINER_NAME>:<PORT>
-    originRequest:
-      originServerName: yourdomain.com
+   - hostname: "mydomain.com"
+     service: https://<PROXY_IP|PROXY_CONTAINER_NAME>:<PORT>
+     originRequest:
+       originServerName: "anysubdomain.mydomain.com"
+       noTLSVerify: true
+
+   - hostname: "*.mydomain.com"
+     service: https://<PROXY_IP|PROXY_CONTAINER_NAME>:<PORT>
+     originRequest:
+       originServerName: "anysubdomain.mydomain.com"
+       noTLSVerify: true
+
+   - service: http_status:404

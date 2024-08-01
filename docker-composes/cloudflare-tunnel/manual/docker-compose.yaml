@@ -6,8 +6,8 @@ services:
     image: cloudflare/cloudflared:2024.6.1-amd64
     restart: unless-stopped
     volumes:
-      - <PATH_TO_CONFIG_FOLDER>:/root/.cloudflared/
-    command: 'tunnel --config /root/.cloudflared/config.yaml run'
+      - <PATH_TO_CONFIG_FOLDER>:/home/nonroot/.cloudflared/
+    command: tunnel --config /home/nonroot/.cloudflared/config.yaml run
     user: root
     networks:
       - nginx_network
