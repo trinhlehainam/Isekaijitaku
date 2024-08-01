@@ -10,3 +10,6 @@ docker-composes/**/wazuh/single-node/wazuh-agent.deb
 # Docker Secrets, Environment Files
 **/secret.*
 **/.env
+
+# Ignore test files
+**/tests

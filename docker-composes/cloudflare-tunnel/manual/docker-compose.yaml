@@ -1,0 +1,17 @@
+# https://thedxt.ca/2022/10/cloudflare-tunnel-with-docker/
+
+services:
+  cloudflared-tunnel:
+    container_name: cloudflared-tunnel
+    image: cloudflare/cloudflared:2024.6.1-amd64
+    restart: unless-stopped
+    volumes:
+      - <PATH_TO_CONFIG_FOLDER>:/root/.cloudflared/
+    command: 'tunnel --config /root/.cloudflared/config.yaml run'
+    user: root
+    networks:
+      - nginx_network
+
+networks:
+  nginx_network:
+    external: true

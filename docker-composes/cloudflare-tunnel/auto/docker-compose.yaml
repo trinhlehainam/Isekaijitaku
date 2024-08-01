@@ -1,0 +1,16 @@
+# https://github.com/jonas-merkle/container-cloudflare-tunnel/blob/master/docker-compose.yml
+
+services:
+  cloudflare-tunnel:
+    container_name: cloudflare-tunnel
+    image: cloudflare/cloudflared:2022.10.0-amd64
+    restart: unless-stopped
+    environment:
+      - "TUNNEL_TOKEN=${CLOUDFLARE_TUNNEL_TOKEN}"
+    command: tunnel --no-autoupdate run
+    networks:
+      - cloudflare_tunnel_network
+
+networks:
+  cloudflare_tunnel_network:
+    external: true

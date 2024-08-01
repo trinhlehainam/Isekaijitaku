@@ -4,6 +4,10 @@
 #  1. license.pem: Retrieve a license from your Teleport account https://teleport.sh
 #     if you are an Enterprise customer.
 #
+# NOTE:
+# https://github.com/gravitational/teleport/discussions/30001
+# https://github.com/gravitational/teleport/issues/30493
+
 version: v3
 teleport:
   nodename: homelab
@@ -19,16 +23,17 @@ teleport:
 auth_service:
   enabled: "yes"
   listen_addr: 0.0.0.0:3025
-  proxy_listener_mode: multiplex
   cluster_name: isekaijitaku.rip
+  public_addr: isekaijitaku.rip:3025
+  proxy_listener_mode: multiplex
 
 ssh_service:
   enabled: "no"
 
 proxy_service:
   enabled: "yes"
-  listen_addr: 0.0.0.0:3080
-  web_listen_addr: 0.0.0.0:443
+  # listen_addr: 0.0.0.0:3080
+  web_listen_addr: 0.0.0.0:3080
   public_addr: isekaijitaku.rip:443
   https_keypairs: []
   https_keypairs_reload_interval: 0s
@@ -51,6 +56,11 @@ app_service:
     - name: "nginx-proxy-manager"
       uri: "http://nginx-proxy-manager:81"
       public_addr: "gateway.isekaijitaku.rip"
+      insecure_skip_verify: true
+
+    - name: "isprouter"
+      uri: "https://192.168.1.1"
+      public_addr: "isprouter.isekaijitaku.rip"
       insecure_skip_verify: true
 
     # Docker Manager

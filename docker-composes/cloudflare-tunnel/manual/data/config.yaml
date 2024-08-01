@@ -1,0 +1,11 @@
+# https://developers.cloudflare.com/cloudflare-one/connections/connect-networks/configure-tunnels/local-management/configuration-file/
+# https://thedxt.ca/2022/10/cloudflare-tunnel-with-docker/
+# https://github.com/aeleos/cloudflared
+
+tunnel: UUID
+credentials-file: /home/nonroot/.cloudflared/UUID.json
+
+ingress:
+  - service: https://<PROXY_IP|PROXY_CONTAINER_NAME>:<PORT>
+    originRequest:
+      originServerName: yourdomain.com

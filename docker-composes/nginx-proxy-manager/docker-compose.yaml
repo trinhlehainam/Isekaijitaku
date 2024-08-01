@@ -1,7 +1,9 @@
+# https://github.com/ranareehanaslam/Docker-Swarm-Setup-with-Nginx-Proxy-Manager
+
 services:
   app:
     container_name: nginx-proxy-manager
-    image: 'jc21/nginx-proxy-manager:latest'
+    image: 'jc21/nginx-proxy-manager:2.11.3'
     restart: unless-stopped
     environment:
       PUID: 1000

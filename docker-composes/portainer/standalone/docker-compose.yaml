@@ -1,0 +1,23 @@
+# https://docs.portainer.io/start/install-ce/server/docker/linux
+
+services:
+  portainer:
+    container_name: portainer
+    image: portainer/portainer-ce:2.20.3-alpine
+    restart: unless-stopped
+    # ports:
+    #  - "9443:9443"
+    #  - "8000:8000"
+    volumes:
+      - portainer_data:/data
+      - /var/run/docker.sock:/var/run/docker.sock
+    networks:
+      - nginx_network
+
+networks:
+  nginx_network:
+    external: true
+
+volumes:
+  portainer_data:
+    external: true
