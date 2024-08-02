@@ -10,8 +10,8 @@ services:
     environment:
       - SMTP_HOST=<smtp.domain.tld>
       - SMTP_FROM=<vaultwarden@domain.tld>
-      - SMTP_PORT=587
-      - SMTP_SECURITY=starttls
+      - SMTP_PORT=465
+      - SMTP_SECURITY=force_tls
       # only use when access mail-server with same docker network
       - SMTP_ACCEPT_INVALID_CERTS=true
       - SMTP_USERNAME=<username>
