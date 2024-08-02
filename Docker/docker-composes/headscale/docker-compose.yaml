@@ -1,6 +1,7 @@
 # https://headscale.net/running-headscale-container/#configure-and-run-headscale
 # NOTE: check config-example of current image version
 # https://github.com/juanfont/headscale/blob/v0.22.3/config-example.yaml
+#
 
 services:
   headscale:
@@ -18,9 +19,6 @@ services:
     networks:
       - nginx_network
 
-  # NOTE: headscale-ui public domain needs to have the same domain with headscale 
-  # add headscale public domain location path /web point headscale-ui container
-  # https://github.com/gurucomputing/headscale-ui?tab=readme-ov-file#installation
   headscale-ui:
     container_name: headscale-ui
     image: ghcr.io/gurucomputing/headscale-ui:latest
