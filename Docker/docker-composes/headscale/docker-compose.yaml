@@ -19,12 +19,14 @@ services:
     networks:
       - nginx_network
 
-  headscale-ui:
-    container_name: headscale-ui
-    image: ghcr.io/gurucomputing/headscale-ui:latest
+  headscale-admin:
+    container_name: headscale-admin
+    image: goodieshq/headscale-admin:0.1.12b
     restart: unless-stopped
+    environment:
+      - ENDPOINT=${HEADSCALE_ADMIN_DOMAIN}
     ports:
-      - "9443:443"
+      - "8081:80"
     networks:
       - nginx_network
 
