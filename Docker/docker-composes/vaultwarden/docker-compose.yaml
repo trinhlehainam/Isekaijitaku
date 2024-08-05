@@ -8,14 +8,9 @@ services:
     image: vaultwarden/server:1.31.0-alpine
     restart: unless-stopped
     environment:
-      - SMTP_HOST=<smtp.domain.tld>
-      - SMTP_FROM=<vaultwarden@domain.tld>
-      - SMTP_PORT=465
-      - SMTP_SECURITY=force_tls
-      # only use when access mail-server with same docker network
-      - SMTP_ACCEPT_INVALID_CERTS=true
-      - SMTP_USERNAME=<username>
-      - SMTP_PASSWORD=<password>
+      # NOTE: Enable admin page
+      # https://github.com/dani-garcia/vaultwarden/wiki/Enabling-admin-page
+      - ADMIN_TOKEN=${VAULTWARDEN_ADMIN_TOKEN}
     # ports:
     #   - '80:80'
     volumes:
