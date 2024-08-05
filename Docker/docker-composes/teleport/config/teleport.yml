@@ -24,8 +24,22 @@ auth_service:
   enabled: "yes"
   listen_addr: 0.0.0.0:3025
   cluster_name: isekaijitaku.rip
-  public_addr: isekaijitaku.rip:3025
   proxy_listener_mode: multiplex
+  # NOTE: enable passwordless
+  # https://www.youtube.com/watch?v=I10mtZfVZ1Q
+  # https://goteleport.com/docs/access-controls/guides/passwordless/#optional-enable-passwordless-by-default
+  # NOTE: yubikey installation
+  # https://github.com/Yubico/libfido2?tab=readme-ov-file#dependencies
+  # https://support.yubico.com/hc/en-us/articles/360013708900-Using-Your-YubiKey-with-Linux
+  # NOTE: WSL usb passthrough 
+  # https://learn.microsoft.com/en-us/windows/wsl/connect-usb
+  # https://1-bit-wonder.github.io/blog/how-to-use-yubikey-with-wsl/How%20to%20use%20Yubikey%20with%20WSL%20via%20USB%20passthrough/
+  authentication:
+    type: local
+    second_factor: on
+    webauthn:
+      rp_id: "isekaijitaku.rip"
+    connector_name: passwordless
 
 ssh_service:
   enabled: "no"
@@ -93,6 +107,11 @@ app_service:
         headers:
           - "Host: grafana.isekaijitaku.rip"
           - "Origin: https://grafana.isekaijitaku.rip"
+
+    - name: "cadvisor"
+      uri: "http://cadvisor:8080"
+      public_addr: "cadvisor.isekaijitaku.rip"
+      insecure_skip_verify: true
 
     - name: "goaccess"
       uri: "http://goaccess:7880"
