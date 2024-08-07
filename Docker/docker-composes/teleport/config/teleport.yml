@@ -67,9 +67,30 @@ app_service:
       public_addr: "proxmox.isekaijitaku.rip"
       insecure_skip_verify: true
 
+      # NOTE: because cockpit-tls causes 100% CPU usage
+      # Skip tls and use http instead, also need to configure cockpit to accept http
+    - name: "pve1-bastion-cockpit"
+      uri: "http://192.168.1.x:9090"
+      public_addr: "cockpit.isekaijitaku.rip"
+      insecure_skip_verify: true
+
     - name: "nginx-proxy-manager"
       uri: "http://nginx-proxy-manager:81"
       public_addr: "gateway.isekaijitaku.rip"
+      insecure_skip_verify: true
+
+    - name: "headscale-admin"
+      uri: "http://headscale-admin:80/admin"
+      public_addr: "tailscale.isekaijitaku.rip"
+      insecure_skip_verify: true
+      rewrite:
+        headers:
+          - "Host: tailscale.isekaijitaku.rip"
+          - "Origin: https://tailscale.isekaijitaku.rip"
+
+    - name: "vaultwarden-admin"
+      uri: "http://vaultwarden:80/admin"
+      public_addr: "vaultwarden.isekaijitaku.rip"
       insecure_skip_verify: true
 
     - name: "isprouter"

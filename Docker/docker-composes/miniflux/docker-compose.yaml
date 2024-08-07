@@ -1,0 +1,43 @@
+# https://miniflux.app/docs/docker.html#docker-compose
+
+services:
+  miniflux:
+    container_name: miniflux
+    image: miniflux/miniflux:2.1.4-distroless
+    ports:
+      - "80:8080"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      - DATABASE_URL=postgres://miniflux:secret@miniflux-db/miniflux?sslmode=disable
+      - RUN_MIGRATIONS=1
+      - CREATE_ADMIN=1
+      - ADMIN_USERNAME=admin
+      - ADMIN_PASSWORD=test123
+    networks:
+      - nginx_network
+
+  db:
+    container_name: miniflux-db
+    image: postgres:15.7-bookworm
+    environment:
+      - POSTGRES_USER=miniflux
+      - POSTGRES_PASSWORD=secret
+      - POSTGRES_DB=miniflux
+    volumes:
+      - miniflux-db:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-U", "miniflux" ]
+      interval: 10s
+      start_period: 30s
+    networks:
+      - nginx_network
+
+volumes:
+  miniflux-db:
+    driver: local
+
+networks:
+  nginx_network:
+    external: true
