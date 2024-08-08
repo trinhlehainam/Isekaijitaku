@@ -129,6 +129,11 @@ app_service:
           - "Host: grafana.isekaijitaku.rip"
           - "Origin: https://grafana.isekaijitaku.rip"
 
+    - name: "influxdb"
+      uri: "https://influxdb:8086"
+      public_addr: "influxdb.isekaijitaku.rip"
+      insecure_skip_verify: true
+
     - name: "cadvisor"
       uri: "http://cadvisor:8080"
       public_addr: "cadvisor.isekaijitaku.rip"
