@@ -26,8 +26,11 @@ services:
       DOCKER_INFLUXDB_INIT_ADMIN_TOKEN_FILE: /run/secrets/influxdb2-admin-token
       DOCKER_INFLUXDB_INIT_ORG: docs
       DOCKER_INFLUXDB_INIT_BUCKET: home
-      INFLUXD_TSL_KEY: /etc/ssl/influxdb-selfsigned.key
-      INFLUXD_TSL_CERT: /etc/ssl/influxdb-selfsigned.crt
+      # NOTE: need to generate no passphrase with openssl
+      # https://serverfault.com/questions/366372/is-it-possible-to-generate-rsa-key-without-pass-phrase
+      # openssl req -new -nodes -x509 -newkey rsa:2048 -keyout influxdb-selfsigned.key -out influxdb-selfsiged.cer
+      INFLUXD_TLS_KEY: /etc/ssl/influxdb-selfsigned.key
+      INFLUXD_TLS_CERT: /etc/ssl/influxdb-selfsigned.crt
     secrets:
       - influxdb2-admin-username
       - influxdb2-admin-password
@@ -38,7 +41,6 @@ services:
       # NOTE: Self-signed certificate
       # https://docs.influxdata.com/influxdb/v1/administration/https_setup/
       - /root/monitors/influxdb/ssl/:/etc/ssl/
-    # command: influxd --tls-cert="/etc/ssl/influxdb-selfsigned.crt" --tls-key="/etc/ssl/influxdb-selfsigned.key"
     networks:
       - nginx_network
 
