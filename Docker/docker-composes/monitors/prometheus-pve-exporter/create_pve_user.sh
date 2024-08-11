@@ -1,3 +1,4 @@
+#!/bin/bash
 # https://github.com/influxdata/telegraf/blob/release-1.31/plugins/inputs/proxmox/README.md#permissions
 
 pveum user add pve-exporter@pve

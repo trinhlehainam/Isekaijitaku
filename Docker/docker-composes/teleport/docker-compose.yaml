@@ -10,10 +10,14 @@ services:
       - "3025:3025"
     volumes:
       - /root/teleport/config:/etc/teleport
-      - /root/teleport/data:/data
+      - teleport_data:/data
     networks:
       - nginx_network
 
 networks:
   nginx_network:
     external: true
+
+volumes:
+  teleport_data:
+    driver: local
