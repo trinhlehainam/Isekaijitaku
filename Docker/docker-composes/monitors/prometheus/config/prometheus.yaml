@@ -16,10 +16,29 @@ scrape_configs:
     static_configs:
       - targets: ['localhost:9090']
 
-  - job_name: 'node_exporter'
-    static_configs:
-      - targets: ['node_exporter:9100']
+  # - job_name: 'node_exporter'
+  #   static_configs:
+  #     - targets: ['node_exporter:9100']
 
-  - job_name: 'cadvisor'
-    static_configs:
-      - targets: ['cadvisor:8080']
+  # - job_name: 'cadvisor'
+  #   static_configs:
+  #     - targets: ['cadvisor:8080']
+
+  # https://github.com/prometheus-pve/prometheus-pve-exporter?tab=readme-ov-file#prometheus-configuration
+  # - job_name: 'pve'
+  #   static_configs:
+  #     - targets:
+  #       - 192.168.1.x  # Proxmox VE node.
+  #       - 192.168.1.x  # Proxmox VE node.
+  #   metrics_path: /pve
+  #   params:
+  #     module: [default]
+  #     cluster: ['1']
+  #     node: ['1']
+  #   relabel_configs:
+  #     - source_labels: [__address__]
+  #       target_label: __param_target
+  #     - source_labels: [__param_target]
+  #       target_label: instance
+  #     - target_label: __address__
+  #       replacement: pve-exporter:9221  # PVE exporter.

@@ -1,98 +1,31 @@
 services:
-  prometheus:
-    image: docker.io/prom/prometheus:v2.53.1
-    container_name: prometheus
-    ports:
-      - 9090:9090
-    command: "--config.file=/etc/prometheus/prometheus.yaml"
-    volumes:
-      - /root/monitors/prometheus/config/prometheus.yaml:/etc/prometheus/prometheus.yaml:ro
-      - prometheus-data:/prometheus
-    restart: unless-stopped
-    networks:
-      - nginx_network
-
-  # https://docs.influxdata.com/influxdb/v2/install/use-docker-compose/
-  influxdb2:
-    container_name: influxdb
-    image: influxdb:2.7.8-alpine
-    restart: unless-stopped
-    ports:
-      - 8086:8086
-    environment:
-      DOCKER_INFLUXDB_INIT_MODE: setup
-      DOCKER_INFLUXDB_INIT_USERNAME_FILE: /run/secrets/influxdb2-admin-username
-      DOCKER_INFLUXDB_INIT_PASSWORD_FILE: /run/secrets/influxdb2-admin-password
-      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN_FILE: /run/secrets/influxdb2-admin-token
-      DOCKER_INFLUXDB_INIT_ORG: docs
-      DOCKER_INFLUXDB_INIT_BUCKET: home
-      # NOTE: need to generate no passphrase with openssl
-      # https://serverfault.com/questions/366372/is-it-possible-to-generate-rsa-key-without-pass-phrase
-      # openssl req -new -nodes -x509 -newkey rsa:2048 -keyout influxdb-selfsigned.key -out influxdb-selfsiged.cer
-      INFLUXD_TLS_KEY: /etc/ssl/influxdb-selfsigned.key
-      INFLUXD_TLS_CERT: /etc/ssl/influxdb-selfsigned.crt
-    secrets:
-      - influxdb2-admin-username
-      - influxdb2-admin-password
-      - influxdb2-admin-token
-    volumes:
-      - influxdb2-data:/var/lib/influxdb2
-      - influxdb2-config:/etc/influxdb2
-      # NOTE: Self-signed certificate
-      # https://docs.influxdata.com/influxdb/v1/administration/https_setup/
-      - /root/monitors/influxdb/ssl/:/etc/ssl/
-    networks:
-      - nginx_network
-
-  grafana:
-    image: docker.io/grafana/grafana-oss:11.1.3
-    container_name: grafana
-    ports:
-      - "3000:3000"
-    volumes:
-      - grafana-data:/var/lib/grafana
-    restart: unless-stopped
-    networks:
-      - nginx_network
-
-  node_exporter:
-    image: quay.io/prometheus/node-exporter:v1.8.2
-    container_name: node_exporter
-    command: "--path.rootfs=/host"
-    ports:
-      - 9100:9100
+  # https://learn.netdata.cloud/docs/netdata-agent/installation/docker
+  netdata:
+    image: netdata/netdata:v1.46.3
+    container_name: netdata
     pid: host
-    restart: unless-stopped
-    volumes:
-      - /:/host:ro,rslave
-    networks:
-      - nginx_network
-
-  cadvisor:
-    image: gcr.io/cadvisor/cadvisor:v0.50.0
-    container_name: cadvisor
+    # network_mode: host
     ports:
-      - 8080:8080
-    volumes:
-      - /:/rootfs:ro
-      - /run:/run:ro
-      - /sys:/sys:ro
-      - /var/lib/docker/:/var/lib/docker:ro
-      - /dev/disk/:/dev/disk:ro
-      # NOTE: alpine docker lxc doesn't show docker container memory stats
-      # Use debian or ubuntu docker lxc instead
-      # NOTE: enable cgroup memory controller
-      # https://github.com/google/cadvisor/issues/432
-      # NOTE: map cgroup
-      # https://github.com/google/cadvisor/blob/master/docs/running.md#lxc-docker-exec-driver
-      # - /cgroup/cpu:/cgroup/cpu:ro
-      # - /cgroup/cpuacct:/cgroup/cpuacct:ro
-      # - /cgroup/cpuset:/cgroup/cpuset:ro
-      # - /cgroup/memory:/cgroup/memory:ro
-    devices:
-      - /dev/kmsg
-    privileged: true
+      - 19999:19999
     restart: unless-stopped
+    cap_add:
+      - SYS_PTRACE
+      - SYS_ADMIN
+    security_opt:
+      - apparmor:unconfined
+    volumes:
+      - netdataconfig:/etc/netdata
+      - netdatalib:/var/lib/netdata
+      - netdatacache:/var/cache/netdata
+      - /:/host/root:ro,rslave
+      - /etc/passwd:/host/etc/passwd:ro
+      - /etc/group:/host/etc/group:ro
+      - /etc/localtime:/etc/localtime:ro
+      - /proc:/host/proc:ro
+      - /sys:/host/sys:ro
+      - /etc/os-release:/host/etc/os-release:ro
+      - /var/log:/host/var/log:ro
+      - /var/run/docker.sock:/var/run/docker.sock:ro
     networks:
       - nginx_network
 
@@ -134,14 +67,6 @@ services:
     networks:
       - nginx_network
 
-secrets:
-  influxdb2-admin-username:
-    file: /root/monitors/influxdb/.env.influxdb2-admin-username
-  influxdb2-admin-password:
-    file: /root/monitors/influxdb/.env.influxdb2-admin-password
-  influxdb2-admin-token:
-    file: /root/monitors/influxdb/.env.influxdb2-admin-token
-
 volumes:
   grafana-data:
     driver: local
@@ -152,6 +77,12 @@ volumes:
   influxdb2-data:
     driver: local
   influxdb2-config:
+    driver: local
+  netdataconfig:
+    driver: local
+  netdatalib:
+    driver: local
+  netdatacache:
     driver: local
 
 networks:

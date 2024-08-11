@@ -69,9 +69,9 @@ app_service:
 
       # NOTE: because cockpit-tls causes 100% CPU usage
       # Skip tls and use http instead, also need to configure cockpit to accept http
-    - name: "pve1-bastion-cockpit"
+    - name: "fileserver-cockpit"
       uri: "http://192.168.1.x:9090"
-      public_addr: "cockpit.isekaijitaku.rip"
+      public_addr: "fileserveradmin.isekaijitaku.rip"
       insecure_skip_verify: true
 
     - name: "nginx-proxy-manager"
@@ -115,28 +115,9 @@ app_service:
           - "Origin: https://stalwart.isekaijitaku.rip"
 
     # region Monitors
-    - name: "prometheus"
-      uri: "http://prometheus:9090"
-      public_addr: "prometheus.isekaijitaku.rip"
-      insecure_skip_verify: true
-    
-    - name: "grafana"
-      uri: "http://grafana:3000"
-      public_addr: "grafana.isekaijitaku.rip"
-      insecure_skip_verify: true
-      rewrite:
-        headers:
-          - "Host: grafana.isekaijitaku.rip"
-          - "Origin: https://grafana.isekaijitaku.rip"
-
-    - name: "influxdb"
-      uri: "https://influxdb:8086"
-      public_addr: "influxdb.isekaijitaku.rip"
-      insecure_skip_verify: true
-
-    - name: "cadvisor"
-      uri: "http://cadvisor:8080"
-      public_addr: "cadvisor.isekaijitaku.rip"
+    - name: "netdata"
+      uri: "http://netdata:19999"
+      public_addr: "netdata.isekaijitaku.rip"
       insecure_skip_verify: true
 
     - name: "goaccess"

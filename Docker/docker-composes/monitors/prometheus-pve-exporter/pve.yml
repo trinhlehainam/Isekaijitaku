@@ -1,0 +1,7 @@
+# https://github.com/prometheus-pve/prometheus-pve-exporter?tab=readme-ov-file#authentication
+default:
+  user: "pve-exporter@pve"
+  token_name: "monitoring"
+  token_value: ""
+  # Optional: set to false to skip SSL/TLS verification
+  verify_ssl: true
