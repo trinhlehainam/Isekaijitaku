@@ -3,6 +3,7 @@ services:
   netdata:
     image: netdata/netdata:v1.46.3
     container_name: netdata
+    hostname: pve1-docker-node1
     pid: host
     # network_mode: host
     ports:
