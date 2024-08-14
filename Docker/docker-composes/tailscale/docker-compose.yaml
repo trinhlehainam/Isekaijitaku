@@ -1,4 +1,5 @@
 # https://tailscale.com/blog/docker-tailscale-guide
+# https://gist.github.com/bnhf/fed4cc3035f32a0f086b1da074a3d50b
 
 services:
   tailscale:
@@ -12,7 +13,7 @@ services:
       # https://tailscale.com/kb/1130/lxc-unprivileged
       - /dev/net/tun:/dev/net/tun
     environment:
-      TS_AUTHKEY: tskey-client-kvtJAbRNotARealKey4d?ephemeral=false
+      TS_AUTHKEY: ${TS_AUTHKEY}
       TS_EXTRA_ARGS: "--advertise-tags=tag:container --reset"
       TS_STATE_DIR: /var/lib/tailscale
       TS_USERSPACE: false
