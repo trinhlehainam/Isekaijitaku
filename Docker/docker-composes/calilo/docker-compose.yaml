@@ -1,0 +1,65 @@
+# https://github.com/etcd-io/etcd/releases/
+
+services:
+  etcd:
+    container_name: etcd
+    image: gcr.io/etcd-development/etcd:v3.5.15
+    ports:
+      - 2379:2379
+      - 2380:2380
+    restart: unless-stopped
+    command: >
+      /usr/local/bin/etcd
+      --name controller
+      --data-dir /etcd-data
+      --listen-client-urls http://0.0.0.0:2379
+      --advertise-client-urls http://0.0.0.0:2379
+      --listen-peer-urls http://0.0.0.0:2380
+      --initial-advertise-peer-urls http://0.0.0.0:2380
+      --initial-cluster controller=http://0.0.0.0:2380
+      --initial-cluster-token tkn
+      --initial-cluster-state new
+      --log-level info
+      --logger zap
+      --log-outputs stderr
+    volumes:
+      - etcd_data:/etcd-data
+
+  # https://docs.tigera.io/calico/latest/getting-started/bare-metal/installation/container#step-2-configure-the-init-system
+  calico-node:
+    container_name: calico-node
+    image: 'calico/node:v3.28.1'
+    restart: unless-stopped
+    command: '/bin/calico-node -felix'
+    volumes:
+      - '/etc/pki:/pki'
+      - '/lib/modules:/lib/modules'
+      - '/run/docker/plugins:/run/docker/plugins'
+      - 'calico_run:/var/run/calico'
+      - 'calico_lib:/var/lib/calico'
+      - 'calico_log:/var/log/calico'
+    environment:
+      # - 'KUBECONFIG=${KUBECONFIG}'
+      # - 'ETCD_KEY_FILE=${ETCD_KEY_FILE}'
+      # - 'ETCD_CERT_FILE=${ETCD_CERT_FILE}'
+      # - 'ETCD_CA_CERT_FILE=${ETCD_CA_CERT_FILE}'
+      - 'ETCD_ENDPOINTS=${ETCD_ENDPOINTS}'
+      - 'DATASTORE_TYPE=${DATASTORE_TYPE}'
+      - 'NO_DEFAULT_POOLS=${NO_DEFAULT_POOLS}'
+      - 'AS=${CALICO_AS}'
+      - 'CALICO_NETWORKING_BACKEND=${CALICO_NETWORKING_BACKEND}'
+      - 'IP6=${CALICO_IP6}'
+      - 'IP=${CALICO_IP}'
+      - 'NODENAME=${CALICO_NODENAME}'
+    privileged: true
+    network_mode: host
+
+volumes:
+  etcd_data:
+    driver: local
+  calico_run:
+    driver: local
+  calico_lib:
+    driver: local
+  calico_log:
+    driver: local
