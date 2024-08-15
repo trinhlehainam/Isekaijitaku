@@ -30,36 +30,32 @@ services:
     container_name: calico-node
     image: 'calico/node:v3.28.1'
     restart: unless-stopped
-    command: '/bin/calico-node -felix'
+    depends_on:
+      - etcd
     volumes:
       - '/etc/pki:/pki'
       - '/lib/modules:/lib/modules'
       - '/run/docker/plugins:/run/docker/plugins'
-      - 'calico_run:/var/run/calico'
-      - 'calico_lib:/var/lib/calico'
-      - 'calico_log:/var/log/calico'
+      - '/var/run/calico:/var/run/calico'
+      - '/var/lib/calico:/var/lib/calico'
+      - '/var/log/calico:/var/log/calico'
     environment:
       # - 'KUBECONFIG=${KUBECONFIG}'
       # - 'ETCD_KEY_FILE=${ETCD_KEY_FILE}'
       # - 'ETCD_CERT_FILE=${ETCD_CERT_FILE}'
       # - 'ETCD_CA_CERT_FILE=${ETCD_CA_CERT_FILE}'
-      - 'ETCD_ENDPOINTS=${ETCD_ENDPOINTS}'
       - 'DATASTORE_TYPE=${DATASTORE_TYPE}'
+      - 'ETCD_ENDPOINTS=${ETCD_ENDPOINTS}'
       - 'NO_DEFAULT_POOLS=${NO_DEFAULT_POOLS}'
-      - 'AS=${CALICO_AS}'
+      # - 'AS=${CALICO_AS}'
       - 'CALICO_NETWORKING_BACKEND=${CALICO_NETWORKING_BACKEND}'
-      - 'IP6=${CALICO_IP6}'
-      - 'IP=${CALICO_IP}'
-      - 'NODENAME=${CALICO_NODENAME}'
+      # - 'IP6=${CALICO_IP6}'
+      # - 'IP=${CALICO_IP}'
+      # - 'NODENAME=${CALICO_NODENAME}'
+    command: '/bin/calico-node -felix'
     privileged: true
     network_mode: host
 
 volumes:
   etcd_data:
-    driver: local
-  calico_run:
-    driver: local
-  calico_lib:
-    driver: local
-  calico_log:
     driver: local
