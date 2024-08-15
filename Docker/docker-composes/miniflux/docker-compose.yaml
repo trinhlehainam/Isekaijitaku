@@ -5,19 +5,20 @@ services:
     container_name: miniflux
     image: miniflux/miniflux:2.1.4-distroless
     restart: unless-stopped
-    ports:
-      - "80:8080"
+    # ports:
+    #   - "80:8080"
     depends_on:
       db:
         condition: service_healthy
     environment:
-      - DATABASE_URL=postgres://miniflux:secret@miniflux-db/miniflux?sslmode=disable
+      - DATABASE_URL=postgres://miniflux:secret@10.10.10.13/miniflux?sslmode=disable
       - RUN_MIGRATIONS=1
       - CREATE_ADMIN=1
       - ADMIN_USERNAME=admin
       - ADMIN_PASSWORD=test123
     networks:
-      - nginx_network
+      openwrt_vlan:
+        ipv4_address: 10.10.10.12
 
   db:
     container_name: miniflux-db
@@ -34,12 +35,13 @@ services:
       interval: 10s
       start_period: 30s
     networks:
-      - nginx_network
+      openwrt_vlan:
+        ipv4_address: 10.10.10.13
 
 volumes:
   miniflux-db:
     driver: local
 
 networks:
-  nginx_network:
+  openwrt_vlan:
     external: true

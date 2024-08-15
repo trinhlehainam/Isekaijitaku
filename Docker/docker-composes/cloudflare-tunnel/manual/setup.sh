@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# NOTE: you may need change folder permission of <PATH_TO_CONFIG_FOLDER> to 777 for Docker can write to it
+# NOTE: you may need to change folder permission of <PATH_TO_CONFIG_FOLDER> to 777 for Docker can write to it
 # https://github.com/aeleos/cloudflared/issues/20
 
 # Login

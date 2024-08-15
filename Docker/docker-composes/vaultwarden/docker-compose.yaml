@@ -14,10 +14,15 @@ services:
     # ports:
     #   - '80:80'
     volumes:
-      - <VAULTWARDEN_DIR>:/data/
+      - vaultwarden_data:/data/
     networks:
-      - nginx_network
+      openwrt_vlan:
+        ipv4_address: 10.10.10.11
 
 networks:
-  nginx_network:
+  openwrt_vlan:
     external: true
+
+volumes:
+  vaultwarden_data:
+    driver: local

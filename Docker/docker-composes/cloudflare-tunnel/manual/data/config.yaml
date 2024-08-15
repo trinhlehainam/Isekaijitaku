@@ -14,16 +14,17 @@ credentials-file: /home/nonroot/.cloudflared/UUID.json
 
 # INFO: https://github.com/NginxProxyManager/nginx-proxy-manager/issues/2696
 ingress:
-   - hostname: "mydomain.com"
-     service: https://<PROXY_IP|PROXY_CONTAINER_NAME>:<PORT>
-     originRequest:
-       originServerName: "anysubdomain.mydomain.com"
-       noTLSVerify: true
+  # NOTE: make sure main domain is setup in nginx
+  - hostname: "mydomain.com"
+    service: https://<PROXY_IP|PROXY_CONTAINER_NAME>:<PORT>
+    originRequest:
+      originServerName: "anysubdomain.mydomain.com"
+      # noTLSVerify: true
 
-   - hostname: "*.mydomain.com"
-     service: https://<PROXY_IP|PROXY_CONTAINER_NAME>:<PORT>
-     originRequest:
-       originServerName: "anysubdomain.mydomain.com"
-       noTLSVerify: true
+  - hostname: "*.mydomain.com"
+    service: https://<PROXY_IP|PROXY_CONTAINER_NAME>:<PORT>
+    originRequest:
+      originServerName: "anysubdomain.mydomain.com"
+      # noTLSVerify: true
 
-   - service: http_status:404
+  - service: http_status:404

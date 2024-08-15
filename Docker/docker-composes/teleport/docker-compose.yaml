@@ -3,19 +3,20 @@ services:
     container_name: teleport
     image: public.ecr.aws/gravitational/teleport-distroless-debug:16.1.1
     restart: unless-stopped
-    ports:
-      - "3080:3080"
-      - "3023:3023"
-      - "3024:3024"
-      - "3025:3025"
+    # ports:
+    #   - "3080:3080"
+    #   - "3023:3023"
+    #   - "3024:3024"
+    #   - "3025:3025"
     volumes:
-      - /root/teleport/config:/etc/teleport
+      - /root/Docker/teleport/config:/etc/teleport
       - teleport_data:/data
     networks:
-      - nginx_network
+      openwrt_vlan:
+        ipv4_address: 10.10.10.8
 
 networks:
-  nginx_network:
+  openwrt_vlan:
     external: true
 
 volumes:
