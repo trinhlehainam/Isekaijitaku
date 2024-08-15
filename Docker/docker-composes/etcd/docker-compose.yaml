@@ -1,0 +1,30 @@
+# https://github.com/etcd-io/etcd/releases/
+
+services:
+  etcd:
+    container_name: etcd
+    image: gcr.io/etcd-development/etcd:v3.5.15
+    ports:
+      - 2379:2379
+      - 2380:2380
+    restart: unless-stopped
+    command: >
+      /usr/local/bin/etcd
+      --name controller
+      --data-dir /etcd-data
+      --listen-client-urls http://0.0.0.0:2379
+      --advertise-client-urls http://0.0.0.0:2379
+      --listen-peer-urls http://0.0.0.0:2380
+      --initial-advertise-peer-urls http://0.0.0.0:2380
+      --initial-cluster controller=http://0.0.0.0:2380
+      --initial-cluster-token tkn
+      --initial-cluster-state new
+      --log-level info
+      --logger zap
+      --log-outputs stderr
+    volumes:
+      - etcd_data:/etcd-data
+
+volumes:
+  etcd_data:
+    driver: local
