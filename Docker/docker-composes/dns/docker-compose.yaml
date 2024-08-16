@@ -1,0 +1,53 @@
+services:
+  # https://github.com/AdguardTeam/AdGuardHome/wiki/Docker
+  adguardhome:
+    container_name: adguardhome
+    hostname: 'adguardhome'
+    image: adguard/adguardhome:v0.107.52
+    restart: unless-stopped
+    depends_on:
+      - unbound
+    ports:
+      - '3000:3000/tcp'
+      - '443:443/udp'
+      - '443:443/tcp'
+      - '80:80/tcp'
+      # Debugging profiles
+      - '6060:6060/tcp'
+      # DCHP ports
+      - '68:68/tcp'
+      - '68:68/udp'
+      - '67:67/udp'
+      ###
+      # region DNS ports
+      # plan DSN
+      - '53:53/udp'
+      - '53:53/tcp'
+      # DNSSEC
+      - '5443:5443/udp'
+      - '5443:5443/tcp'
+      - '853:853/udp'
+      - '853:853/tcp'
+      # endregion DNS ports
+    volumes:
+      - '/my/own/confdir:/opt/adguardhome/conf'
+      - '/my/own/workdir:/opt/adguardhome/work'
+    networks:
+      openwrt_vlan:
+        ipv4_address: 10.10.10.x
+
+  # https://github.com/MatthewVance/unbound-docker
+  unbound:
+    container_name: unbound
+    hostname: 'unbound'
+    image: 'mvance/unbound:1.20.0'
+    restart: unless-stopped
+    ports:
+      - '5353:53/udp'
+      - '5353:53/tcp'
+    volumes:
+      - '/my-directory/unbound:/opt/unbound/etc/unbound/'
+
+networks:
+  openwrt_vlan:
+    external: true

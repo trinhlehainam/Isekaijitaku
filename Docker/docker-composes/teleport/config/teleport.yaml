@@ -98,6 +98,11 @@ app_service:
       public_addr: "isprouter.isekaijitaku.rip"
       insecure_skip_verify: true
 
+    - name: "openwrt"
+      uri: "http://10.10.10.1:80"
+      public_addr: "openwrt.isekaijitaku.rip"
+      insecure_skip_verify: true
+
     # Docker Manager
     - name: "portainer"
       uri: "https://10.10.10.3:9443"
@@ -121,7 +126,7 @@ app_service:
       insecure_skip_verify: true
 
     - name: "goaccess"
-      uri: "http://goaccess:7880"
+      uri: "http://10.10.10.5:7880"
       public_addr: "goaccess.isekaijitaku.rip"
       insecure_skip_verify: true
 
