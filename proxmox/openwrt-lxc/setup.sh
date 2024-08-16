@@ -1,6 +1,7 @@
 #!/bin/bash
 
 # https://gist.github.com/suuhm/053f819b000bee4af922d66ff6c5d32e 
+# https://dft.wiki/?p=3271
 
 LXC_ID=101
 LXC_HOSTNAME=openwrt-lxc

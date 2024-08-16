@@ -7,34 +7,34 @@ services:
     restart: unless-stopped
     depends_on:
       - unbound
-    ports:
-      - '3000:3000/tcp'
-      - '443:443/udp'
-      - '443:443/tcp'
-      - '80:80/tcp'
-      # Debugging profiles
-      - '6060:6060/tcp'
-      # DCHP ports
-      - '68:68/tcp'
-      - '68:68/udp'
-      - '67:67/udp'
-      ###
-      # region DNS ports
-      # plan DSN
-      - '53:53/udp'
-      - '53:53/tcp'
-      # DNSSEC
-      - '5443:5443/udp'
-      - '5443:5443/tcp'
-      - '853:853/udp'
-      - '853:853/tcp'
-      # endregion DNS ports
+    # ports:
+    #   - '3000:3000/tcp'
+    #   - '443:443/udp'
+    #   - '443:443/tcp'
+    #   - '80:80/tcp'
+    #   # Debugging profiles
+    #   - '6060:6060/tcp'
+    #   # DCHP ports
+    #   - '68:68/tcp'
+    #   - '68:68/udp'
+    #   - '67:67/udp'
+    #   ###
+    #   # region DNS ports
+    #   # plan DSN
+    #   - '53:53/udp'
+    #   - '53:53/tcp'
+    #   # DNSSEC
+    #   - '5443:5443/udp'
+    #   - '5443:5443/tcp'
+    #   - '853:853/udp'
+    #   - '853:853/tcp'
+    #   # endregion DNS ports
     volumes:
-      - '/my/own/confdir:/opt/adguardhome/conf'
-      - '/my/own/workdir:/opt/adguardhome/work'
+      - 'adguardhome_conf:/opt/adguardhome/conf'
+      - 'adguardhome_work:/opt/adguardhome/work'
     networks:
       openwrt_vlan:
-        ipv4_address: 10.10.10.x
+        ipv4_address: 10.10.10.9
 
   # https://github.com/MatthewVance/unbound-docker
   unbound:
@@ -42,11 +42,20 @@ services:
     hostname: 'unbound'
     image: 'mvance/unbound:1.20.0'
     restart: unless-stopped
-    ports:
-      - '5353:53/udp'
-      - '5353:53/tcp'
+    # ports:
+    #   - '53:53/udp'
+    #   - '53:53/tcp'
     volumes:
       - '/my-directory/unbound:/opt/unbound/etc/unbound/'
+    networks:
+      openwrt_vlan:
+        ipv4_address: 10.10.10.10
+
+volumes:
+  adguardhome_conf:
+    driver: local
+  adguardhome_work:
+    driver: local
 
 networks:
   openwrt_vlan:
