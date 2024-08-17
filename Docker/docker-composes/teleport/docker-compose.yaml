@@ -13,7 +13,7 @@ services:
       - teleport_data:/data
     networks:
       openwrt_vlan:
-        ipv4_address: 10.10.10.8
+        ipv4_address: 10.10.10.9
 
 networks:
   openwrt_vlan:

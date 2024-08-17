@@ -18,7 +18,7 @@ services:
       - /root/Docker/nginx-proxy-manager/letsencrypt/:/etc/letsencrypt
     networks:
       openwrt_vlan:
-        ipv4_address: 10.10.10.4
+        ipv4_address: 10.10.10.6
 
   goaccess:
     image: xavierh/goaccess-for-nginxproxymanager:v1.1.29
@@ -49,7 +49,7 @@ services:
       #- /path/to/host/custom:/opt/custom #optional, required if using log_type = CUSTOM
     networks:
       openwrt_vlan:
-        ipv4_address: 10.10.10.5
+        ipv4_address: 10.10.10.7
 
 networks:
   openwrt_vlan:

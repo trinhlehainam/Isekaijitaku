@@ -13,7 +13,7 @@ services:
       - /var/run/docker.sock:/var/run/docker.sock
     networks:
       openwrt_vlan:
-        ipv4_address: 10.10.10.3
+        ipv4_address: 10.10.10.4
 
 networks:
   openwrt_vlan:

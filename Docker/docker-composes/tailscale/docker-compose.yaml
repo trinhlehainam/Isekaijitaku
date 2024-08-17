@@ -14,7 +14,6 @@ services:
       - /dev/net/tun:/dev/net/tun
     environment:
       TS_AUTHKEY: ${TS_AUTHKEY}
-      # TS_EXTRA_ARGS: "--advertise-tags=tag:container --reset"
       # TS_EXTRA_ARGS: "--accept-routes --advertise-tags=tag:container --reset"
       TS_EXTRA_ARGS: "--accept-routes --advertise-exit-node --advertise-tags=tag:container --reset"
       TS_STATE_DIR: /var/lib/tailscale
@@ -27,7 +26,7 @@ services:
     privileged: true
     networks:
       openwrt_vlan:
-        ipv4_address: 10.10.10.6
+        ipv4_address: 10.10.10.8
 
 networks:
   openwrt_vlan:
