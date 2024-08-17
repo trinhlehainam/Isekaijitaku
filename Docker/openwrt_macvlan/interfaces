@@ -1,0 +1,7 @@
+auto openwrt-shim
+iface openwrt-shim inet static
+    pre-up ip link add openwrt-shim link eth0 type macvlan mode bridge
+    address 10.10.10.3
+    netmask 255.255.255.255
+    post-up ip route add 10.10.10.0/27 dev openwrt-shim
+    up ip link set openwrt-shim up
