@@ -75,7 +75,7 @@ app_service:
     #   insecure_skip_verify: true
 
     - name: "nginx-proxy-manager"
-      uri: "http://10.10.10.4:81"
+      uri: "http://10.10.10.6:81"
       public_addr: "gateway.isekaijitaku.rip"
       insecure_skip_verify: true
 
@@ -89,7 +89,7 @@ app_service:
     #       - "Origin: https://tailscale.isekaijitaku.rip"
 
     - name: "vaultwarden-admin"
-      uri: "http://10.10.10.11:80/admin"
+      uri: "http://10.10.10.34:80/admin"
       public_addr: "vaultwarden.isekaijitaku.rip"
       insecure_skip_verify: true
 
@@ -101,6 +101,11 @@ app_service:
     - name: "openwrt"
       uri: "http://10.10.10.1:80"
       public_addr: "openwrt.isekaijitaku.rip"
+      insecure_skip_verify: true
+
+    - name: "adguardhome"
+      uri: "http://10.10.10.10:80"
+      public_addr: "adguardhome.isekaijitaku.rip"
       insecure_skip_verify: true
 
     # Docker Manager
@@ -126,7 +131,7 @@ app_service:
       insecure_skip_verify: true
 
     - name: "goaccess"
-      uri: "http://10.10.10.5:7880"
+      uri: "http://10.10.10.7:7880"
       public_addr: "goaccess.isekaijitaku.rip"
       insecure_skip_verify: true
 

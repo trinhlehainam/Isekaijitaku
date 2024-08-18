@@ -1,0 +1,21 @@
+#!/bin/bash
+
+# Script to set up macvlan interface using NetworkManager
+# Place this script in /etc/NetworkManager/dispatcher.d/
+
+INTERFACE="eth0"
+MACVLAN_INTERFACE="openwrt-shim"
+IP_ADDRESS="10.10.10.3/32"
+ROUTE="10.10.10.0/27"
+
+# Create the macvlan interface
+ip link add "$MACVLAN_INTERFACE" link "$INTERFACE" type macvlan mode bridge
+
+# Assign the IP address
+ip addr add "$IP_ADDRESS" dev "$MACVLAN_INTERFACE"
+
+# Bring the interface up
+ip link set "$MACVLAN_INTERFACE" up
+
+# Add the route
+ip route add "$ROUTE" dev "$MACVLAN_INTERFACE"
