@@ -1,0 +1,45 @@
+services:
+  # https://github.com/open-webui/open-webui?tab=readme-ov-file#installation-with-default-configuration
+  openwebui:
+    container_name: openwebui
+    # https://github.com/open-webui/open-webui/pkgs/container/open-webui/versions?filters%5Bversion_type%5D=tagged
+    image: ghcr.io/open-webui/open-webui:v0.3.15-cuda
+    restart: unless-stopped
+    ports:
+      - "3000:8080"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    # deploy:
+    #   resources:
+    #     reservations:
+    #       devices:
+    #         - driver: nvidia
+    #           count: 1
+    #           capabilities: [ gpu ]
+    environment:
+      - 'OLLAMA_BASE_URL=http://127.0.0.1:11434'
+      - 'ENABLE_LITELLM=false'
+    volumes:
+      - open-webui-local:/app/backend/data
+
+  # https://registry.hub.docker.com/r/ollama/ollama
+  ollama:
+    container_name: ollama
+    image: ollama/ollama:0.3.6-rocm
+    ports:
+      - "11434:11434"
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]
+    volumes:
+      - ollama-local:/root/.ollama
+
+volumes:
+  open-webui-local:
+    driver: local
+  ollama-local:
+    driver: local

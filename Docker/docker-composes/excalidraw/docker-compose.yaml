@@ -1,0 +1,14 @@
+services:
+  excalidraw:
+    container_name: excalidraw
+    image: 'docker.io/excalidraw/excalidraw:latest'
+    restart: unless-stopped
+    # ports:
+    #   - '8080:80'
+    networks:
+      openwrt_vlan:
+        ipv4_address: 10.10.10.36
+
+networks:
+  openwrt_vlan:
+    external: true

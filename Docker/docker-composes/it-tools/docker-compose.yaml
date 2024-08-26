@@ -1,0 +1,14 @@
+services:
+  it-tools:
+    container_name: it-tools
+    image: 'corentinth/it-tools:2024.5.13-a0bc346'
+    restart: unless-stopped
+    # ports:
+    #   - '8080:80'
+    networks:
+      openwrt_vlan:
+        ipv4_address: 10.10.10.35
+
+networks:
+  openwrt_vlan:
+    external: true
