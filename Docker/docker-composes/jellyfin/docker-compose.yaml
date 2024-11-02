@@ -1,0 +1,40 @@
+# https://jellyfin.org/docs/general/installation/container/#using-docker-compose
+# https://jellyfin.org/docs/general/administration/hardware-acceleration/nvidia/#official-docker
+
+services:
+  jellyfin:
+    image: jellyfin/jellyfin:10.10.0
+    container_name: jellyfin
+    # user: uid:gid
+    user: 1000:1000
+    network_mode: 'host'
+    volumes:
+      - /path/to/config:/config
+      - /path/to/cache:/cache
+      - type: bind
+        source: /path/to/media
+        target: /media
+      - type: bind
+        source: /path/to/media2
+        target: /media2
+        read_only: true
+      # Optional - extra fonts to be used during transcoding with subtitle burn-in
+      # - type: bind
+      #   source: /path/to/fonts
+      #   target: /usr/local/share/fonts/custom
+      #   read_only: true
+    restart: 'unless-stopped'
+    # Optional - alternative address used for autodiscovery
+    # environment:
+    #   - JELLYFIN_PublishedServerUrl=http://example.com
+    # Optional - may be necessary for docker healthcheck to pass if running in host network mode
+    extra_hosts:
+      - 'host.docker.internal:host-gateway'
+    runtime: nvidia
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [ gpu ]
