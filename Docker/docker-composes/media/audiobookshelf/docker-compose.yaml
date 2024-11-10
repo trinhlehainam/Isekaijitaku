@@ -1,0 +1,17 @@
+# https://www.audiobookshelf.org/docs#docker-compose-install
+
+services:
+  audiobookshelf:
+    # https://github.com/advplyr/audiobookshelf/pkgs/container/audiobookshelf
+    image: ghcr.io/advplyr/audiobookshelf:2.16.2
+    container_name: audiobookshelf
+    restart: unless-stopped
+    ports:
+      - 13378:80
+    volumes:
+      - </path/to/audiobooks>:/audiobooks
+      - </path/to/podcasts>:/podcasts
+      - </path/to/config>:/config
+      - </path/to/metadata>:/metadata
+    environment:
+      - TZ=Asia/Tokyo

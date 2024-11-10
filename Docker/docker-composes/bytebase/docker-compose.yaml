@@ -1,0 +1,11 @@
+services:
+  bytebase:
+    image: 'bytebase/bytebase:3.0.1'
+    container_name: bytebase
+    restart: unless-stopped
+    pull_policy: always
+    init: true
+    volumes:
+      - '~/.bytebase/data:/var/opt/bytebase'
+    ports:
+      - '8080:8080'

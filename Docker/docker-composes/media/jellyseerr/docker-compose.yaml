@@ -1,0 +1,22 @@
+# https://github.com/Wh1rr/ultimate-jellyfin-stack
+# https://docs.jellyseerr.dev/getting-started/docker?docker-methods=docker-compose
+services:
+  jellyseerr:
+    image: fallenbagel/jellyseerr:2.0.1
+    container_name: jellyseerr
+    environment:
+      - LOG_LEVEL=debug
+      - TZ=Asia/Tokyo
+      # - PORT=5055 #optional
+    ports:
+      - 5055:5055
+    volumes:
+      - /path/to/appdata/config:/app/config
+    restart: unless-stopped
+    networks:
+      openwrt_vlan:
+        ipv4_address: 10.10.10.34
+
+networks:
+  openwrt_vlan:
+    external: true

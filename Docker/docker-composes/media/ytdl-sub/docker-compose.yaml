@@ -1,0 +1,17 @@
+# https://ytdl-sub.readthedocs.io/en/latest/guides/install/docker.html#install-with-docker-compose
+
+services:
+  ytdl-sub:
+    # https://github.com/jmbannon/ytdl-sub/pkgs/container/ytdl-sub-gui
+    image: ghcr.io/jmbannon/ytdl-sub-gui:2024.10.31
+    container_name: ytdl-sub
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Asia/Tokyo
+    volumes:
+      - /path/to/config:/config
+      - /path/to/youtubes:/youtubes # optional
+    ports:
+      - 8443:8443
+    restart: unless-stopped

@@ -1,0 +1,19 @@
+# https://tabby.tabbyml.com/docs/quick-start/installation/docker-compose/
+
+services:
+  tabby:
+    restart: always
+    # https://hub.docker.com/r/tabbyml/tabby/tags
+    image: tabbyml/tabby:0.19.0
+    # command: serve --model StarCoder-1B --chat-model Qwen2-1.5B-Instruct --device cuda
+    volumes:
+      - "$HOME/.tabby:/data"
+    ports:
+      - 8080:8080
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: 1
+              capabilities: [ gpu ]

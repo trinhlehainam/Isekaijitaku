@@ -1,23 +1,23 @@
 # https://jellyfin.org/docs/general/installation/container/#using-docker-compose
 # https://jellyfin.org/docs/general/administration/hardware-acceleration/nvidia/#official-docker
+# https://github.com/Wh1rr/ultimate-jellyfin-stack
 
 services:
   jellyfin:
-    image: jellyfin/jellyfin:10.10.0
     container_name: jellyfin
+    # https://hub.docker.com/r/jellyfin/jellyfin/tags
+    image: jellyfin/jellyfin:10.10.1
     # user: uid:gid
     user: 1000:1000
-    network_mode: 'host'
     volumes:
       - /path/to/config:/config
       - /path/to/cache:/cache
       - type: bind
-        source: /path/to/media
-        target: /media
+        source: /path/to/movies_and_tv_shows
+        target: /movies_and_tv_shows
       - type: bind
-        source: /path/to/media2
-        target: /media2
-        read_only: true
+        source: /path/to/youtubes
+        target: /youtubes
       # Optional - extra fonts to be used during transcoding with subtitle burn-in
       # - type: bind
       #   source: /path/to/fonts
@@ -27,9 +27,6 @@ services:
     # Optional - alternative address used for autodiscovery
     # environment:
     #   - JELLYFIN_PublishedServerUrl=http://example.com
-    # Optional - may be necessary for docker healthcheck to pass if running in host network mode
-    extra_hosts:
-      - 'host.docker.internal:host-gateway'
     runtime: nvidia
     deploy:
       resources:
@@ -38,3 +35,20 @@ services:
             - driver: nvidia
               count: all
               capabilities: [ gpu ]
+    # Port Bindings: https://jellyfin.org/docs/general/networking/#port-bindings
+    ports:
+      - 8096:8096
+      - 8920:8920
+      - 1900:1900/udp
+      - 7359:7359/udp
+    # network_mode: 'host'
+    # Optional - may be necessary for docker healthcheck to pass if running in host network mode
+    # extra_hosts:
+    #   - 'host.docker.internal:host-gateway'
+    networks:
+      openwrt_vlan:
+        ipv4_address: 10.10.10.34
+
+networks:
+  openwrt_vlan:
+    external: true

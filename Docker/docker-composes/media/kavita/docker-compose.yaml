@@ -1,0 +1,17 @@
+# https://wiki.kavitareader.com/installation/docker
+
+services:
+  kavita:
+    image: jvmilazz0/kavita:0.8.3 # Using the stable branch from the official dockerhub repo.
+    container_name: kavita
+    ports:
+      - "5000:5000" # Change the public port (the first 5000) if you have conflicts with other services
+    volumes:
+      - ./manga:/manga # Manga is just an example you can have the name you want. See the following
+      - ./comics:/comics # Use as many as you want
+      - ./books:/books #
+      - ./config:/kavita/config # Change './data if you want to have the config files in a different place.
+      # /kavita/config must not be changed
+    environment:
+      - TZ=Asia/Tokyo
+    restart: unless-stopped

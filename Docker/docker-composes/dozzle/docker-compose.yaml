@@ -1,0 +1,11 @@
+# https://dozzle.dev/guide/getting-started#running-with-docker
+
+services:
+  dozzle:
+    container_name: dozzle
+    # https://hub.docker.com/r/amir20/dozzle/tags
+    image: amir20/dozzle:v8.7.2
+    ports:
+      - 8080:8080
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
