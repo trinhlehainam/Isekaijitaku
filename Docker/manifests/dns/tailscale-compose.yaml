@@ -1,0 +1,67 @@
+services:
+  # https://tailscale.com/kb/1282/docker#code-examples
+  tailscale-adguardhome:
+    # https://hub.docker.com/r/tailscale/tailscale/tags
+    image: tailscale/tailscale:v1.76.6
+    container_name: tailscale-adguardhome
+    # hostname: Docker-Tailscale
+    restart: unless-stopped
+    ports:
+      - '5353:53/udp'
+      - '5353:53/tcp'
+    environment:
+      # NOTE: parameters: https://tailscale.com/kb/1282/docker#parameters
+      TS_AUTHKEY: ${TS_AUTHKEY}
+      TS_EXTRA_ARGS: "--accept-dns=false --advertise-tags=tag:container --reset"
+      # TS_EXTRA_ARGS: "--advertise-tags=tag:container --reset"
+      TS_STATE_DIR: "/var/lib/tailscale"
+      TS_USERSPACE: false
+    cap_add:
+      - net_admin
+      - sys_module
+    volumes:
+      - ./tailscale/state:/var/lib/tailscale
+      # NOTE: enable access to tun for LXC containers
+      # https://tailscale.com/kb/1130/lxc-unprivileged
+      - /dev/net/tun:/dev/net/tun
+    networks:
+      proxy:
+      dns:
+        ipv4_address: 172.20.0.10
+
+  # https://github.com/AdguardTeam/AdGuardHome/wiki/Docker
+  adguardhome:
+    container_name: adguardhome
+    # https://hub.docker.com/r/adguard/adguardhome/tags
+    image: adguard/adguardhome:v0.107.54
+    restart: unless-stopped
+    volumes:
+      - './adguardhome/conf:/opt/adguardhome/conf'
+      - './adguardhome/work:/opt/adguardhome/work'
+    depends_on:
+      - tailscale-adguardhome
+    network_mode: service:tailscale-adguardhome
+
+  # https://github.com/MatthewVance/unbound-docker?tab=readme-ov-file#docker-compose
+  unbound:
+    container_name: unbound
+    # https://hub.docker.com/r/mvance/unbound/tags
+    image: 'mvance/unbound:1.21.1'
+    restart: unless-stopped
+    # ports:
+    #   - '53:53/udp'
+    #   - '53:53/tcp'
+    volumes:
+      - './unbound/data:/opt/unbound/etc/unbound/'
+    networks:
+      dns:
+        ipv4_address: 172.20.0.11
+
+networks:
+  proxy:
+    external: true
+  dns:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16

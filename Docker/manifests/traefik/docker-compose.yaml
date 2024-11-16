@@ -3,6 +3,7 @@ services:
     # https://hub.docker.com/_/traefik/tags
     image: "traefik:v3.2.0"
     container_name: "traefik"
+    restart: unless-stopped
     command:
       # https://doc.traefik.io/traefik/getting-started/configuration-overview/#configuration-file
       - "--configFile=/etc/traefik/traefik.yaml"
@@ -10,28 +11,24 @@ services:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
       - "./config/traefik.yaml:/etc/traefik/traefik.yaml:ro"
       - "./config/dynamic.yaml:/etc/traefik/dynamic.yaml:ro"
+      - "./log/access.log:/var/log/traefik/access.log"
       - "./certs:/certs"
       # - "./certs/acme.json:/acme.json"
     ports:
       - "80:80"
       - "8080:8080"
-
-  whoami:
-    image: "traefik/whoami"
-    container_name: "whoami"
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.whoami.rule=Host(`whoami.yourdomain`)"
-      - "traefik.http.routers.whoami.entrypoints=web"
+      - "443:443"
+    networks:
+      - proxy
 
   # https://github.com/xavier-hernandez/goaccess-for-nginxproxymanager
   goaccess:
     # https://hub.docker.com/r/xavierh/goaccess-for-nginxproxymanager/tags
     image: xavierh/goaccess-for-nginxproxymanager:v1.1.31
     container_name: goaccess
-    restart: always
+    restart: unless-stopped
     depends_on:
-      - nginx
+      - traefik
     # ports:
     #   - '7880:7880'
     environment:
@@ -51,5 +48,15 @@ services:
       - KEEP_LAST=30 #optional - Keep the last specified number of days in storage. https://goaccess.io/man
       - PROCESSING_THREADS=1 #optional - This parameter sets the number of concurrent processing threads in the program's execution, affecting log data analysis, typically adjusted based on CPU cores. Default is 1. https://goaccess.io/man
     volumes:
-      - /root/Docker/nginx-proxy-manager/data/logs:/opt/log
+      - ./log:/opt/log:ro
       #- /path/to/host/custom:/opt/custom #optional, required if using log_type = CUSTOM
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.whoami.rule=Host(`goaccess.yourdomain`)"
+      - "traefik.http.routers.whoami.entrypoints=web"
+
+networks:
+  proxy:
+    external: true

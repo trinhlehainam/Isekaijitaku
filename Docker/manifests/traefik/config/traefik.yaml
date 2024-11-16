@@ -20,7 +20,7 @@ log:
 # https://doc.traefik.io/traefik/observability/access-logs/
 accessLog:
   # Enable specific file path to read from another process.
-  filePath: "/var/log/traefik/traefik.log"
+  filePath: "/var/log/traefik/access.log"
   format: json
   bufferingSize: 100
   # NOTE: access log configuration for goaccess

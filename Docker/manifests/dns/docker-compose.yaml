@@ -1,0 +1,41 @@
+services:
+  # https://github.com/AdguardTeam/AdGuardHome/wiki/Docker
+  adguardhome:
+    container_name: adguardhome
+    # https://hub.docker.com/r/adguard/adguardhome/tags
+    image: adguard/adguardhome:v0.107.54
+    restart: unless-stopped
+    ports:
+      - '5353:53/udp'
+      - '5353:53/tcp'
+    volumes:
+      - './adguardhome/conf:/opt/adguardhome/conf'
+      - './adguardhome/work:/opt/adguardhome/work'
+    networks:
+      proxy:
+      dns:
+        ipv4_address: 172.20.0.10
+
+  # https://github.com/MatthewVance/unbound-docker?tab=readme-ov-file#docker-compose
+  unbound:
+    container_name: unbound
+    # https://hub.docker.com/r/mvance/unbound/tags
+    image: 'mvance/unbound:1.21.1'
+    restart: unless-stopped
+    # ports:
+    #   - '53:53/udp'
+    #   - '53:53/tcp'
+    volumes:
+      - './unbound/data:/opt/unbound/etc/unbound/'
+    networks:
+      dns:
+        ipv4_address: 172.20.0.11
+
+networks:
+  proxy:
+    external: true
+  dns:
+    driver: bridge
+    ipam:
+      config:
+        - subnet: 172.20.0.0/16
