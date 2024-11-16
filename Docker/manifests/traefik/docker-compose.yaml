@@ -4,6 +4,8 @@ services:
     image: "traefik:v3.2.0"
     container_name: "traefik"
     restart: unless-stopped
+    environment:
+      - TZ=Asia/Tokyo
     command:
       # https://doc.traefik.io/traefik/getting-started/configuration-overview/#configuration-file
       - "--configFile=/etc/traefik/traefik.yaml"
@@ -54,8 +56,8 @@ services:
       - proxy
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.whoami.rule=Host(`goaccess.yourdomain`)"
-      - "traefik.http.routers.whoami.entrypoints=web"
+      - "traefik.http.routers.goaccess.rule=Host(`goaccess.yourdomain`)"
+      - "traefik.http.routers.goaccess.entrypoints=web"
 
 networks:
   proxy:

@@ -21,10 +21,16 @@ log:
 accessLog:
   # Enable specific file path to read from another process.
   filePath: "/var/log/traefik/access.log"
-  format: json
+  # NOTE: goaccess only support CLF format for Treafik
+  # https://goaccess.io/man#options
+  format: common
   bufferingSize: 100
-  # NOTE: access log configuration for goaccess
-  # https://github.com/xavier-hernandez/goaccess-for-nginxproxymanager/issues/165
+  fields:
+    defaultMode: drop
+    headers:
+      defaultMode: drop # drop all headers
+      names:
+        User-Agent: keep
 
 # https://doc.traefik.io/traefik/routing/entrypoints/
 entryPoints:
