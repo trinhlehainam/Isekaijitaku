@@ -23,9 +23,10 @@ services:
       openwrt_vlan:
         ipv4_address: 10.10.10.6
 
+  # https://github.com/xavier-hernandez/goaccess-for-nginxproxymanager
   goaccess:
     # https://hub.docker.com/r/xavierh/goaccess-for-nginxproxymanager/tags
-    image: xavierh/goaccess-for-nginxproxymanager:v1.1.30
+    image: xavierh/goaccess-for-nginxproxymanager:v1.1.31
     container_name: goaccess
     restart: always
     depends_on:
@@ -35,7 +36,7 @@ services:
     environment:
       - PUID=1000
       - PGID=1000
-      - TZ=America/New_York
+      - TZ=Asia/Tokyo
       - SKIP_ARCHIVED_LOGS=False #optional
       - DEBUG=False #optional
       - BASIC_AUTH=False #optional

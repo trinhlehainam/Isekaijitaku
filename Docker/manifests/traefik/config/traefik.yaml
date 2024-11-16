@@ -1,0 +1,48 @@
+providers:
+  docker:
+    endpoint: "unix:///var/run/docker.sock"
+    exposedByDefault: false
+  # NOTE: dynamic configuration
+  # https://doc.traefik.io/traefik/providers/file/
+  file:
+    filename: "/etc/traefik/dynamic.yaml"
+    watch: true
+
+# https://doc.traefik.io/traefik/operations/api/
+api:
+  dashboard: true
+  insecure: true
+  debug: true
+
+log:
+  level: DEBUG
+
+# https://doc.traefik.io/traefik/observability/access-logs/
+accessLog:
+  # Enable specific file path to read from another process.
+  filePath: "/var/log/traefik/traefik.log"
+  format: json
+  bufferingSize: 100
+  # NOTE: access log configuration for goaccess
+  # https://github.com/xavier-hernandez/goaccess-for-nginxproxymanager/issues/165
+
+# https://doc.traefik.io/traefik/routing/entrypoints/
+entryPoints:
+  web:
+    address: :80
+    # http:
+    #   redirections:
+    #     entryPoint:
+    #       to: websecure
+    #       scheme: https
+  websecure:
+    address: :443
+
+certificatesResolvers:
+  stepca:
+    acme:
+      caServer: "https://smallstep-ca.internal:9000/acme/acme/directory"
+      email: "MyFancyCA@MyFancyTLD.lan"
+      storage: "/certs/acme/stepca-acme.json"
+      certificatesDuration: 2160
+      tlsChallenge: {}

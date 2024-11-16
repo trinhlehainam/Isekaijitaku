@@ -1,0 +1,55 @@
+services:
+  traefik:
+    # https://hub.docker.com/_/traefik/tags
+    image: "traefik:v3.2.0"
+    container_name: "traefik"
+    command:
+      # https://doc.traefik.io/traefik/getting-started/configuration-overview/#configuration-file
+      - "--configFile=/etc/traefik/traefik.yaml"
+    volumes:
+      - "/var/run/docker.sock:/var/run/docker.sock:ro"
+      - "./config/traefik.yaml:/etc/traefik/traefik.yaml:ro"
+      - "./config/dynamic.yaml:/etc/traefik/dynamic.yaml:ro"
+      - "./certs:/certs"
+      # - "./certs/acme.json:/acme.json"
+    ports:
+      - "80:80"
+      - "8080:8080"
+
+  whoami:
+    image: "traefik/whoami"
+    container_name: "whoami"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.whoami.rule=Host(`whoami.yourdomain`)"
+      - "traefik.http.routers.whoami.entrypoints=web"
+
+  # https://github.com/xavier-hernandez/goaccess-for-nginxproxymanager
+  goaccess:
+    # https://hub.docker.com/r/xavierh/goaccess-for-nginxproxymanager/tags
+    image: xavierh/goaccess-for-nginxproxymanager:v1.1.31
+    container_name: goaccess
+    restart: always
+    depends_on:
+      - nginx
+    # ports:
+    #   - '7880:7880'
+    environment:
+      - PUID=1000
+      - PGID=1000
+      - TZ=Asia/Tokyo
+      - SKIP_ARCHIVED_LOGS=False #optional
+      - DEBUG=False #optional
+      - BASIC_AUTH=False #optional
+      - BASIC_AUTH_USERNAME=user #optional
+      - BASIC_AUTH_PASSWORD=pass #optional   
+      - EXCLUDE_IPS=127.0.0.1 #optional - comma delimited 
+      - LOG_TYPE=TRAEFIK #optional - more information below
+      - ENABLE_BROWSERS_LIST=True #optional - more information below
+      - CUSTOM_BROWSERS=Kuma:Uptime,TestBrowser:Crawler #optional - comma delimited, more information below
+      - HTML_REFRESH=5 #optional - Refresh the HTML report every X seconds. https://goaccess.io/man
+      - KEEP_LAST=30 #optional - Keep the last specified number of days in storage. https://goaccess.io/man
+      - PROCESSING_THREADS=1 #optional - This parameter sets the number of concurrent processing threads in the program's execution, affecting log data analysis, typically adjusted based on CPU cores. Default is 1. https://goaccess.io/man
+    volumes:
+      - /root/Docker/nginx-proxy-manager/data/logs:/opt/log
+      #- /path/to/host/custom:/opt/custom #optional, required if using log_type = CUSTOM
