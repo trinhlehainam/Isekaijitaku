@@ -3,7 +3,8 @@
 services:
   portainer:
     container_name: portainer
-    image: portainer/portainer-ce:2.20.3-alpine
+    # https://hub.docker.com/r/portainer/portainer-ce/tags
+    image: portainer/portainer-ce:2.24.0-alpine
     restart: unless-stopped
     # ports:
     #  - "9443:9443"

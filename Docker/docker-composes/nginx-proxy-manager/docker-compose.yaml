@@ -1,7 +1,8 @@
 services:
-  app:
+  nginx:
     container_name: nginx-proxy-manager
-    image: 'jc21/nginx-proxy-manager:2.11.3'
+    # https://hub.docker.com/r/jc21/nginx-proxy-manager/tags
+    image: 'jc21/nginx-proxy-manager:2.12.1'
     restart: unless-stopped
     environment:
       PUID: 1000
@@ -13,6 +14,8 @@ services:
     #   - '465:465'
     volumes:
       # NOTE: make 98-themepark file executable
+      # sudo chmod +x ./98-themepark
+      # https://docs.theme-park.dev/themes/nginx-proxy-manager/#docker
       - /root/Docker/nginx-proxy-manager/98-themepark:/etc/cont-init.d/99-themepark
       - /root/Docker/nginx-proxy-manager/data:/data
       - /root/Docker/nginx-proxy-manager/letsencrypt/:/etc/letsencrypt
@@ -21,11 +24,12 @@ services:
         ipv4_address: 10.10.10.6
 
   goaccess:
-    image: xavierh/goaccess-for-nginxproxymanager:v1.1.29
+    # https://hub.docker.com/r/xavierh/goaccess-for-nginxproxymanager/tags
+    image: xavierh/goaccess-for-nginxproxymanager:v1.1.30
     container_name: goaccess
     restart: always
     depends_on:
-      - app
+      - nginx
     # ports:
     #   - '7880:7880'
     environment:

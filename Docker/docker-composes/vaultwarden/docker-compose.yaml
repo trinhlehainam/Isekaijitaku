@@ -5,7 +5,8 @@
 services:
   vaultwarden:
     container_name: vaultwarden
-    image: vaultwarden/server:1.31.0-alpine
+    # https://hub.docker.com/r/vaultwarden/server/tags
+    image: vaultwarden/server:1.32.4-alpine
     restart: unless-stopped
     environment:
       # NOTE: Enable admin page

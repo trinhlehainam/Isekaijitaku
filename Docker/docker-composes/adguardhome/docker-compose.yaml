@@ -1,9 +1,11 @@
+# https://github.com/AdguardTeam/AdGuardHome/wiki/Docker
+
 services:
-  # https://github.com/AdguardTeam/AdGuardHome/wiki/Docker
   adguardhome:
     container_name: adguardhome
     hostname: 'adguardhome'
-    image: adguard/adguardhome:v0.107.52
+    # https://hub.docker.com/r/adguard/adguardhome/tags
+    image: adguard/adguardhome:v0.107.54
     restart: unless-stopped
     ports:
       #   - '3000:3000/tcp'
