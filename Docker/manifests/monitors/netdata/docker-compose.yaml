@@ -41,15 +41,7 @@ services:
       - nginx_network
 
 volumes:
-  grafana-data:
-    driver: local
-  prometheus-data:
-    driver: local
   uptime-kuma:
-    driver: local
-  influxdb2-data:
-    driver: local
-  influxdb2-config:
     driver: local
   netdataconfig:
     driver: local

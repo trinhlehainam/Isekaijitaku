@@ -1,0 +1,23 @@
+# https://smallstep.com/docs/tutorials/docker-tls-certificate-authority/index.html#manual-installation
+
+services:
+  step-ca:
+    # https://localhost:9443/#!/2/docker/images
+    image: 'smallstep/step-ca:0.28.0'
+    container_name: step-ca
+    restart: unless-stopped
+    # ports:
+    #   - "9000:9000"
+    volumes:
+      - './data:/home/step'
+    networks:
+      - proxy
+    # NOTE: enable Treafik router when finished set up step-ca if using Traefik
+    # labels:
+    #   - "traefik.enable=true"
+    #   - "traefik.http.routers.step-ca.rule=Host(`goaccess.yourdomain`)"
+    #   - "traefik.http.routers.step-ca.entrypoints=web"
+
+networks:
+  proxy:
+    external: true

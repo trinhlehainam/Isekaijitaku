@@ -14,7 +14,7 @@ services:
       - "./config/traefik.yaml:/etc/traefik/traefik.yaml:ro"
       - "./config/dynamic.yaml:/etc/traefik/dynamic.yaml:ro"
       - "./log/access.log:/var/log/traefik/access.log"
-      - "./certs:/certs"
+      - "./letsencrypt:/etc/letsencrypt"
       # - "./certs/acme.json:/acme.json"
     ports:
       - "80:80"

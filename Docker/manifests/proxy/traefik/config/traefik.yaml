@@ -46,9 +46,10 @@ entryPoints:
 
 certificatesResolvers:
   stepca:
+    # https://doc.traefik.io/traefik/https/acme/
     acme:
-      caServer: "https://smallstep-ca.internal:9000/acme/acme/directory"
-      email: "MyFancyCA@MyFancyTLD.lan"
-      storage: "/certs/acme/stepca-acme.json"
+      caServer: "https://step-ca:9000/acme/acme/directory"
+      email: "test@example.com"
+      storage: "/etc/letsencrypt/stepca-acme.json"
       certificatesDuration: 2160
       tlsChallenge: {}
