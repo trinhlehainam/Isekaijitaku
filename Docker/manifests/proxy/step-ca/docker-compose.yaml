@@ -14,10 +14,6 @@ services:
       - './data:/home/step'
     networks:
       - proxy
-    labels:
-      - "traefik.enable=true"
-      - "traefik.http.routers.step-ca.rule=Host(`step.yourdomain`)"
-      - "traefik.http.routers.step-ca.entrypoints=web"
 
 networks:
   proxy:
