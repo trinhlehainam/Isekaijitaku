@@ -26,7 +26,7 @@ accessLog:
   format: common
   bufferingSize: 100
   fields:
-    defaultMode: drop
+    defaultMode: keep
     headers:
       defaultMode: drop # drop all headers
       names:
@@ -45,11 +45,18 @@ entryPoints:
     address: :443
 
 certificatesResolvers:
+  # https://smallstep.com/docs/tutorials/acme-protocol-acme-clients/#traefik
+  # NOTE: enable step ca acme provisioner before start Traefik
+  # https://smallstep.com/docs/step-ca/acme-basics/#configure-step-ca-for-acme
   stepca:
     # https://doc.traefik.io/traefik/https/acme/
     acme:
+      # NOTE: add step-ca DNS domain when initializing step-ca
       caServer: "https://step-ca:9000/acme/acme/directory"
       email: "test@example.com"
       storage: "/etc/letsencrypt/stepca-acme.json"
       certificatesDuration: 2160
+      # https://doc.traefik.io/traefik/https/acme/#cacertificates
+      caCertificates:
+        - "/certs/step-ca/root_ca.crt"
       tlsChallenge: {}

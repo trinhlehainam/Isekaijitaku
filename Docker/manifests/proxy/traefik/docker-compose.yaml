@@ -1,4 +1,27 @@
 services:
+  # https://smallstep.com/docs/tutorials/docker-tls-certificate-authority/index.html#manual-installation
+  # NOTE: before "docker compose up -d", init step-ca with below command
+  # docker compose run --rm step-ca step ca init
+  step-ca:
+    # https://hub.docker.com/r/smallstep/step-ca/tags
+    image: 'smallstep/step-ca:0.28.0'
+    container_name: step-ca
+    restart: unless-stopped
+    # ports:
+    #   - "9000:9000"
+    volumes:
+      # NOTE: change folder owner:group to 1000:1000
+      # sudo chown -R 1000:1000 step
+      - './step:/home/step'
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.step-ca.rule=Host(`step-ca.yourdomain`)"
+      - "traefik.http.routers.step-ca.entrypoints=websecure"
+      # https://doc.traefik.io/traefik/routing/services/#insecureskipverify
+      - "traefik.http.serversTransport.step-ca.insecureSkipVerify=true"
+
   traefik:
     # https://hub.docker.com/_/traefik/tags
     image: "traefik:v3.2.0"
@@ -15,7 +38,8 @@ services:
       - "./config/dynamic.yaml:/etc/traefik/dynamic.yaml:ro"
       - "./log/access.log:/var/log/traefik/access.log"
       - "./letsencrypt:/etc/letsencrypt"
-      # - "./certs/acme.json:/acme.json"
+      # NOTE: make sure step-ca is initialized before creating Traefik
+      - "./step/certs/root_ca.crt:/certs/step-ca/root_ca.crt:ro"
     ports:
       - "80:80"
       - "8080:8080"
@@ -56,8 +80,10 @@ services:
       - proxy
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.goaccess.rule=Host(`goaccess.yourdomain`)"
-      - "traefik.http.routers.goaccess.entrypoints=web"
+      - "traefik.http.routers.goaccess-local.rule=Host(`goaccess.yourdomain.local`)"
+      - "traefik.http.routers.goaccess-local.entrypoints=websecure"
+      - "traefik.http.routers.goaccess-local.tls=true"
+      - "traefik.http.routers.goaccess-local.tls.certresolver=stepca"
 
 networks:
   proxy:

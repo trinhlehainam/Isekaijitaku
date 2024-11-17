@@ -8,15 +8,16 @@ services:
     restart: unless-stopped
     # ports:
     #   - "9000:9000"
+    # NOTE: change folder owner:group to 1000:1000
+    # sudo chown -R 1000:1000 step
     volumes:
       - './data:/home/step'
     networks:
       - proxy
-    # NOTE: enable Treafik router when finished set up step-ca if using Traefik
-    # labels:
-    #   - "traefik.enable=true"
-    #   - "traefik.http.routers.step-ca.rule=Host(`goaccess.yourdomain`)"
-    #   - "traefik.http.routers.step-ca.entrypoints=web"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.step-ca.rule=Host(`step.yourdomain`)"
+      - "traefik.http.routers.step-ca.entrypoints=web"
 
 networks:
   proxy:
