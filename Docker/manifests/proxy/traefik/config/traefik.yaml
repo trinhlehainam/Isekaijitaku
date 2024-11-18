@@ -21,7 +21,7 @@ log:
 accessLog:
   # Enable specific file path to read from another process.
   filePath: "/var/log/traefik/access.log"
-  # NOTE: goaccess only support CLF format for Treafik
+  # NOTE: GoAccess only support CLF format for Treafik
   # https://goaccess.io/man#options
   format: common
   bufferingSize: 100
