@@ -12,7 +12,7 @@ providers:
 api:
   dashboard: true
   debug: true
-  insecure: true
+  # insecure: true
 
 log:
   level: DEBUG

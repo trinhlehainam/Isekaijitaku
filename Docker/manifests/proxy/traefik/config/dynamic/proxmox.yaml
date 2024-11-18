@@ -1,7 +1,7 @@
 http:
   routers:
     pve-local-router:
-      rule: Host(`pve.vice.local`)
+      rule: Host(`pve.yourdomain.local`)
       service: pve-local-service
       entryPoints:
         - "websecure"
