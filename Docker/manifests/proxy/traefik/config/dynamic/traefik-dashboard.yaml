@@ -1,0 +1,18 @@
+http:
+  routers:
+    traefik-dashboard-local-router:
+      rule: Host(`traefik.vice.local`)
+      service: traefik-dashboard-local-service
+      entryPoints:
+        - "websecure"
+      tls:
+        certResolver: stepca
+
+  # NOTE: avoid port forwarding from host machine by using container network
+  # need to enable insecure Mode to tell Traefik expose dashboard on port 8080
+  # https://doc.traefik.io/traefik/operations/dashboard/#insecure-mode
+  services:
+    traefik-dashboard-local-service:
+      loadBalancer:
+        servers:
+          - url: "http://traefik:8080"

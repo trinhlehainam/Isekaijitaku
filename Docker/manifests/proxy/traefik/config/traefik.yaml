@@ -5,14 +5,14 @@ providers:
   # NOTE: dynamic configuration
   # https://doc.traefik.io/traefik/providers/file/
   file:
-    filename: "/etc/traefik/dynamic.yaml"
+    directory: "/etc/traefik/dynamic/"
     watch: true
 
 # https://doc.traefik.io/traefik/operations/api/
 api:
   dashboard: true
-  insecure: true
   debug: true
+  insecure: true
 
 log:
   level: DEBUG
@@ -36,13 +36,16 @@ accessLog:
 entryPoints:
   web:
     address: :80
-    # http:
-    #   redirections:
-    #     entryPoint:
-    #       to: websecure
-    #       scheme: https
+    http:
+      redirections:
+        entryPoint:
+          to: websecure
+          scheme: https
   websecure:
     address: :443
+
+serversTransport:
+  insecureSkipVerify: true
 
 certificatesResolvers:
   # https://smallstep.com/docs/tutorials/acme-protocol-acme-clients/#traefik
@@ -57,6 +60,7 @@ certificatesResolvers:
       storage: "/etc/letsencrypt/stepca-acme.json"
       certificatesDuration: 2160
       # https://doc.traefik.io/traefik/https/acme/#cacertificates
+      # NOTE: supported Traefik version >= v3.2
       caCertificates:
         - "/certs/step-ca/root_ca.crt"
       tlsChallenge: {}

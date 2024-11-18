@@ -1,18 +1,20 @@
 services:
   # https://smallstep.com/docs/tutorials/docker-tls-certificate-authority/index.html#manual-installation
   # https://github.com/dogukancagatay/step-ca-example/blob/main/docker-compose.yml
-  # NOTE: initialize step-ca 
-  # - before "docker compose up -d", init step-ca with command: "docker compose run --rm step-ca step ca init"
-  # - generate password file inside step volumes: 
-  #   - "docker compose run --rm step-ca sh"
-  #   - "echo "<your password here>" > /home/step/secrets/password"
+  # NOTE: 
+  # - BEFORE "docker compose up -d":
+  #   - init step-ca with command: "docker compose run --rm step-ca step ca init"
+  #   - generate password file inside step volumes: 
+  #     - "docker compose run --rm step-ca sh"
+  #     - "echo "<your password here>" > /home/step/secrets/password"
+  #   - enable step-ca acme provisioner: "docker compose run --rm step-ca step ca provisioner add acme --type ACME"
   step-ca:
     # https://hub.docker.com/r/smallstep/step-ca/tags
     image: 'smallstep/step-ca:0.28.0'
     container_name: step-ca
     restart: unless-stopped
-    # ports:
-    #   - "9000:9000"
+    ports:
+      - "9000:9000"
     volumes:
       - 'step:/home/step/'
       # NOTE: make sure step and certs folders are exists before initializing step-ca 
@@ -31,6 +33,7 @@ services:
       - 1.1.1.1
       - 1.0.0.2
 
+  # https://erdaltoprak.com/blog/setting-up-a-local-reverse-proxy-on-proxmox-with-traefik-and-cloudflare/
   traefik:
     # https://hub.docker.com/_/traefik/tags
     image: "traefik:v3.2.0"
@@ -44,15 +47,16 @@ services:
     volumes:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
       - "./config/traefik.yaml:/etc/traefik/traefik.yaml:ro"
-      - "./config/dynamic.yaml:/etc/traefik/dynamic.yaml:ro"
+      - "./config/dynamic:/etc/traefik/dynamic:ro"
+      # make sure access.log exists before starting Traefik
       - "./log/access.log:/var/log/traefik/access.log"
       - "./letsencrypt:/etc/letsencrypt"
       # NOTE: make sure step-ca is initialized before creating Traefik
       - "./step/certs/root_ca.crt:/certs/step-ca/root_ca.crt:ro"
     ports:
       - "80:80"
-      - "8080:8080"
       - "443:443"
+      # - "8080:8080"
     networks:
       - proxy
 

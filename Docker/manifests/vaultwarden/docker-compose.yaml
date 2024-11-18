@@ -19,6 +19,12 @@ services:
     networks:
       openwrt_vlan:
         ipv4_address: 10.10.10.34
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.vaultwarden-local.rule=Host(`vaultwarden.yourdomain`)"
+      - "traefik.http.routers.vaultwarden-local.entrypoints=websecure"
+      - "traefik.http.routers.vaultwarden-local.tls=true"
+      - "traefik.http.routers.vaultwarden-local.tls.certresolver=stepca"
 
 networks:
   openwrt_vlan:

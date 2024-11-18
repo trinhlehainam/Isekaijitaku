@@ -15,6 +15,16 @@ services:
       proxy:
       dns:
         ipv4_address: 172.20.0.10
+    labels:
+      - "traefik.enable=true"
+      # NOTE: specific docker network for Traefik to use
+      # https://doc.traefik.io/traefik/providers/docker/#network
+      - "traefik.docker.network=proxy"
+      - "traefik.http.routers.adguardhome-local.rule=Host(`adguardhome.yourdomain`)"
+      - "traefik.http.routers.adguardhome-local.entrypoints=websecure"
+      - "traefik.http.services.adguardhome-local.loadbalancer.server.port=80"
+      - "traefik.http.routers.adguardhome-local.service=adguardhome-local"
+      - "traefik.http.routers.adguardhome-local.tls.certresolver=stepca"
 
   # https://github.com/MatthewVance/unbound-docker?tab=readme-ov-file#docker-compose
   unbound:
