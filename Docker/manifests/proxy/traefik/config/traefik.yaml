@@ -27,10 +27,11 @@ accessLog:
   bufferingSize: 100
   fields:
     defaultMode: keep
+    # https://doc.traefik.io/traefik/v3.2/observability/access-logs/#limiting-the-fieldsincluding-headers
     headers:
-      defaultMode: drop # drop all headers
-      names:
-        User-Agent: keep
+      defaultMode: keep
+      # names:
+      #   User-Agent: keep
 
 # https://doc.traefik.io/traefik/routing/entrypoints/
 entryPoints:
@@ -43,9 +44,14 @@ entryPoints:
           scheme: https
   websecure:
     address: :443
-
-serversTransport:
-  insecureSkipVerify: true
+    transport:
+      # https://doc.traefik.io/traefik/routing/entrypoints/#respondingtimeouts
+      # NOTE: problem when upload large file with Traefik, set longer timeout
+      # https://community.traefik.io/t/traefik-upload-error/23034/5
+      respondingTimeouts:
+        readTimeout: 300s
+        writeTimeout: 300s
+        idleTimeout: 300s
 
 certificatesResolvers:
   # https://smallstep.com/docs/tutorials/acme-protocol-acme-clients/#traefik

@@ -11,5 +11,12 @@ http:
   services:
     pve-local-service:
       loadBalancer:
+        # https://doc.traefik.io/traefik/v3.2/routing/services/#serverstransport
+        serversTransport: pve-local-transport
         servers:
-          - url: "https://192.168.1.150:8006"
+          - url: "https://192.168.xxx.xxx:8006"
+
+  # https://doc.traefik.io/traefik/v3.2/routing/services/#insecureskipverify
+  serversTransports:
+    pve-local-transport:
+      insecureSkipVerify: true

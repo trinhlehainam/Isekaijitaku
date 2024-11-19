@@ -35,12 +35,15 @@ services:
       - "traefik.http.services.forgejo-local.loadbalancer.server.port=3000"
       - "traefik.http.routers.forgejo-local.entrypoints=websecure"
       - "traefik.http.routers.forgejo-local.rule=Host(`forgejo.yourdomain.local`)"
+      # NOTE: solve git client certificate issue on Windows
+      # https://github.com/desktop/desktop/issues/9293#issuecomment-607357181
       - "traefik.http.routers.forgejo-local.tls.certresolver=stepca"
 
   forgejo-db:
     container_name: forgejo-db
+    # https://hub.docker.com/_/postgres
     # https://hub.docker.com/_/postgres/tags
-    image: postgres:15.9-alpine3.20
+    image: postgres:16.5-alpine3.20
     restart: unless-stopped
     environment:
       - POSTGRES_PASSWORD_FILE=/run/secrets/db_password

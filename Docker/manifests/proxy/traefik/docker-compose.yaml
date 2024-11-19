@@ -22,8 +22,9 @@ services:
       # sudo chown -R 1000:1000 step
       - './step/certs:/home/step/certs'
     networks:
-      - proxy
-      - dns
+      proxy:
+      dns:
+        ipv4_address: 172.30.0.12
     # NOTE: container network may not reach local domain in private network
     # if local DNS server is hosted in another docker container, create dns bridge network and setup this network for both containers
     # docker network create --driver=bridge --subnet=172.20.0.0/16 dns
@@ -48,7 +49,7 @@ services:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
       - "./config/traefik.yaml:/etc/traefik/traefik.yaml:ro"
       - "./config/dynamic:/etc/traefik/dynamic:ro"
-      # make sure access.log exists before starting Traefik
+      # NOTE: make sure access.log exists before starting Traefik
       - "./log/access.log:/var/log/traefik/access.log"
       - "./letsencrypt:/etc/letsencrypt"
       # NOTE: make sure step-ca is initialized before creating Traefik
@@ -97,6 +98,9 @@ services:
       - "traefik.http.routers.goaccess-local.entrypoints=websecure"
       - "traefik.http.routers.goaccess-local.tls=true"
       - "traefik.http.routers.goaccess-local.tls.certresolver=stepca"
+  # NOTE: crowdsec
+  # https://www.crowdsec.net/blog/enhance-docker-compose-security
+  # https://github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin
 
 volumes:
   step:
