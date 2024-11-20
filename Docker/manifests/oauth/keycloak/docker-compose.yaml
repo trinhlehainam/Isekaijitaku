@@ -15,14 +15,13 @@ services:
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-      # POSTGRES_PASSWORD_FILE: "/run/secrets/db_password"
+      POSTGRES_PASSWORD_FILE: "/run/secrets/db_password"
     networks:
       - keycloak
     secrets:
       - db_password
     healthcheck:
-      test: [ "CMD", "pg_isready", "-q", "-d", "${KEYCLOAK_DB_NAME}", "-U", "${KEYCLOAK_DB_USER}" ]
+      test: [ "CMD", "pg_isready", "-q", "-d", "${POSTGRES_DB}", "-U", "${POSTGRES_USER}" ]
       interval: 10s
       timeout: 5s
       retries: 3
@@ -33,19 +32,16 @@ services:
     image: quay.io/keycloak/keycloak:26.0.5
     container_name: keycloak
     restart: unless-stopped
-    command: start
     # NOTE: how to use docker secrets
     # https://github.com/keycloak/keycloak/issues/10816
-    # entrypoint:
-    #   - /bin/bash
-    #   - -c
-    #   - |
-    #     export KC_DB_USERNAME=$$(cat /run/secrets/keycloak_db_uname)
-    #     export KC_DB_PASSWORD=$$(cat /run/secrets/keycloak_db_pwd)
-    #     export KC_DB_URL=$$(cat /run/secrets/keycloak_db_url)
-    #     export KEYCLOAK_ADMIN=$$(cat /run/secrets/keycloak_admin)
-    #     export KEYCLOAK_ADMIN_PASSWORD=$$(cat /run/secrets/db_password)
-    #     /opt/keycloak/bin/kc.sh start
+    entrypoint:
+      - /bin/bash
+      - -c
+      - |
+        export KC_DB_PASSWORD=$$(cat /run/secrets/db_password)
+        export KC_BOOTSTRAP_ADMIN_USERNAME=$$(cat /run/secrets/keycloak_admin)
+        export KC_BOOTSTRAP_ADMIN_PASSWORD=$$(cat /run/secrets/keycloak_admin_password)
+        /opt/keycloak/bin/kc.sh start
     #
     # NOTE: keycloak all configuration
     # https://www.keycloak.org/server/all-config
@@ -53,17 +49,13 @@ services:
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://keycloak-postgres:5432/${POSTGRES_DB}
       KC_DB_USERNAME: ${POSTGRES_USER}
-      KC_DB_PASSWORD: ${POSTGRES_PASSWORD}
-
-      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN}
-      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
 
       # NOTE: hostname configuration
       # https://www.keycloak.org/server/hostname#_validations
       # Disable Keycloak hostname because we are using Traefik as reverse proxy to manage the hostname
       KC_HOSTNAME_STRICT: false
       # KC_HOSTNAME: localhost
-      # NOTE: https configuration
+      # NOTE: tls configuration
       # https://www.keycloak.org/server/enabletls
       KC_HTTP_ENABLED: true
       # KC_HOSTNAME_PORT: 8443
@@ -76,6 +68,10 @@ services:
       KC_LOG_LEVEL: info
       KC_METRICS_ENABLED: true
       KC_HEALTH_ENABLED: true
+    secrets:
+      - db_password
+      - keycloak_admin
+      - keycloak_admin_password
     # volumes:
     #   # https://smallstep.com/docs/tutorials/keycloak-oidc-provisioner/#install-and-run-keycloak--mysql-using-docker-compose
     #   - /path/to/step-ca/certs:/etc/x509/https:ro
@@ -115,6 +111,10 @@ services:
 secrets:
   db_password:
     file: ./secrets/db_password
+  keycloak_admin:
+    file: ./secrets/keycloak_admin
+  keycloak_admin_password:
+    file: ./secrets/keycloak_admin_password
 
 networks:
   proxy:
