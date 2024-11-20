@@ -39,9 +39,9 @@ services:
       # https://github.com/desktop/desktop/issues/9293#issuecomment-607357181
       - "traefik.http.routers.forgejo-local.tls.certresolver=stepca"
 
+  # https://hub.docker.com/_/postgres
   forgejo-db:
     container_name: forgejo-db
-    # https://hub.docker.com/_/postgres
     # https://hub.docker.com/_/postgres/tags
     image: postgres:16.5-alpine3.20
     restart: unless-stopped
