@@ -4,6 +4,9 @@
 #
 # NOTE: CPU does not support x86-64-v2 error on Proxmox VM
 # https://github.com/keycloak/keycloak/issues/17290
+#
+# NOTE: setup permanent admin in Keyloack
+# https://github.com/keycloak/keycloak/discussions/33803#discussioncomment-10921141
 
 services:
   keycloak-postgres:
