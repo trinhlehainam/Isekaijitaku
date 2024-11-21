@@ -1,0 +1,85 @@
+# https://github.com/oauth2-proxy/oauth2-proxy/blob/master/contrib/local-environment/traefik/dynamic.yaml
+# https://oauth2-proxy.github.io/oauth2-proxy/configuration/integration/#configuring-for-use-with-the-traefik-v2-forwardauth-middleware
+# https://doc.traefik.io/traefik/middlewares/http/headers/
+# https://doc.traefik.io/traefik/middlewares/http/forwardauth/
+
+# Test comment to verify diff visibility
+
+http:
+  middlewares:
+    # Security headers for all authenticated requests
+    security-headers:
+      headers:
+        browserXssFilter: true
+        contentTypeNosniff: true
+        frameDeny: true
+        sslRedirect: true
+        stsIncludeSubdomains: true
+        stsPreload: true
+        stsSeconds: 315360000
+        contentSecurityPolicy: "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; font-src 'self' data:;"
+        customResponseHeaders:
+          X-Frame-Options: "DENY"
+          X-Content-Type-Options: "nosniff"
+          X-XSS-Protection: "1; mode=block"
+          Referrer-Policy: "strict-origin-when-cross-origin"
+          Permissions-Policy: "camera=(), microphone=(), geolocation=(), payment=()"
+
+    # Basic auth headers
+    auth-headers:
+      headers:
+        stsSeconds: 315360000
+        browserXssFilter: true
+        contentTypeNosniff: true
+        forceSTSHeader: true
+        stsIncludeSubdomains: true
+        stsPreload: true
+        frameDeny: true
+
+    # Admin group access
+    oauth-auth-admin:
+      forwardAuth:
+        address: http://oauth2-proxy:4180/oauth2/auth
+        trustForwardHeader: true
+        authResponseHeaders:
+          - X-Auth-Request-User
+          - X-Auth-Request-Email
+          - X-Auth-Request-Groups
+        authRequestHeaders:
+          - X-Forwarded-Host
+          - X-Forwarded-Proto
+          - X-Forwarded-Uri
+          - X-Forwarded-For
+        authResponseHeadersRegex: "^X-Auth-Request-Groups: .*\\badmin\\b.*$"
+
+    # Developer group access
+    oauth-auth-developer:
+      forwardAuth:
+        address: http://oauth2-proxy:4180/oauth2/auth
+        trustForwardHeader: true
+        authResponseHeaders:
+          - X-Auth-Request-User
+          - X-Auth-Request-Email
+          - X-Auth-Request-Groups
+        authRequestHeaders:
+          - X-Forwarded-Host
+          - X-Forwarded-Proto
+          - X-Forwarded-Uri
+          - X-Forwarded-For
+        authResponseHeadersRegex: "^X-Auth-Request-Groups: .*\\b(developer|admin)\\b.*$"
+
+    # Viewer group access
+    oauth-auth-viewer:
+      forwardAuth:
+        address: http://oauth2-proxy:4180/oauth2/auth
+        trustForwardHeader: true
+        authResponseHeaders:
+          - X-Auth-Request-User
+          - X-Auth-Request-Email
+          - X-Auth-Request-Groups
+        authRequestHeaders:
+          - X-Forwarded-Host
+          - X-Forwarded-Proto
+          - X-Forwarded-Uri
+          - X-Forwarded-For
+        authResponseHeadersRegex: "^X-Auth-Request-Groups: .*\\b(viewer|developer|admin)\\b.*$"

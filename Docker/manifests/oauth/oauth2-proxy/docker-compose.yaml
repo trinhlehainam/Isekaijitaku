@@ -1,4 +1,49 @@
 # https://joeeey.com/blog/selfhosting-sso-with-traefik-oauth2-proxy-part-2/
 # https://github.com/kingjuk/oatuh2-proxy-traefik-docker-compose
 
+version: '3.8'
 
+services:
+  oauth2-proxy:
+    image: quay.io/oauth2-proxy/oauth2-proxy:v7.6.0
+    container_name: oauth2-proxy
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        export OAUTH2_PROXY_COOKIE_SECRET=$$(cat /run/secrets/oauth2_proxy_cookie_secret)
+        export OAUTH2_PROXY_CLIENT_SECRET=$$(cat /run/secrets/oauth2_proxy_client_secret)
+        export OAUTH2_PROXY_CLIENT_ID=$$(cat /run/secrets/oauth2_proxy_client_id)
+        export KEYCLOAK_REALM=$$(cat /run/secrets/keycloak_realm)
+        /bin/oauth2-proxy --config=/etc/oauth2-proxy/oauth2-proxy.cfg
+    volumes:
+      - ./oauth2-proxy.cfg:/etc/oauth2-proxy/oauth2-proxy.cfg:ro
+    networks:
+      - proxy
+    secrets:
+      - oauth2_proxy_cookie_secret
+      - oauth2_proxy_client_secret
+      - oauth2_proxy_client_id
+      - keycloak_realm
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.oauth2-proxy.rule=Host(`oauth2-proxy.yourdomain.local`)"
+      - "traefik.http.routers.oauth2-proxy.entrypoints=websecure"
+      - "traefik.http.routers.oauth2-proxy.tls=true"
+      - "traefik.http.routers.oauth2-proxy.middlewares=auth-headers@file,security-headers@file"
+      - "traefik.http.services.oauth2-proxy.loadbalancer.server.port=4180"
+    restart: unless-stopped
+
+networks:
+  proxy:
+    external: true
+
+secrets:
+  oauth2_proxy_cookie_secret:
+    file: ./secrets/oauth2_proxy_cookie_secret
+  oauth2_proxy_client_secret:
+    file: ./secrets/oauth2_proxy_client_secret
+  oauth2_proxy_client_id:
+    file: ./secrets/oauth2_proxy_client_id
+  keycloak_realm:
+    file: ./secrets/keycloak_realm
