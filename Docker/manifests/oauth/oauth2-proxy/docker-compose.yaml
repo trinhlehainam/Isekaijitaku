@@ -27,11 +27,14 @@ services:
       - keycloak_realm
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.oauth2-proxy.rule=Host(`oauth2-proxy.yourdomain.local`)"
-      - "traefik.http.routers.oauth2-proxy.entrypoints=websecure"
-      - "traefik.http.routers.oauth2-proxy.tls=true"
-      - "traefik.http.routers.oauth2-proxy.middlewares=auth-headers@file,security-headers@file"
-      - "traefik.http.services.oauth2-proxy.loadbalancer.server.port=4180"
+      # Service definition
+      - "traefik.http.services.oauth2-proxy-service.loadbalancer.server.port=4180"
+      - "traefik.http.services.oauth2-proxy-service.loadbalancer.server.scheme=http"
+      # OAuth2 proxy endpoints
+      - "traefik.http.routers.oauth2-proxy-local.rule=Host(`oauth2-proxy.yourdomain.local`) && PathPrefix(`/oauth2/`)"
+      - "traefik.http.routers.oauth2-proxy-local.service=oauth2-proxy-service"
+      - "traefik.http.routers.oauth2-proxy-local.middlewares=security-auth-headers@file"
+      - "traefik.http.routers.oauth2-proxy-local.tls=true"
     restart: unless-stopped
 
 networks:

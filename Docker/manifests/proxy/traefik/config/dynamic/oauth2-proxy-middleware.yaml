@@ -1,14 +1,12 @@
-# https://github.com/oauth2-proxy/oauth2-proxy/blob/master/contrib/local-environment/traefik/dynamic.yaml
 # https://oauth2-proxy.github.io/oauth2-proxy/configuration/integration/#configuring-for-use-with-the-traefik-v2-forwardauth-middleware
 # https://doc.traefik.io/traefik/middlewares/http/headers/
 # https://doc.traefik.io/traefik/middlewares/http/forwardauth/
-
-# Test comment to verify diff visibility
+# https://www.reddit.com/r/KeyCloak/comments/vkq2ea/keycloak_oauth_proxy_granular_control_for/
 
 http:
   middlewares:
     # Security headers for all authenticated requests
-    security-headers:
+    security-auth-headers:
       headers:
         browserXssFilter: true
         contentTypeNosniff: true
@@ -25,61 +23,103 @@ http:
           Referrer-Policy: "strict-origin-when-cross-origin"
           Permissions-Policy: "camera=(), microphone=(), geolocation=(), payment=()"
 
-    # Basic auth headers
-    auth-headers:
+    # Basic authentication headers
+    basic-auth-headers:
       headers:
+        sslRedirect: true
         stsSeconds: 315360000
         browserXssFilter: true
         contentTypeNosniff: true
         forceSTSHeader: true
+        sslHost: example.com
         stsIncludeSubdomains: true
         stsPreload: true
         frameDeny: true
 
-    # Admin group access
-    oauth-auth-admin:
+    # OAuth2 Proxy Forward Auth
+    oauth2-proxy:
       forwardAuth:
         address: http://oauth2-proxy:4180/oauth2/auth
         trustForwardHeader: true
         authResponseHeaders:
           - X-Auth-Request-User
           - X-Auth-Request-Email
-          - X-Auth-Request-Groups
+          - X-Auth-Request-Access-Token
+          - Authorization
         authRequestHeaders:
           - X-Forwarded-Host
           - X-Forwarded-Proto
           - X-Forwarded-Uri
           - X-Forwarded-For
-        authResponseHeadersRegex: "^X-Auth-Request-Groups: .*\\badmin\\b.*$"
 
-    # Developer group access
-    oauth-auth-developer:
-      forwardAuth:
-        address: http://oauth2-proxy:4180/oauth2/auth
-        trustForwardHeader: true
-        authResponseHeaders:
-          - X-Auth-Request-User
-          - X-Auth-Request-Email
-          - X-Auth-Request-Groups
-        authRequestHeaders:
-          - X-Forwarded-Host
-          - X-Forwarded-Proto
-          - X-Forwarded-Uri
-          - X-Forwarded-For
-        authResponseHeadersRegex: "^X-Auth-Request-Groups: .*\\b(developer|admin)\\b.*$"
+    # Error handling - redirect to OAuth2 sign in
+    oauth2-errors:
+      errors:
+        status:
+          - "401-403"
+        service: oauth2-proxy-service
+        query: "/oauth2/sign_in?rd={url}"
 
-    # Viewer group access
-    oauth-auth-viewer:
+    # Admin only access
+    oauth2-admin:
       forwardAuth:
-        address: http://oauth2-proxy:4180/oauth2/auth
+        address: http://oauth2-proxy:4180/oauth2/auth?allowed_groups=admin
         trustForwardHeader: true
         authResponseHeaders:
           - X-Auth-Request-User
           - X-Auth-Request-Email
-          - X-Auth-Request-Groups
+          - X-Auth-Request-Access-Token
+          - Authorization
         authRequestHeaders:
           - X-Forwarded-Host
           - X-Forwarded-Proto
           - X-Forwarded-Uri
           - X-Forwarded-For
-        authResponseHeadersRegex: "^X-Auth-Request-Groups: .*\\b(viewer|developer|admin)\\b.*$"
+
+    # Developer access (includes admin)
+    oauth2-developer:
+      forwardAuth:
+        address: http://oauth2-proxy:4180/oauth2/auth?allowed_groups=developer,admin
+        trustForwardHeader: true
+        authResponseHeaders:
+          - X-Auth-Request-User
+          - X-Auth-Request-Email
+          - X-Auth-Request-Access-Token
+          - Authorization
+        authRequestHeaders:
+          - X-Forwarded-Host
+          - X-Forwarded-Proto
+          - X-Forwarded-Uri
+          - X-Forwarded-For
+
+    # Family access (includes admin and developer)
+    oauth2-family:
+      forwardAuth:
+        address: http://oauth2-proxy:4180/oauth2/auth?allowed_groups=family,developer,admin
+        trustForwardHeader: true
+        authResponseHeaders:
+          - X-Auth-Request-User
+          - X-Auth-Request-Email
+          - X-Auth-Request-Access-Token
+          - Authorization
+        authRequestHeaders:
+          - X-Forwarded-Host
+          - X-Forwarded-Proto
+          - X-Forwarded-Uri
+          - X-Forwarded-For
+
+    # Client access (includes admin, developer, and family)
+    oauth2-client:
+      forwardAuth:
+        address: http://oauth2-proxy:4180/oauth2/auth?allowed_groups=client,family,developer,admin
+        trustForwardHeader: true
+        authResponseHeaders:
+          - X-Auth-Request-User
+          - X-Auth-Request-Email
+          - X-Auth-Request-Access-Token
+          - Authorization
+        authRequestHeaders:
+          - X-Forwarded-Host
+          - X-Forwarded-Proto
+          - X-Forwarded-Uri
+          - X-Forwarded-For
