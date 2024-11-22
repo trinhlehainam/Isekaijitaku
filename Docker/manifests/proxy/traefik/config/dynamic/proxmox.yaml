@@ -9,14 +9,14 @@ http:
         certResolver: stepca
 
   services:
-    pve-local-service:
+    pve-service:
       loadBalancer:
         # https://doc.traefik.io/traefik/v3.2/routing/services/#serverstransport
-        serversTransport: pve-local-transport
+        serversTransport: pve-transport
         servers:
           - url: "https://192.168.xxx.xxx:8006"
 
   # https://doc.traefik.io/traefik/v3.2/routing/services/#insecureskipverify
   serversTransports:
-    pve-local-transport:
+    pve-transport:
       insecureSkipVerify: true

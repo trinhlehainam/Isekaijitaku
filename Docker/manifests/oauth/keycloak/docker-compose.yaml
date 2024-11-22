@@ -88,8 +88,10 @@ services:
     depends_on:
       - keycloak-postgres
     networks:
-      - keycloak
-      - proxy
+      keycloak:
+      proxy:
+        aliases:
+          - keycloak.yourdomain.local
     # https://gist.github.com/sarath-soman/5d9aec06953bbd0990c648605d4dba07?permalink_comment_id=5225953#gistcomment-5225953
     healthcheck:
       test:
@@ -106,10 +108,15 @@ services:
       # NOTE: specific docker network for Traefik to use
       # https://doc.traefik.io/traefik/providers/docker/#network
       - "traefik.docker.network=proxy"
-      - "traefik.http.services.keycloak-local.loadbalancer.server.port=8080"
-      - "traefik.http.routers.keyloak-local.entrypoints=websecure"
-      - "traefik.http.routers.keyloak-local.rule=Host(`keycloak.yourdomain.local`)"
-      - "traefik.http.routers.keyloak-local.tls.certresolver=stepca"
+      # Service definition
+      - "traefik.http.services.keycloak.loadbalancer.server.port=8080"
+      - "traefik.http.services.keycloak.loadbalancer.server.scheme=http"
+      # Router configuration
+      - "traefik.http.routers.keycloak-local.rule=Host(`keycloak.yourdomain.local`)"
+      - "traefik.http.routers.keycloak-local.service=keycloak"
+      - "traefik.http.routers.keycloak-local.entrypoints=websecure"
+      - "traefik.http.routers.keycloak-local.tls.certresolver=stepca"
+      - "traefik.http.routers.keycloak-local.middlewares=security-auth-headers@file"
 
 secrets:
   db_password:

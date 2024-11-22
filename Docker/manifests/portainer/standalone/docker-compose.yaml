@@ -20,7 +20,7 @@ services:
       - "traefik.enable=true"
       - "traefik.http.routers.portainer-local.rule=Host(`portainer.yourdomain`)"
       - "traefik.http.routers.portainer-local.entrypoints=websecure"
-      - "traefik.http.services.portainer-local.loadbalancer.server.port=9000"
+      - "traefik.http.services.portainer.loadbalancer.server.port=9000"
       - "traefik.http.routers.portainer-local.service=portainer-local"
       - "traefik.http.routers.portainer-local.tls.certresolver=stepca"
 

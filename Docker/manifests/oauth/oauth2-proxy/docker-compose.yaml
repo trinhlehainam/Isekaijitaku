@@ -1,10 +1,9 @@
 # https://joeeey.com/blog/selfhosting-sso-with-traefik-oauth2-proxy-part-2/
 # https://github.com/kingjuk/oatuh2-proxy-traefik-docker-compose
 
-version: '3.8'
-
 services:
   oauth2-proxy:
+    # https://quay.io/repository/oauth2-proxy/oauth2-proxy?tab=tags  
     image: quay.io/oauth2-proxy/oauth2-proxy:v7.6.0
     container_name: oauth2-proxy
     entrypoint:
@@ -14,19 +13,22 @@ services:
         export OAUTH2_PROXY_COOKIE_SECRET=$$(cat /run/secrets/oauth2_proxy_cookie_secret)
         export OAUTH2_PROXY_CLIENT_SECRET=$$(cat /run/secrets/oauth2_proxy_client_secret)
         export OAUTH2_PROXY_CLIENT_ID=$$(cat /run/secrets/oauth2_proxy_client_id)
-        export KEYCLOAK_REALM=$$(cat /run/secrets/keycloak_realm)
+        export OAUTH2_PROXY_OIDC_ISSUER_URL=$$(cat /run/secrets/oauth2_proxy_oidc_issuer_url)
         /bin/oauth2-proxy --config=/etc/oauth2-proxy/oauth2-proxy.cfg
     volumes:
       - ./oauth2-proxy.cfg:/etc/oauth2-proxy/oauth2-proxy.cfg:ro
     networks:
       - proxy
     secrets:
+      # NOTE: generate cookie_secret
+      # https://oauth2-proxy.github.io/oauth2-proxy/configuration/overview/#generating-a-cookie-secret
       - oauth2_proxy_cookie_secret
       - oauth2_proxy_client_secret
       - oauth2_proxy_client_id
-      - keycloak_realm
+      - oauth2_proxy_oidc_issuer_url
     labels:
       - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
       # Service definition
       - "traefik.http.services.oauth2-proxy-service.loadbalancer.server.port=4180"
       - "traefik.http.services.oauth2-proxy-service.loadbalancer.server.scheme=http"
@@ -34,7 +36,7 @@ services:
       - "traefik.http.routers.oauth2-proxy-local.rule=Host(`oauth2-proxy.yourdomain.local`) && PathPrefix(`/oauth2/`)"
       - "traefik.http.routers.oauth2-proxy-local.service=oauth2-proxy-service"
       - "traefik.http.routers.oauth2-proxy-local.middlewares=security-auth-headers@file"
-      - "traefik.http.routers.oauth2-proxy-local.tls=true"
+      - "traefik.http.routers.oauth2-proxy-local.tls.certresolver=stepca"
     restart: unless-stopped
 
 networks:
@@ -48,5 +50,5 @@ secrets:
     file: ./secrets/oauth2_proxy_client_secret
   oauth2_proxy_client_id:
     file: ./secrets/oauth2_proxy_client_id
-  keycloak_realm:
-    file: ./secrets/keycloak_realm
+  oauth2_proxy_oidc_issuer_url:
+    file: ./secrets/oauth2_proxy_oidc_issuer_url

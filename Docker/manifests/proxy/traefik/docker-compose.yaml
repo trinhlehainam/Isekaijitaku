@@ -98,6 +98,7 @@ services:
       - "traefik.http.routers.goaccess-local.entrypoints=websecure"
       - "traefik.http.routers.goaccess-local.tls=true"
       - "traefik.http.routers.goaccess-local.tls.certresolver=stepca"
+      # - "traefik.http.routers.goaccess-local.middlewares=oauth2-admin@file"
   # NOTE: crowdsec
   # https://www.crowdsec.net/blog/enhance-docker-compose-security
   # https://github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin

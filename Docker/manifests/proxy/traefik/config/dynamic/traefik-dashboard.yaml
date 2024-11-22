@@ -10,8 +10,8 @@ http:
         - "websecure"
       tls:
         certResolver: stepca
-      # middlewares:
-      #   - auth
+      middlewares:
+        - oauth2-admin@file
 
   # middlewares:
   #   auth:
