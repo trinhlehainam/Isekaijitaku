@@ -1,3 +1,4 @@
+
 http:
   middlewares:
     rewrite-oauth2-proxy-local-location:

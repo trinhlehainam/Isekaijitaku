@@ -42,15 +42,8 @@ http:
         address: http://oauth2-proxy:4180/oauth2/auth
         trustForwardHeader: true
         authResponseHeaders:
-          - X-Auth-Request-User
-          - X-Auth-Request-Email
           - X-Auth-Request-Access-Token
           - Authorization
-        authRequestHeaders:
-          - X-Forwarded-Host
-          - X-Forwarded-Proto
-          - X-Forwarded-Uri
-          - X-Forwarded-For
 
     # Error handling - redirect to OAuth2 sign in
     oauth2-errors:
@@ -60,66 +53,45 @@ http:
         service: oauth2-proxy-service
         query: "/oauth2/sign_in?rd={url}"
 
-    # Admin only access
+    # Group: /admin (Administrator access)
+    # Note: This is a group path, distinct from the 'admin' role
     oauth2-admin:
       forwardAuth:
-        address: http://oauth2-proxy:4180/oauth2/auth?allowed_groups=admin
+        address: http://oauth2-proxy:4180/oauth2/auth?allowed_groups=/admin
         trustForwardHeader: true
         authResponseHeaders:
-          - X-Auth-Request-User
-          - X-Auth-Request-Email
           - X-Auth-Request-Access-Token
           - Authorization
-        authRequestHeaders:
-          - X-Forwarded-Host
-          - X-Forwarded-Proto
-          - X-Forwarded-Uri
-          - X-Forwarded-For
 
-    # Developer access (includes admin)
+    # Group: /developer (Developer access)
+    # Note: Includes /admin access
+    # Distinct from the 'developer' role
     oauth2-developer:
       forwardAuth:
-        address: http://oauth2-proxy:4180/oauth2/auth?allowed_groups=developer,admin
+        address: http://oauth2-proxy:4180/oauth2/auth?allowed_groups=/developer,/admin
         trustForwardHeader: true
         authResponseHeaders:
-          - X-Auth-Request-User
-          - X-Auth-Request-Email
           - X-Auth-Request-Access-Token
           - Authorization
-        authRequestHeaders:
-          - X-Forwarded-Host
-          - X-Forwarded-Proto
-          - X-Forwarded-Uri
-          - X-Forwarded-For
 
-    # Family access (includes admin and developer)
+    # Group: /family (Family member access)
+    # Note: Includes /developer and /admin access
+    # Distinct from any roles with similar names
     oauth2-family:
       forwardAuth:
-        address: http://oauth2-proxy:4180/oauth2/auth?allowed_groups=family,developer,admin
+        address: http://oauth2-proxy:4180/oauth2/auth?allowed_groups=/family,/developer,/admin
         trustForwardHeader: true
         authResponseHeaders:
-          - X-Auth-Request-User
-          - X-Auth-Request-Email
           - X-Auth-Request-Access-Token
           - Authorization
-        authRequestHeaders:
-          - X-Forwarded-Host
-          - X-Forwarded-Proto
-          - X-Forwarded-Uri
-          - X-Forwarded-For
 
-    # Client access (includes admin, developer, and family)
+    # Group: /client (Client access)
+    # Note: Includes /family, /developer, and /admin access
+    # Distinct from any roles with similar names
     oauth2-client:
       forwardAuth:
-        address: http://oauth2-proxy:4180/oauth2/auth?allowed_groups=client,family,developer,admin
+        address: http://oauth2-proxy:4180/oauth2/auth?allowed_groups=/client,/family,/developer,/admin
         trustForwardHeader: true
         authResponseHeaders:
-          - X-Auth-Request-User
-          - X-Auth-Request-Email
           - X-Auth-Request-Access-Token
           - Authorization
-        authRequestHeaders:
-          - X-Forwarded-Host
-          - X-Forwarded-Proto
-          - X-Forwarded-Uri
-          - X-Forwarded-For
