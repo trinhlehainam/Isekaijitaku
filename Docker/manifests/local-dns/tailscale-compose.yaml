@@ -38,6 +38,7 @@ services:
       - "traefik.http.services.adguardhome-local.loadbalancer.server.port=80"
       - "traefik.http.routers.adguardhome-local.service=adguardhome-local"
       - "traefik.http.routers.adguardhome-local.tls.certresolver=stepca"
+      - "traefik.http.routers.adguardhome-local.middlewares=oauth2-admin@file"
 
   # https://github.com/AdguardTeam/AdGuardHome/wiki/Docker
   adguardhome:

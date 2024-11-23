@@ -18,6 +18,7 @@ services:
       - "traefik.http.routers.dozzle-local.entrypoints=websecure"
       - "traefik.http.routers.dozzle-local.tls=true"
       - "traefik.http.routers.dozzle-local.tls.certresolver=stepca"
+      - "traefik.http.routers.dozzle-local.middlewares=oauth2-admin@file"
 
 networks:
   proxy:
