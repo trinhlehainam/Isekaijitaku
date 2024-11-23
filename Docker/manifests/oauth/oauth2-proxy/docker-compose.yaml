@@ -34,17 +34,6 @@ services:
       - oauth2_proxy_client_secret
       - oauth2_proxy_client_id
       - oauth2_proxy_oidc_issuer_url
-    labels:
-      - "traefik.enable=true"
-      - "traefik.docker.network=proxy"
-      # Service definition
-      - "traefik.http.services.oauth2-proxy-service.loadbalancer.server.port=4180"
-      - "traefik.http.services.oauth2-proxy-service.loadbalancer.server.scheme=http"
-      # OAuth2 proxy endpoints
-      - "traefik.http.routers.oauth2-proxy-local.rule=Host(`oauth2-proxy.yourdomain.local`) && PathPrefix(`/oauth2/`)"
-      - "traefik.http.routers.oauth2-proxy-local.service=oauth2-proxy-service"
-      - "traefik.http.routers.oauth2-proxy-local.tls.certresolver=stepca"
-      - "traefik.http.routers.oauth2-proxy-local.middlewares=security-auth-headers@file"
     restart: unless-stopped
 
 networks:

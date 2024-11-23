@@ -4,6 +4,21 @@
 # https://www.reddit.com/r/KeyCloak/comments/vkq2ea/keycloak_oauth_proxy_granular_control_for/
 
 http:
+  routers:
+    oauth2-proxy-local:
+      rule: "Host(`oauth2-proxy.yourdomain.local`) && PathPrefix(`/oauth2/`)"
+      service: oauth2-proxy
+      tls:
+        certResolver: stepca
+      middlewares:
+        - security-auth-headers
+
+  services:
+    oauth2-proxy:
+      loadBalancer:
+        servers:
+          - url: "http://oauth2-proxy:4180"
+
   middlewares:
     # Security headers for all authenticated requests
     security-auth-headers:
@@ -50,7 +65,7 @@ http:
       errors:
         status:
           - "401-403"
-        service: oauth2-proxy-service
+        service: oauth2-proxy
         query: "/oauth2/sign_in?rd={url}"
 
     # Group: /admin (Administrator access)
