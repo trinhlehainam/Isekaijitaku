@@ -57,11 +57,9 @@ services:
       # https://www.keycloak.org/server/hostname#_validations
       # Disable Keycloak hostname because we are using Traefik as reverse proxy to manage the hostname
       KC_HOSTNAME_STRICT: false
-      # KC_HOSTNAME: localhost
       # NOTE: tls configuration
       # https://www.keycloak.org/server/enabletls
       KC_HTTP_ENABLED: true
-      # KC_HOSTNAME_PORT: 8443
       # NOTE: reverse proxy configuration
       # https://www.keycloak.org/server/reverseproxy
       KC_PROXY_HEADERS: 'xforwarded'
@@ -88,10 +86,8 @@ services:
     depends_on:
       - keycloak-postgres
     networks:
-      keycloak:
-      proxy:
-        aliases:
-          - keycloak.yourdomain.local
+      - keycloak
+      - proxy
     # https://gist.github.com/sarath-soman/5d9aec06953bbd0990c648605d4dba07?permalink_comment_id=5225953#gistcomment-5225953
     healthcheck:
       test:
@@ -116,7 +112,7 @@ services:
       - "traefik.http.routers.keycloak-local.service=keycloak"
       - "traefik.http.routers.keycloak-local.entrypoints=websecure"
       - "traefik.http.routers.keycloak-local.tls.certresolver=stepca"
-      - "traefik.http.routers.keycloak-local.middlewares=security-auth-headers@file"
+      - "traefik.http.routers.keycloak-local.middlewares=rewrite-oauth2-proxy-local-location@file"
 
 secrets:
   db_password:

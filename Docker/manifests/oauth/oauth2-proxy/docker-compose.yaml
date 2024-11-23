@@ -17,8 +17,16 @@ services:
         /bin/oauth2-proxy --config=/etc/oauth2-proxy/oauth2-proxy.cfg
     volumes:
       - ./oauth2-proxy.cfg:/etc/oauth2-proxy/oauth2-proxy.cfg:ro
+      - /path/to/step-ca/certs/root_ca.crt:/etc/ssl/step-ca/root_ca.crt:ro
     networks:
-      - proxy
+      proxy:
+      dns:
+        ipv4_address: 172.30.0.14
+    # NOTE: oicd_issuer_url need to match url request from browser
+    dns:
+      - 172.30.0.10
+      - 1.1.1.1
+      - 1.0.0.2
     secrets:
       # NOTE: generate cookie_secret
       # https://oauth2-proxy.github.io/oauth2-proxy/configuration/overview/#generating-a-cookie-secret
@@ -35,12 +43,14 @@ services:
       # OAuth2 proxy endpoints
       - "traefik.http.routers.oauth2-proxy-local.rule=Host(`oauth2-proxy.yourdomain.local`) && PathPrefix(`/oauth2/`)"
       - "traefik.http.routers.oauth2-proxy-local.service=oauth2-proxy-service"
-      - "traefik.http.routers.oauth2-proxy-local.middlewares=security-auth-headers@file"
       - "traefik.http.routers.oauth2-proxy-local.tls.certresolver=stepca"
+      - "traefik.http.routers.oauth2-proxy-local.middlewares=security-auth-headers@file"
     restart: unless-stopped
 
 networks:
   proxy:
+    external: true
+  dns:
     external: true
 
 secrets:

@@ -70,3 +70,12 @@ certificatesResolvers:
       caCertificates:
         - "/certs/step-ca/root_ca.crt"
       tlsChallenge: {}
+
+pilot:
+  token: "xxxx"
+
+experimental:
+  plugins:
+    rewriteHeaders:
+      modulename: "github.com/XciD/traefik-plugin-rewrite-headers"
+      version: "v0.0.4"
