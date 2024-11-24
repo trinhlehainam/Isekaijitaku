@@ -57,6 +57,8 @@ services:
       # https://www.keycloak.org/server/hostname#_validations
       # Disable Keycloak hostname because we are using Traefik as reverse proxy to manage the hostname
       KC_HOSTNAME_STRICT: false
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: false
+      # KC_HOSTNAME: "keycloak.yourdomain.local"
       # NOTE: tls configuration
       # https://www.keycloak.org/server/enabletls
       KC_HTTP_ENABLED: true

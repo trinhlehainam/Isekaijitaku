@@ -1,12 +1,22 @@
 # https://oauth2-proxy.github.io/oauth2-proxy/configuration/integration/#configuring-for-use-with-the-traefik-v2-forwardauth-middleware
 # https://doc.traefik.io/traefik/middlewares/http/headers/
 # https://doc.traefik.io/traefik/middlewares/http/forwardauth/
-# https://www.reddit.com/r/KeyCloak/comments/vkq2ea/keycloak_oauth_proxy_granular_control_for/
+# https://oauth2-proxy.github.io/oauth2-proxy/features/endpoints/
+
+# NOTE: oauth2-proxy forward auth issues
+# https://github.com/oauth2-proxy/oauth2-proxy/issues/1639#issuecomment-1686259034
+# https://github.com/oauth2-proxy/oauth2-proxy/issues/1297#issuecomment-2004788570
+# https://github.com/oauth2-proxy/oauth2-proxy/issues/334#issuecomment-2140990014
+
+# NOTE: Keycloak logout
+# https://developers.redhat.com/articles/2022/12/07/how-implement-single-sign-out-keycloak-spring-boot#back_channel_vs__front_channel_logout
+# https://github.com/oauth2-proxy/oauth2-proxy/issues/1958#issuecomment-1373530220
 
 http:
   routers:
     oauth2-proxy-local:
-      rule: "Host(`oauth2-proxy.yourdomain.local`) && PathPrefix(`/oauth2/`)"
+      # rule: "Host(`oauth2-proxy.yourdomain.local`) && PathPrefix(`/oauth2/`)"
+      rule: "Host(`oauth2-proxy.yourdomain.local`)"
       service: oauth2-proxy
       tls:
         certResolver: stepca
@@ -46,19 +56,15 @@ http:
         browserXssFilter: true
         contentTypeNosniff: true
         forceSTSHeader: true
-        sslHost: "oauth2-proxy.yourdomain.local"
         stsIncludeSubdomains: true
         stsPreload: true
         frameDeny: true
 
     # OAuth2 Proxy Forward Auth
-    oauth2-proxy:
+    oauth2:
       forwardAuth:
-        address: http://oauth2-proxy:4180/oauth2/auth
+        address: http://oauth2-proxy:4180
         trustForwardHeader: true
-        authResponseHeaders:
-          - X-Auth-Request-Access-Token
-          - Authorization
 
     # Error handling - redirect to OAuth2 sign in
     oauth2-errors:
@@ -74,9 +80,6 @@ http:
       forwardAuth:
         address: http://oauth2-proxy:4180/oauth2/auth?allowed_groups=/admin
         trustForwardHeader: true
-        authResponseHeaders:
-          - X-Auth-Request-Access-Token
-          - Authorization
 
     # Group: /developer (Developer access)
     # Note: Includes /admin access
@@ -85,9 +88,6 @@ http:
       forwardAuth:
         address: http://oauth2-proxy:4180/oauth2/auth?allowed_groups=/developer,/admin
         trustForwardHeader: true
-        authResponseHeaders:
-          - X-Auth-Request-Access-Token
-          - Authorization
 
     # Group: /family (Family member access)
     # Note: Includes /developer and /admin access
@@ -96,17 +96,11 @@ http:
       forwardAuth:
         address: http://oauth2-proxy:4180/oauth2/auth?allowed_groups=/family,/developer,/admin
         trustForwardHeader: true
-        authResponseHeaders:
-          - X-Auth-Request-Access-Token
-          - Authorization
 
-    # Group: /client (Client access)
+    # Group: /guest (Guest access)
     # Note: Includes /family, /developer, and /admin access
     # Distinct from any roles with similar names
-    oauth2-client:
+    oauth2-guest:
       forwardAuth:
-        address: http://oauth2-proxy:4180/oauth2/auth?allowed_groups=/client,/family,/developer,/admin
+        address: http://oauth2-proxy:4180/oauth2/auth?allowed_groups=/guest,/family,/developer,/admin
         trustForwardHeader: true
-        authResponseHeaders:
-          - X-Auth-Request-Access-Token
-          - Authorization
