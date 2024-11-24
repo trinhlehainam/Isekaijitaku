@@ -14,6 +14,7 @@ services:
         export OAUTH2_PROXY_CLIENT_SECRET=$$(cat /run/secrets/oauth2_proxy_client_secret)
         export OAUTH2_PROXY_CLIENT_ID=$$(cat /run/secrets/oauth2_proxy_client_id)
         export OAUTH2_PROXY_OIDC_ISSUER_URL=$$(cat /run/secrets/oauth2_proxy_oidc_issuer_url)
+        export OAUTH2_PROXY_BACKEND_LOGOUT_URL=$$(cat /run/secrets/oauth2_proxy_backend_logout_url)
         /bin/oauth2-proxy --config=/etc/oauth2-proxy/oauth2-proxy.cfg
     volumes:
       - ./oauth2-proxy.cfg:/etc/oauth2-proxy/oauth2-proxy.cfg:ro
@@ -34,6 +35,7 @@ services:
       - oauth2_proxy_client_secret
       - oauth2_proxy_client_id
       - oauth2_proxy_oidc_issuer_url
+      - oauth2_proxy_backend_logout_url
     restart: unless-stopped
 
 networks:
@@ -51,3 +53,5 @@ secrets:
     file: ./secrets/oauth2_proxy_client_id
   oauth2_proxy_oidc_issuer_url:
     file: ./secrets/oauth2_proxy_oidc_issuer_url
+  oauth2_proxy_backend_logout_url:
+    file: ./secrets/oauth2_proxy_backend_logout_url
