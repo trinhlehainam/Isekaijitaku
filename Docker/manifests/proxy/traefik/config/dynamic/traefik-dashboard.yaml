@@ -11,14 +11,9 @@ http:
       tls:
         certResolver: stepca
       middlewares:
+        # - oauth2-errors@file
+        - oauth2@file
         - oauth2-admin@file
-
-  # middlewares:
-  #   auth:
-  #     basicAuth:
-  #       users:
-  #         - "test:$apr1$H6uskkkW$IgXLP6ewTrSuBkTrqE8wj/"
-  #         - "test2:$apr1$d9hr9HBB$4HxwgUir3HP4EsggP/QNo0"
 
   # services:
   #   # NOTE: avoid port forwarding from host machine by using container network

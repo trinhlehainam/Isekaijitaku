@@ -5,7 +5,7 @@
 
 # NOTE: oauth2-proxy forward auth with allowed_groups issues
 # https://github.com/oauth2-proxy/oauth2-proxy/issues/1639#issuecomment-1686259034
-# https://github.com/oauth2-proxy/oauth2-proxy/issues/1297#issuecomment-2004788570
+# https://github.com/oauth2-proxy/oauth2-proxy/issues/1297#issuecomment-1564124675
 # https://github.com/oauth2-proxy/oauth2-proxy/issues/334#issuecomment-2140990014
 
 # NOTE: Keycloak logout
