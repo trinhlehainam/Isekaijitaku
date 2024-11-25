@@ -114,7 +114,6 @@ services:
       - "traefik.http.routers.keycloak-local.service=keycloak"
       - "traefik.http.routers.keycloak-local.entrypoints=websecure"
       - "traefik.http.routers.keycloak-local.tls.certresolver=stepca"
-      - "traefik.http.routers.keycloak-local.middlewares=rewrite-oauth2-proxy-local-location@file"
 
 secrets:
   db_password:

@@ -15,7 +15,6 @@
 http:
   routers:
     oauth2-proxy-local:
-      # rule: "Host(`oauth2-proxy.yourdomain.local`) && PathPrefix(`/oauth2/`)"
       rule: "Host(`oauth2-proxy.yourdomain.local`)"
       service: oauth2-proxy
       tls:
@@ -67,6 +66,7 @@ http:
         trustForwardHeader: true
 
     # Error handling - redirect to OAuth2 sign in
+    # NOTE: Traefik haven't support rewrite status code and redirect url
     oauth2-errors:
       errors:
         status:
