@@ -14,7 +14,7 @@ services:
       - proxy
     labels:
       - "traefik.enable=true"
-      - "traefik.http.routers.dozzle-local.rule=Host(`dozzle.isekaijitaku.test`)"
+      - "traefik.http.routers.dozzle-local.rule=Host(`dozzle.yourdomain.local`)"
       - "traefik.http.routers.dozzle-local.entrypoints=websecure"
       - "traefik.http.routers.dozzle-local.tls=true"
       - "traefik.http.routers.dozzle-local.tls.certresolver=stepca"

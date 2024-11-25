@@ -57,8 +57,9 @@ services:
       # NOTE: make sure step-ca is initialized before creating Traefik
       - "./step/certs/root_ca.crt:/certs/step-ca/root_ca.crt:ro"
     ports:
-      - "80:80"
-      - "443:443"
+      - "80:80" # web
+      - "443:443" # websecure
+      - "6379:6379" # redis
       # - "8080:8080"
     networks:
       - proxy

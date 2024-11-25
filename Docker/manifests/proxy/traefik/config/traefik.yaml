@@ -2,6 +2,11 @@ providers:
   docker:
     endpoint: "unix:///var/run/docker.sock"
     exposedByDefault: false
+  # https://doc.traefik.io/traefik/providers/redis/#provider-configuration
+  redis:
+    endpoints:
+     - "redis:6379"
+    password: "password"  
   # NOTE: dynamic configuration
   # https://doc.traefik.io/traefik/providers/file/
   file:
@@ -52,6 +57,8 @@ entryPoints:
         readTimeout: 300s
         writeTimeout: 300s
         idleTimeout: 300s
+  redis:
+    address: :6379
 
 certificatesResolvers:
   # https://smallstep.com/docs/tutorials/acme-protocol-acme-clients/#traefik
@@ -64,7 +71,8 @@ certificatesResolvers:
       caServer: "https://step-ca:9000/acme/acme/directory"
       email: "test@example.com"
       storage: "/etc/letsencrypt/stepca-acme.json"
-      certificatesDuration: 2160
+      # https://smallstep.com/docs/step-ca/basic-certificate-authority-operations/#adjust-certificate-lifetimes
+      certificatesDuration: 24
       # https://doc.traefik.io/traefik/https/acme/#cacertificates
       # NOTE: supported Traefik version >= v3.2
       caCertificates:

@@ -17,6 +17,8 @@ http:
     oauth2-proxy-local:
       rule: "Host(`oauth2-proxy.yourdomain.local`)"
       service: oauth2-proxy
+      entryPoints:
+        - "websecure"
       tls:
         certResolver: stepca
       middlewares:

@@ -1,0 +1,13 @@
+# https://github.com/jittering/traefik-kop
+
+services:
+  traefik-kop:
+    container_name: "traefik-kop"
+    # https://github.com/jittering/traefik-kop/pkgs/container/traefik-kop
+    image: "ghcr.io/jittering/traefik-kop:latest"
+    restart: unless-stopped
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      - "REDIS_ADDR=192.168.1.200:6379"
+      - "BIND_IP=192.168.0.100"
