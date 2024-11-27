@@ -1,11 +1,14 @@
+# https://docs.portainer.io/admin/environments/add/docker/agent
+
 services:
-  agent:
+  portainer_agent:
     container_name: portainer_agent
-    image: 'portainer/agent:linux-amd64-2.20.3-alpine'
-    restart: unless-stopped
-    # ports:
-    #   - '9001:9001'
+    # https://hub.docker.com/r/portainer/agent/tags
+    image: 'portainer/agent:2.24.0-alpine'
+    restart: always
     volumes:
+      - '/:/host'
       - '/var/lib/docker/volumes:/var/lib/docker/volumes'
       - '/var/run/docker.sock:/var/run/docker.sock'
-    network_mode: host
+    ports:
+      - '9001:9001'
