@@ -24,12 +24,10 @@ services:
       # Main router for vaultwarden
       - "traefik.http.routers.vaultwarden-local.rule=Host(`vaultwarden.yourdomain.local`)"
       - "traefik.http.routers.vaultwarden-local.entrypoints=websecure"
-      - "traefik.http.routers.vaultwarden-local.tls=true"
       - "traefik.http.routers.vaultwarden-local.tls.certresolver=stepca"
       # Admin path with OAuth2 protection
       - "traefik.http.routers.vaultwarden-admin-local.rule=Host(`vaultwarden.yourdomain.local`) && PathPrefix(`/admin`)"
       - "traefik.http.routers.vaultwarden-admin-local.entrypoints=websecure"
-      - "traefik.http.routers.vaultwarden-admin-local.tls=true"
       - "traefik.http.routers.vaultwarden-admin-local.tls.certresolver=stepca"
       - "traefik.http.routers.vaultwarden-admin-local.middlewares=oauth2-admin@file"
 

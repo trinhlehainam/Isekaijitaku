@@ -1,0 +1,19 @@
+# https://tailscale.com/kb/1246/tailscale-ssh-session-recording#deploy-a-recorder-node
+#
+services:
+  tsrecorder:
+    # https://hub.docker.com/r/tailscale/tsrecorder/tags
+    image: 'tailscale/tsrecorder:v1.76.6'
+    hostname: tsrecorder
+    container_name: tsrecorder
+    command: '/tsrecorder --dst=/data/recordings --statedir=/data/state --ui'
+    environment:
+      # Use Keys instead of OAuth clients to generate ts_authkey on Tailscale Admin Console
+      TS_AUTHKEY: ${TS_AUTHKEY}
+      TSRECORDER_HOSTNAME: ${TSRECORDER_HOSTNAME}
+    volumes:
+      - './tsrecorder:/data'
+    cap_add:
+      # https://github.com/coder/coder/issues/9881
+      - net_admin
+    restart: unless-stopped
