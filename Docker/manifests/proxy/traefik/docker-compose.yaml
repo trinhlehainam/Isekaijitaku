@@ -87,31 +87,6 @@ services:
     labels:
       - "traefik.enable=false"
 
-  # https://technotim.live/posts/crowdsec-traefik/#dashboard
-  # crowdsec-dashboard:
-  #   container_name: crowdsec-dashboard
-  #   #we're using a custom Dockerfile so that metabase pops with pre-configured dashboards
-  #   build: ./crowdsec/dashboard
-  #   restart: unless-stopped
-  #   # ports:
-  #   #   - 3000:3000
-  #   environment:
-  #     MB_DB_FILE: /data/metabase.db
-  #     MGID: "${GID-1000}"
-  #   depends_on:
-  #     - crowdsec
-  #   volumes:
-  #     - ./crowdsec/data:/metabase-data/
-  #   networks:
-  #     - crowdsec
-  #   labels:
-  #     - "traefik.enable=true"
-  #     - "traefik.docker.network=crowdsec"
-  #     - "traefik.http.services.crowdsec-dashboard.loadbalancer.server.port=3000"
-  #     - "traefik.http.routers.crowdsec-dashboard-local.rule=Host(`crowdsec.yourdomain.local`)"
-  #     - "traefik.http.routers.crowdsec-dashboard-local.entrypoints=websecure"
-  #     - "traefik.http.routers.crowdsec-dashboard-local.tls.certresolver=stepca"
-
   # https://github.com/xavier-hernandez/goaccess-for-nginxproxymanager
   goaccess:
     # https://hub.docker.com/r/xavierh/goaccess-for-nginxproxymanager/tags
