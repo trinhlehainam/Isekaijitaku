@@ -11,14 +11,28 @@ services:
       - linkwarden
     secrets:
       - db_password
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-q", "-d", "${POSTGRES_DB}", "-U", "${POSTGRES_USER}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
   linkwarden:
     container_name: linkwarden
     # https://github.com/linkwarden/linkwarden/pkgs/container/linkwarden
     image: ghcr.io/linkwarden/linkwarden:v2.8.3
     restart: unless-stopped
-    environment:
-      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/postgres
+    entrypoint: 
+      - /bin/sh
+      - -c
+      - |
+        export POSTGRES_PASSWORD=$$(cat /run/secrets/db_password);
+        export NEXTAUTH_SECRET=$$(cat /run/secrets/nextauth_secret);
+        export DATABASE_URL=postgresql://${POSTGRES_USER}:$$POSTGRES_PASSWORD@linkwarden-postgres:5432/${POSTGRES_DB};
+        yarn prisma migrate deploy && yarn start
+    secrets:
+      - db_password
+      - nextauth_secret
     volumes:
       - ./data:/data/data
     depends_on:
@@ -45,3 +59,5 @@ networks:
 secrets:
   db_password:
     file: ./secrets/db_password
+  nextauth_secret:
+    file: ./secrets/nextauth_secret
