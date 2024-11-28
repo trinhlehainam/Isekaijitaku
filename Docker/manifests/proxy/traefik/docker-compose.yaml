@@ -51,7 +51,7 @@ services:
       - "/var/run/docker.sock:/var/run/docker.sock:ro"
       - "./config/traefik.yaml:/etc/traefik/traefik.yaml:ro"
       - "./config/dynamic:/etc/traefik/dynamic:ro"
-      # NOTE: make sure access.log exists before starting Traefik
+      # NOTE: make sure access.log file exists before starting Traefik
       - "./log/access.log:/var/log/traefik/access.log"
       - "./letsencrypt:/etc/letsencrypt"
       # NOTE: make sure step-ca is initialized before creating Traefik
@@ -59,14 +59,16 @@ services:
     ports:
       - "80:80" # web
       - "443:443" # websecure
-      - "6379:6379" # redis
-      # - "8080:8080"
+      # - "6379:6379" # redis
+      # - "8080:8080" # insecure dashboard
     networks:
       - proxy
+      - crowdsec
 
   # https://doc.crowdsec.net/docs/next/appsec/quickstart/traefik
   # https://github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin?tab=readme-ov-file#usage
   # https://www.crowdsec.net/blog/enhance-docker-compose-security
+  # https://github.com/TechnoBoom/YT-Files
   crowdsec:
     # https://hub.docker.com/r/crowdsecurity/crowdsec/tags
     image: crowdsecurity/crowdsec:v1.6.4
@@ -75,15 +77,40 @@ services:
     environment:
       COLLECTIONS: crowdsecurity/traefik crowdsecurity/appsec-virtual-patching crowdsecurity/appsec-generic-rules
       CUSTOM_HOSTNAME: crowdsec
-      # We need to register one api key per service we will use
-      BOUNCER_KEY_TRAEFIK: FIXME-LAPI-KEY-1=
     volumes:
-      - ./acquis.yaml:/etc/crowdsec/acquis.yaml:ro
-      - logs:/var/log/traefik:ro
-      - crowdsec-db:/var/lib/crowdsec/data/
-      - crowdsec-config:/etc/crowdsec/
+      - ./crowdsec/acquis.yaml:/etc/crowdsec/acquis.yaml:ro
+      - ./log/access.log:/var/log/traefik/access.log:ro
+      - ./crowdsec/data:/var/lib/crowdsec/data/
+      - ./crowdsec/config:/etc/crowdsec/
+    networks:
+      - crowdsec
     labels:
       - "traefik.enable=false"
+
+  # https://technotim.live/posts/crowdsec-traefik/#dashboard
+  # crowdsec-dashboard:
+  #   container_name: crowdsec-dashboard
+  #   #we're using a custom Dockerfile so that metabase pops with pre-configured dashboards
+  #   build: ./crowdsec/dashboard
+  #   restart: unless-stopped
+  #   # ports:
+  #   #   - 3000:3000
+  #   environment:
+  #     MB_DB_FILE: /data/metabase.db
+  #     MGID: "${GID-1000}"
+  #   depends_on:
+  #     - crowdsec
+  #   volumes:
+  #     - ./crowdsec/data:/metabase-data/
+  #   networks:
+  #     - crowdsec
+  #   labels:
+  #     - "traefik.enable=true"
+  #     - "traefik.docker.network=crowdsec"
+  #     - "traefik.http.services.crowdsec-dashboard.loadbalancer.server.port=3000"
+  #     - "traefik.http.routers.crowdsec-dashboard-local.rule=Host(`crowdsec.yourdomain.local`)"
+  #     - "traefik.http.routers.crowdsec-dashboard-local.entrypoints=websecure"
+  #     - "traefik.http.routers.crowdsec-dashboard-local.tls.certresolver=stepca"
 
   # https://github.com/xavier-hernandez/goaccess-for-nginxproxymanager
   goaccess:
@@ -118,11 +145,11 @@ services:
       - proxy
     labels:
       - "traefik.enable=true"
+      - "traefik.http.services.goaccess.loadbalancer.server.port=7880"
       - "traefik.http.routers.goaccess-local.rule=Host(`goaccess.yourdomain.local`)"
       - "traefik.http.routers.goaccess-local.entrypoints=websecure"
-      - "traefik.http.routers.goaccess-local.tls=true"
       - "traefik.http.routers.goaccess-local.tls.certresolver=stepca"
-      - "traefik.http.routers.goaccess-local.middlewares=oauth2-admin@file"
+      - "traefik.http.routers.goaccess-local.middlewares=oauth2@file,oauth2-admin@file"
 
 volumes:
   step:
@@ -130,6 +157,8 @@ volumes:
 
 networks:
   proxy:
+    external: true
+  crowdsec:
     external: true
   dns:
     external: true

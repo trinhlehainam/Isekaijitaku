@@ -21,6 +21,7 @@ services:
         ipv4_address: 10.10.10.34
     labels:
       - "traefik.enable=true"
+      - "traefik.http.services.vaultwarden.loadbalancer.server.port=80"
       # Main router for vaultwarden
       - "traefik.http.routers.vaultwarden-local.rule=Host(`vaultwarden.yourdomain.local`)"
       - "traefik.http.routers.vaultwarden-local.entrypoints=websecure"

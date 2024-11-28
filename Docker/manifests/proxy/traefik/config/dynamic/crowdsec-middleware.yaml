@@ -1,68 +1,46 @@
 # https://github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin?tab=readme-ov-file#configuration
+# https://github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin?tab=readme-ov-file#variables
 
 http:
   middlewares:
     crowdsec:
       plugin:
         bouncer:
-          enabled: false
+          enabled: true
           logLevel: DEBUG
           updateIntervalSeconds: 60
           updateMaxFailure: 0
           defaultDecisionSeconds: 60
           httpTimeoutSeconds: 10
           crowdsecMode: live
-          crowdsecAppsecEnabled: false
+          # NOTE: enable AppSec
+          # https://github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin/blob/main/examples/appsec-enabled/README.md
+          crowdsecAppsecEnabled: true
           crowdsecAppsecHost: crowdsec:7422
           crowdsecAppsecFailureBlock: true
           crowdsecAppsecUnreachableBlock: true
+          # NOTE: generate LAPI key
+          # sudo docker exec crowdsec cscli bouncers add traefik-bouncer
           crowdsecLapiKey: privateKey-foo
-          crowdsecLapiKeyFile: /etc/traefik/cs-privateKey-foo
           crowdsecLapiHost: crowdsec:8080
           crowdsecLapiScheme: http
           crowdsecLapiTLSInsecureVerify: false
-          crowdsecCapiMachineId: login
-          crowdsecCapiPassword: password
-          crowdsecCapiScenarios:
-            - crowdsecurity/http-path-traversal-probing
-            - crowdsecurity/http-xss-probing
-            - crowdsecurity/http-generic-bf
-          forwardedHeadersTrustedIPs: 
-            - 10.0.10.23/32
-            - 10.0.20.0/24
-          clientTrustedIPs: 
-            - 192.168.1.0/24
-          forwardedHeadersCustomName: X-Custom-Header
-          remediationHeadersCustomName: cs-remediation
-          redisCacheEnabled: false
+          # NOTE: enable Redis cache
+          # https://github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin/blob/main/examples/redis-cache/README.md
+          redisCacheEnabled: true
           redisCacheHost: "redis:6379"
           redisCachePassword: password
           redisCacheDatabase: "5"
-          crowdsecLapiTLSCertificateAuthority: |-
-            -----BEGIN CERTIFICATE-----
-            MIIEBzCCAu+gAwIBAgICEAAwDQYJKoZIhvcNAQELBQAwgZQxCzAJBgNVBAYTAlVT
-            ...
-            Q0veeNzBQXg1f/JxfeA39IDIX1kiCf71tGlT
-            -----END CERTIFICATE-----
-          crowdsecLapiTLSCertificateAuthorityFile: /etc/traefik/crowdsec-certs/ca.pem
-          crowdsecLapiTLSCertificateBouncer: |-
-            -----BEGIN CERTIFICATE-----
-            MIIEHjCCAwagAwIBAgIUOBTs1eqkaAUcPplztUr2xRapvNAwDQYJKoZIhvcNAQEL
-            ...
-            RaXAnYYUVRblS1jmePemh388hFxbmrpG2pITx8B5FMULqHoj11o2Rl0gSV6tHIHz
-            N2U=
-            -----END CERTIFICATE-----
-          crowdsecLapiTLSCertificateBouncerFile: /etc/traefik/crowdsec-certs/bouncer.pem
-          crowdsecLapiTLSCertificateBouncerKey: |-
-            -----BEGIN RSA PRIVATE KEY-----
-            MIIEogIBAAKCAQEAtYQnbJqifH+ZymePylDxGGLIuxzcAUU4/ajNj+qRAdI/Ux3d
-            ...
-            ic5cDRo6/VD3CS3MYzyBcibaGaV34nr0G/pI+KEqkYChzk/PZRA=
-            -----END RSA PRIVATE KEY-----
-          crowdsecLapiTLSCertificateBouncerKeyFile: /etc/traefik/crowdsec-certs/bouncer-key.pem
-          captchaProvider: hcaptcha
-          captchaSiteKey: FIXME
-          captchaSecretKey: FIXME
-          captchaGracePeriodSeconds: 1800
-          captchaHTMLFilePath: /captcha.html
-          banHTMLFilePath: /ban.html
+          # NOTE: trusted IPs
+          # https://github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin/blob/main/examples/trusted-ips/README.md
+          # forwardedHeadersTrustedIPs: 
+          #   - 10.0.10.23/32
+          #   - 10.0.20.0/24
+          clientTrustedIPs: 
+            # NOTE: Tailscale IPs
+            # https://tailscale.com/kb/1015/100.x-addresses
+            - 100.64.0.0/10 
+            - 192.168.1.0/24
+            - 192.168.0.1/24
+            # NOTE: May need to include gateway IP of crowdsec network
+            - 172.40.0.1/32
