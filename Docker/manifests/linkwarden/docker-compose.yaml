@@ -5,6 +5,10 @@ services:
     image: postgres:16.5-alpine3.20
     container_name: linkwarden-postgres
     restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD_FILE: "/run/secrets/db_password"
     volumes:
       - ./pgdata:/var/lib/postgresql/data
     networks:
@@ -23,16 +27,18 @@ services:
     image: ghcr.io/linkwarden/linkwarden:v2.8.3
     restart: unless-stopped
     entrypoint: 
-      - /bin/sh
+      - /bin/bash
       - -c
       - |
-        export POSTGRES_PASSWORD=$$(cat /run/secrets/db_password);
-        export NEXTAUTH_SECRET=$$(cat /run/secrets/nextauth_secret);
-        export DATABASE_URL=postgresql://${POSTGRES_USER}:$$POSTGRES_PASSWORD@linkwarden-postgres:5432/${POSTGRES_DB};
+        export POSTGRES_PASSWORD=$$(cat /run/secrets/db_password)
+        export NEXTAUTH_SECRET=$$(cat /run/secrets/nextauth_secret)
+        export KEYCLOAK_CLIENT_SECRET=$$(cat /run/secrets/keycloak_secret)
+        export DATABASE_URL=postgresql://${POSTGRES_USER}:$$POSTGRES_PASSWORD@linkwarden-postgres:5432/${POSTGRES_DB}
         yarn prisma migrate deploy && yarn start
     secrets:
       - db_password
       - nextauth_secret
+      - keycloak_secret
     volumes:
       - ./data:/data/data
     depends_on:
@@ -40,8 +46,15 @@ services:
     # ports:
     #   - 3000:3000
     networks:
-      - linkwarden
-      - proxy
+      linkwarden:
+      proxy:
+      # NOTE: Use to discover Keycloak private domain by query local DNS server
+      dns:
+        ipv4_address: 172.30.0.16
+    dns:
+      - 172.30.0.10
+      - 1.1.1.1
+      - 1.0.0.1
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=proxy"
@@ -55,9 +68,13 @@ networks:
     driver: bridge
   proxy:
     external: true
+  dns:
+    external: true
 
 secrets:
   db_password:
     file: ./secrets/db_password
   nextauth_secret:
     file: ./secrets/nextauth_secret
+  keycloak_secret:
+    file: ./secrets/keycloak_secret
