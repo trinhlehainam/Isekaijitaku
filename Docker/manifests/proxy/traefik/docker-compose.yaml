@@ -64,6 +64,27 @@ services:
     networks:
       - proxy
 
+  # https://doc.crowdsec.net/docs/next/appsec/quickstart/traefik
+  # https://github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin?tab=readme-ov-file#usage
+  # https://www.crowdsec.net/blog/enhance-docker-compose-security
+  crowdsec:
+    # https://hub.docker.com/r/crowdsecurity/crowdsec/tags
+    image: crowdsecurity/crowdsec:v1.6.4
+    container_name: "crowdsec"
+    restart: unless-stopped
+    environment:
+      COLLECTIONS: crowdsecurity/traefik crowdsecurity/appsec-virtual-patching crowdsecurity/appsec-generic-rules
+      CUSTOM_HOSTNAME: crowdsec
+      # We need to register one api key per service we will use
+      BOUNCER_KEY_TRAEFIK: FIXME-LAPI-KEY-1=
+    volumes:
+      - ./acquis.yaml:/etc/crowdsec/acquis.yaml:ro
+      - logs:/var/log/traefik:ro
+      - crowdsec-db:/var/lib/crowdsec/data/
+      - crowdsec-config:/etc/crowdsec/
+    labels:
+      - "traefik.enable=false"
+
   # https://github.com/xavier-hernandez/goaccess-for-nginxproxymanager
   goaccess:
     # https://hub.docker.com/r/xavierh/goaccess-for-nginxproxymanager/tags
@@ -101,10 +122,7 @@ services:
       - "traefik.http.routers.goaccess-local.entrypoints=websecure"
       - "traefik.http.routers.goaccess-local.tls=true"
       - "traefik.http.routers.goaccess-local.tls.certresolver=stepca"
-      # - "traefik.http.routers.goaccess-local.middlewares=oauth2-admin@file"
-  # NOTE: crowdsec
-  # https://www.crowdsec.net/blog/enhance-docker-compose-security
-  # https://github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin
+      - "traefik.http.routers.goaccess-local.middlewares=oauth2-admin@file"
 
 volumes:
   step:
