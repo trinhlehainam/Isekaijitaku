@@ -1,0 +1,47 @@
+# https://docs.linkwarden.app/self-hosting/installation#docker-compose-
+
+services:
+  linkwarden-postgres:
+    image: postgres:16.5-alpine3.20
+    container_name: linkwarden-postgres
+    restart: unless-stopped
+    volumes:
+      - ./pgdata:/var/lib/postgresql/data
+    networks:
+      - linkwarden
+    secrets:
+      - db_password
+
+  linkwarden:
+    container_name: linkwarden
+    # https://github.com/linkwarden/linkwarden/pkgs/container/linkwarden
+    image: ghcr.io/linkwarden/linkwarden:v2.8.3
+    restart: unless-stopped
+    environment:
+      - DATABASE_URL=postgresql://postgres:${POSTGRES_PASSWORD}@postgres:5432/postgres
+    volumes:
+      - ./data:/data/data
+    depends_on:
+      - linkwarden-postgres
+    # ports:
+    #   - 3000:3000
+    networks:
+      - linkwarden
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.services.linkwarden.loadbalancer.server.port=3000"
+      - "traefik.http.routers.linkwarden-local.entrypoints=websecure"
+      - "traefik.http.routers.linkwarden-local.rule=Host(`linkwarden.yourdomain.local`)"
+      - "traefik.http.routers.linkwarden-local.tls.certresolver=stepca"
+
+networks:
+  linkwarden:
+    driver: bridge
+  proxy:
+    external: true
+
+secrets:
+  db_password:
+    file: ./secrets/db_password

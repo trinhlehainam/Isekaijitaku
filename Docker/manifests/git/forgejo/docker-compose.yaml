@@ -32,7 +32,7 @@ services:
       # NOTE: specific docker network for Traefik to use
       # https://doc.traefik.io/traefik/providers/docker/#network
       - "traefik.docker.network=proxy"
-      - "traefik.http.services.forgejo-local.loadbalancer.server.port=3000"
+      - "traefik.http.services.forgejo.loadbalancer.server.port=3000"
       - "traefik.http.routers.forgejo-local.entrypoints=websecure"
       - "traefik.http.routers.forgejo-local.rule=Host(`forgejo.yourdomain.local`)"
       # NOTE: solve git client certificate issue on Windows
