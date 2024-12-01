@@ -3,24 +3,59 @@
 # https://github.com/dani-garcia/vaultwarden/wiki/SMTP-Configuration
 
 services:
+  vaultwarden-postgres:
+    # https://hub.docker.com/_/postgres/tags
+    image: postgres:16.5-alpine3.20
+    container_name: vaultwarden-postgres
+    volumes:
+      - ./postgres:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD_FILE: "/run/secrets/db_password"
+    networks:
+      - vaultwarden
+    secrets:
+      - db_password
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-q", "-d", "${POSTGRES_DB}", "-U", "${POSTGRES_USER}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
   vaultwarden:
     container_name: vaultwarden
     # https://hub.docker.com/r/vaultwarden/server/tags
     image: vaultwarden/server:1.32.4-alpine
     restart: unless-stopped
+    depends_on:
+      - vaultwarden-postgres
     environment:
       # NOTE: Enable admin page
       # https://github.com/dani-garcia/vaultwarden/wiki/Enabling-admin-page
       - ADMIN_TOKEN=${VAULTWARDEN_ADMIN_TOKEN}
+      # NOTE: Use PostgreSQL instead of SQLite
+      # https://github.com/dani-garcia/vaultwarden/wiki/Using-the-PostgreSQL-Backend
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        export POSTGRES_PASSWORD=$$(cat /run/secrets/db_password)
+        export DATABASE_URL=postgresql://${POSTGRES_USER}:$$POSTGRES_PASSWORD@vaultwarden-postgres:5432/${POSTGRES_DB}
+        /start.sh
     # ports:
     #   - '80:80'
     volumes:
       - vaultwarden_data:/data/
+    secrets:
+      - db_password
     networks:
-      openwrt_vlan:
-        ipv4_address: 10.10.10.34
+      - vaultwarden
+      - proxy
     labels:
       - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
       - "traefik.http.services.vaultwarden.loadbalancer.server.port=80"
       # Main router for vaultwarden
       - "traefik.http.routers.vaultwarden-local.rule=Host(`vaultwarden.yourdomain.local`)"
@@ -33,9 +68,15 @@ services:
       - "traefik.http.routers.vaultwarden-admin-local.middlewares=oauth2-admin@file"
 
 networks:
-  openwrt_vlan:
+  proxy:
     external: true
+  vaultwarden:
+    driver: bridge
 
 volumes:
   vaultwarden_data:
     driver: local
+
+secrets:
+  db_password:
+    file: ./secrets/db_password

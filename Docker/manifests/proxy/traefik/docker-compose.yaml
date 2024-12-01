@@ -62,6 +62,7 @@ services:
       # - "6379:6379" # redis
       # - "8080:8080" # insecure dashboard
     networks:
+      - redis
       - proxy
       - crowdsec
 
@@ -131,6 +132,8 @@ volumes:
     driver: local
 
 networks:
+  redis:
+    external: true
   proxy:
     external: true
   crowdsec:

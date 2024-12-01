@@ -3,7 +3,7 @@ services:
     # https://hub.docker.com/_/redis/tags
     image: redis:7.4.1-alpine3.20
     container_name: redis
-    entrypoint: 
+    entrypoint:
       - /bin/sh
       - -c
       - |
@@ -15,27 +15,28 @@ services:
     secrets:
       - redis_password
     networks:
-      - proxy
+      - redis
     # ports:
     #   - 6379:6379
     labels:
       - "traefik.enable=true"
-      - "traefik.docker.network=proxy"
+      - "traefik.docker.network=redis"
       - "traefik.tcp.services.redis.loadbalancer.server.port=6379"
       - "traefik.tcp.routers.redis.rule=HostSNI(`redis.yourdomain.local`)"
       - "traefik.tcp.routers.redis.entrypoints=redis"
       - "traefik.tcp.routers.redis.tls.certresolver=stepca"
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "redis-cli", "ping"]
+      test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
       timeout: 30s
       retries: 3
 
 networks:
-  proxy:
+  redis:
     external: true
 
 secrets:
   redis_password:
     file: ./secrets/redis_password
+
