@@ -1,6 +1,143 @@
 # https://hub.docker.com/_/nextcloud
 # https://chrisgrime.medium.com/deploy-nextcloud-with-docker-compose-935a76a5eb78
-# https://docs.nextcloud.com/server/latest/admin_manual/configuration_database/linux_database_configuration.html#postgresql-database
-# https://github.com/nextcloud/all-in-one
+# https://www.smarthomebeginner.com/traefik-docker-nextcloud/
+# https://github.com/heyvaldemar/nextcloud-traefik-letsencrypt-docker-compose
+# https://forums.truenas.com/t/logging-into-nextcloud-app-for-the-first-time-cannot-log-in-as-specified-user/22853/11
 
+services:
+  nextcloud:
+    # https://hub.docker.com/_/nextcloud/tags
+    image: nextcloud:30.0.2-apache
+    container_name: nextcloud
+    restart: unless-stopped
+    depends_on:
+      - nextcloud-postgres
+      - nextcloud-redis
+    # ports:
+    #   - 8080:80
+    volumes:
+      - ./nextcloud/html:/var/www/html
+      - ./nextcloud/custom_apps:/var/www/html/custom_apps
+      - ./nextcloud/config:/var/www/html/config
+      - ./nextcloud/data:/var/www/html/data
+    secrets:
+      - db_password
+      - redis_password
+      - nextcloud_password
+    environment:
+      PUID: 1000
+      PGID: 1000
+      TZ: "Asia/Tokyo"
+      # PostgreSQL and Redis
+      POSTGRES_HOST: "nextcloud-postgres"
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD_FILE: "/run/secrets/db_password"
+      REDIS_HOST: "nextcloud-redis"
+      REDIS_HOST_PORT: 6379
+      # Nextcloud
+      NEXTCLOUD_ADMIN_USER: admin
+      NEXTCLOUD_TRUSTED_DOMAINS: nextcloud.yourdomain.local
+      OVERWRITECLIURL: https://nextcloud.yourdomain.local
+      OVERWRITEPROTOCOL: https
+      OVERWRITEHOST: nextcloud.yourdomain.local
+      TRUSTED_PROXIES: 172.16.0.0/12 192.168.0.0/16 10.0.0.0/8 fc00::/7 fe80::/10 2001:db8::/32
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        export REDIS_HOST_PASSWORD=$$(cat /run/secrets/redis_password)
+        export NEXTCLOUD_ADMIN_PASSWORD=$$(cat /run/secrets/nextcloud_password)
+        /entrypoint.sh apache2-foreground
+    networks:
+      - nextcloud
+      - proxy
+    labels:
+      # https://docs.nextcloud.com/server/21/admin_manual/issues/general_troubleshooting.html#service-discovery
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.services.nextcloud.loadbalancer.server.port=80"
+      - "traefik.http.services.nextcloud.loadbalancer.passhostheader=true"
+      - "traefik.http.routers.nextcloud-local.rule=Host(`nextcloud.yourdomain.local`)"
+      - "traefik.http.routers.nextcloud-local.entrypoints=websecure"
+      - "traefik.http.routers.nextcloud-local.tls.certresolver=stepca"
+      - "traefik.http.routers.nextcloud-local.middlewares=nextcloud-redirectregex1,nextcloud-redirectregex2,compresstraefik,nextcloud-securityheaders"
+      ## Middlewares
+      # NOTE: traefik compress
+      # https://doc.traefik.io/traefik/middlewares/http/compress/
+      - "traefik.http.middlewares.compresstraefik.compress=true"
+      ### Security Headers
+      - "traefik.http.middlewares.nextcloud-securityheaders.headers.stsSeconds=15552000"
+      - "traefik.http.middlewares.nextcloud-securityheaders.headers.stsIncludeSubdomains=true"
+      - "traefik.http.middlewares.nextcloud-securityheaders.headers.stsPreload=true"
+      ###
+      ### Redirects 
+      # https://docs.nextcloud.com/server/21/admin_manual/issues/general_troubleshooting.html#service-discovery
+      - "traefik.http.middlewares.nextcloud-redirectregex1.redirectregex.permanent=true"
+      - "traefik.http.middlewares.nextcloud-redirectregex1.redirectregex.regex=https?://([^/]*)/.well-known/(card|cal)dav"
+      - "traefik.http.middlewares.nextcloud-redirectregex1.redirectregex.replacement=https://$${1}/remote.php/dav/"
+      - "traefik.http.middlewares.nextcloud-redirectregex2.redirectregex.permanent=true"
+      - "traefik.http.middlewares.nextcloud-redirectregex2.redirectregex.regex=https?://([^/]*)(/.well-known[^#]*)"
+      - "traefik.http.middlewares.nextcloud-redirectregex2.redirectregex.replacement=https://$${1}/index.php$${2}"
+      ###
+      ##
 
+  nextcloud-postgres:
+    # https://docs.nextcloud.com/server/latest/admin_manual/configuration_database/linux_database_configuration.html#postgresql-database
+    # https://hub.docker.com/_/postgres/tags
+    image: postgres:16.5-alpine3.20
+    container_name: nextcloud-postgres
+    volumes:
+      - ./postgres:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD_FILE: "/run/secrets/db_password"
+    secrets:
+      - db_password
+    networks:
+      - nextcloud
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-q", "-d", "${POSTGRES_DB}", "-U", "${POSTGRES_USER}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+
+  nextcloud-redis:
+    # https://hub.docker.com/_/redis/tags
+    image: redis:7.4.1-alpine3.20
+    container_name: nextcloud-redis
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        /usr/local/bin/redis-server \
+        --port 6379 \
+        --requirepass $(cat /run/secrets/redis_password)
+    volumes:
+      - ./redis:/data
+    secrets:
+      - redis_password
+    networks:
+      - nextcloud
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 30s
+      retries: 3
+
+networks:
+  nextcloud:
+    driver: bridge
+  proxy:
+    external: true
+
+secrets:
+  db_password:
+    file: ./secrets/db_password
+  redis_password:
+    file: ./secrets/redis_password
+  nextcloud_password:
+    file: ./secrets/nextcloud_password

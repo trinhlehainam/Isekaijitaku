@@ -39,4 +39,3 @@ networks:
 secrets:
   redis_password:
     file: ./secrets/redis_password
-
