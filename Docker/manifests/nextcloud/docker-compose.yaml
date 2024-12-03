@@ -4,8 +4,11 @@
 # https://github.com/heyvaldemar/nextcloud-traefik-letsencrypt-docker-compose
 # https://forums.truenas.com/t/logging-into-nextcloud-app-for-the-first-time-cannot-log-in-as-specified-user/22853/11
 # NOTE: Collabora
-# https://help.nextcloud.com/t/docker-compose-for-nextcloud-collabora-traefik/127733/6
 # https://help.nextcloud.com/t/collabora-integration-guide/151879
+# https://help.nextcloud.com/t/docker-compose-for-nextcloud-collabora-traefik/127733/6
+# NOTE: Japanese, Chinese fonts
+# https://forum.collaboraonline.com/t/cannot-display-chinese/2607/5
+# https://help.nextcloud.com/t/installing-new-fonts-in-collabora/22758
 
 services:
   nextcloud:
@@ -16,6 +19,7 @@ services:
     depends_on:
       - nextcloud-postgres
       - nextcloud-redis
+      - collabora
     # ports:
     #   - 8080:80
     volumes:
@@ -24,16 +28,15 @@ services:
       - ./nextcloud/config:/var/www/html/config
       - ./nextcloud/data:/var/www/html/data
       # NOTE: import self-signed certificates in nextcloud
-      # make sure root_ca.crt can be read by user www-data
+      # make sure root_ca.crt can be read by user www-data: `sudo chmod 644 /path/to/step/certs/root_ca.crt`
       # `docker exec -it -u www-data nextcloud ./occ security:certificates:import /certs/step-ca/root_ca.crt`
       - /path/to/step/certs/root_ca.crt:/certs/step-ca/root_ca.crt:ro
     secrets:
       - db_password
       - redis_password
+      - nextcloud_admin_user
       - nextcloud_password
     environment:
-      PUID: 1000
-      PGID: 1000
       TZ: "Asia/Tokyo"
       # PostgreSQL and Redis
       POSTGRES_HOST: "nextcloud-postgres"
@@ -43,7 +46,6 @@ services:
       REDIS_HOST: "nextcloud-redis"
       REDIS_HOST_PORT: 6379
       # Nextcloud
-      NEXTCLOUD_ADMIN_USER: admin
       NEXTCLOUD_TRUSTED_DOMAINS: nextcloud.yourdomain.local
       OVERWRITECLIURL: https://nextcloud.yourdomain.local
       OVERWRITEPROTOCOL: https
@@ -54,6 +56,7 @@ services:
       - -c
       - |
         export REDIS_HOST_PASSWORD=$$(cat /run/secrets/redis_password)
+        export NEXTCLOUD_ADMIN_USER=$$(cat /run/secrets/nextcloud_admin_user)
         export NEXTCLOUD_ADMIN_PASSWORD=$$(cat /run/secrets/nextcloud_password)
         /entrypoint.sh apache2-foreground
     networks:
@@ -85,14 +88,62 @@ services:
       - 'traefik.http.middlewares.nextcloud-headers.headers.stsIncludeSubdomains=true'
       - 'traefik.http.middlewares.nextcloud-headers.headers.browserXssFilter=true'
       - 'traefik.http.middlewares.nextcloud-headers.headers.customRequestHeaders.X-Forwarded-Proto=https'
-      ###
       ### Redirects 
       # https://docs.nextcloud.com/server/21/admin_manual/issues/general_troubleshooting.html#service-discovery
       - "traefik.http.middlewares.nextcloud-dav.redirectregex.permanent=true"
       - "traefik.http.middlewares.nextcloud-dav.redirectregex.regex=https?://([^/]*)/.well-known/(card|cal)dav"
       - "traefik.http.middlewares.nextcloud-dav.redirectregex.replacement=https://$${1}/remote.php/dav/"
-      ###
-      ##
+
+  # https://sdk.collaboraonline.com/docs/installation/CODE_Docker_image.html#how-to-configure-docker-image
+  # https://forum.collaboraonline.com/t/docker-compose-file-example-needed/2976/4
+  collabora:
+    # https://hub.docker.com/r/collabora/code/tags
+    image: collabora/code:24.04.10.1.1
+    container_name: collabora
+    hostname: collabora
+    restart: unless-stopped
+    environment:
+      - TZ=Asia/Tokyo
+      - aliasgroup1=https://nextcloud.yourdomain.local
+      # - dictionaries=en_US,de_DE
+      - extra_params=--o:ssl.enable=false --o:ssl.termination=true
+    secrets:
+      - collabora_username
+      - collabora_password
+    entrypoint:
+      - /bin/bash
+      - -c
+      - |
+        export username=$$(cat /run/secrets/collabora_username)
+        export password=$$(cat /run/secrets/collabora_password)
+        /start-collabora-online.sh
+    networks:
+      nextcloud:
+      proxy:
+      dns:
+        ipv4_address: 172.30.0.x
+    dns:
+      # NOTE: need to access local dns server to resolve Nextcloud server local domain
+      - 172.30.0.10
+      - 1.1.1.1
+      - 1.0.0.1
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.docker.network=proxy'
+      - 'traefik.http.services.collabora.loadbalancer.server.port=9980'
+      ## Router
+      - 'traefik.http.routers.collabora-local.rule=Host(`collabora.mydomain.local`)'
+      - 'traefik.http.routers.collabora-local.entrypoints=websecure'
+      - 'traefik.http.routers.collabora-local.tls.certresolver=stepca'
+      - 'traefik.http.routers.collabora-local.middlewares=collabora-headers'
+      ## Middleware
+      - 'traefik.http.middlewares.collabora-headers.headers.referrerPolicy=no-referrer'
+      - 'traefik.http.middlewares.collabora-headers.headers.stsSeconds=15552000'
+      - 'traefik.http.middlewares.collabora-headers.headers.forceSTSHeader=true'
+      - 'traefik.http.middlewares.collabora-headers.headers.stsPreload=true'
+      - 'traefik.http.middlewares.collabora-headers.headers.stsIncludeSubdomains=true'
+      - 'traefik.http.middlewares.collabora-headers.headers.browserXssFilter=true'
+      - 'traefik.http.middlewares.collabora-headers.headers.customRequestHeaders.X-Forwarded-Proto=https'
 
   nextcloud-postgres:
     # https://docs.nextcloud.com/server/latest/admin_manual/configuration_database/linux_database_configuration.html#postgresql-database
@@ -153,5 +204,11 @@ secrets:
     file: ./secrets/db_password
   redis_password:
     file: ./secrets/redis_password
+  nextcloud_admin_user:
+    file: ./secrets/nextcloud_admin_user
   nextcloud_password:
     file: ./secrets/nextcloud_password
+  collabora_username:
+    file: ./secrets/collabora_username
+  collabora_password:
+    file: ./secrets/collabora_password
