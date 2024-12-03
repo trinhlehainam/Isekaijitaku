@@ -9,6 +9,8 @@
 # NOTE: Japanese, Chinese fonts
 # https://forum.collaboraonline.com/t/cannot-display-chinese/2607/5
 # https://help.nextcloud.com/t/installing-new-fonts-in-collabora/22758
+# NOTE: Nextcloud SSO
+# https://github.com/zorn-v/nextcloud-social-login/blob/master/docs/sso/keycloak.md
 
 services:
   nextcloud:
