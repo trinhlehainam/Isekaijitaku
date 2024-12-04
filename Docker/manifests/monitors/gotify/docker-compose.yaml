@@ -34,9 +34,16 @@ services:
       - 'traefik.docker.network=proxy'
       - 'traefik.http.services.gotify.loadbalancer.server.port=80'
       ## Router
-      - 'traefik.http.routers.gotify-local.rule=Host(`gotify.mydomain.local`)'
-      - 'traefik.http.routers.gotify-local.entrypoints=websecure'
-      - 'traefik.http.routers.gotify-local.tls.certresolver=stepca'
+      ### Console
+      - 'traefik.http.routers.gotify-dashboard-local.rule=Host(`gotify.mydomain.local`) && Path(`/`)'
+      - 'traefik.http.routers.gotify-dashboard-local.entrypoints=websecure'
+      - 'traefik.http.routers.gotify-dashboard-local.tls.certresolver=stepca'
+      - "traefik.http.routers.gotify-dashboard-local.middlewares=oauth2@file,oauth2-admin@file"
+      ### API
+      # https://gotify.net/api-docs
+      - 'traefik.http.routers.gotify-api-local.rule=Host(`gotify.vice.local`) && (PathPrefix(`/application`) || PathPrefix(`/message`) || PathPrefix(`/client`) || PathPrefix(`/user`) || PathPrefix(`/health`) || PathPrefix(`/plugin`) || PathPrefix(`/version`))'
+      - 'traefik.http.routers.gotify-api-local.entrypoints=websecure'
+      - 'traefik.http.routers.gotify-api-local.tls.certresolver=stepca'
 
 networks:
   proxy:
