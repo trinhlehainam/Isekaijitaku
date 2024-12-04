@@ -138,6 +138,11 @@ services:
       - 'traefik.http.routers.collabora-local.entrypoints=websecure'
       - 'traefik.http.routers.collabora-local.tls.certresolver=stepca'
       - 'traefik.http.routers.collabora-local.middlewares=collabora-headers'
+      ### Admin Console
+      - 'traefik.http.routers.collabora-admin-local.rule=Host(`collabora.mydomain.local`) && PathPrefix(`/browser/dist/admin`)'
+      - 'traefik.http.routers.collabora-admin-local.entrypoints=websecure'
+      - 'traefik.http.routers.collabora-admin-local.tls.certresolver=stepca'
+      - 'traefik.http.routers.collabora-admin-local.middlewares=collabora-headers,oauth2@file,oauth2-admin@file'
       ## Middleware
       - 'traefik.http.middlewares.collabora-headers.headers.referrerPolicy=no-referrer'
       - 'traefik.http.middlewares.collabora-headers.headers.stsSeconds=15552000'
