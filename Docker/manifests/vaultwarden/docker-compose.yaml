@@ -1,33 +1,33 @@
 # https://github.com/dani-garcia/vaultwarden/wiki/Starting-a-Container
 # https://github.com/dani-garcia/vaultwarden/wiki/Using-Docker-Compose
 # https://github.com/dani-garcia/vaultwarden/wiki/SMTP-Configuration
+# NOTE: Enable admin page
+# https://github.com/dani-garcia/vaultwarden/wiki/Enabling-admin-page
+# NOTE: Use PostgreSQL instead of SQLite
+# https://github.com/dani-garcia/vaultwarden/wiki/Using-the-PostgreSQL-Backend
 
 services:
   vaultwarden:
     container_name: vaultwarden
     # https://hub.docker.com/r/vaultwarden/server/tags
-    image: vaultwarden/server:1.32.4-alpine
+    image: vaultwarden/server:1.32.5-alpine
     restart: unless-stopped
     depends_on:
       - vaultwarden-postgres
-    environment:
-      # NOTE: Enable admin page
-      # https://github.com/dani-garcia/vaultwarden/wiki/Enabling-admin-page
-      - ADMIN_TOKEN=${VAULTWARDEN_ADMIN_TOKEN}
-      # NOTE: Use PostgreSQL instead of SQLite
-      # https://github.com/dani-garcia/vaultwarden/wiki/Using-the-PostgreSQL-Backend
     entrypoint:
       - /bin/sh
       - -c
       - |
+        export ADMIN_TOKEN=$$(cat /run/secrets/admin_token)
         export POSTGRES_PASSWORD=$$(cat /run/secrets/db_password)
         export DATABASE_URL=postgresql://${POSTGRES_USER}:$$POSTGRES_PASSWORD@vaultwarden-postgres:5432/${POSTGRES_DB}
         /start.sh
     # ports:
     #   - '80:80'
     volumes:
-      - vaultwarden_data:/data/
+      - ./data:/data/
     secrets:
+      - admin_token
       - db_password
     networks:
       - vaultwarden
@@ -44,7 +44,7 @@ services:
       - "traefik.http.routers.vaultwarden-admin-local.rule=Host(`vaultwarden.yourdomain.local`) && PathPrefix(`/admin`)"
       - "traefik.http.routers.vaultwarden-admin-local.entrypoints=websecure"
       - "traefik.http.routers.vaultwarden-admin-local.tls.certresolver=stepca"
-      - "traefik.http.routers.vaultwarden-admin-local.middlewares=oauth2-admin@file"
+      - "traefik.http.routers.vaultwarden-admin-local.middlewares=oauth2@file,oauth2-admin@file"
 
   vaultwarden-postgres:
     # https://hub.docker.com/_/postgres/tags
@@ -73,10 +73,8 @@ networks:
   vaultwarden:
     driver: bridge
 
-volumes:
-  vaultwarden_data:
-    driver: local
-
 secrets:
+  admin_token:
+    file: ./secrets/admin_token
   db_password:
     file: ./secrets/db_password
