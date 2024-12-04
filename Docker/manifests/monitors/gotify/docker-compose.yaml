@@ -30,6 +30,7 @@ services:
     #   - 8080:80
     networks:
       - proxy
+      - gotify
     labels:
       - 'traefik.enable=true'
       - 'traefik.docker.network=proxy'
@@ -48,6 +49,8 @@ services:
 
 networks:
   proxy:
+    external: true
+  gotify:
     external: true
 
 secrets:

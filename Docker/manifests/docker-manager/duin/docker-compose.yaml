@@ -1,0 +1,37 @@
+# https://crazymax.dev/diun/install/docker/#usage
+
+services:
+  diun:
+    # https://hub.docker.com/r/crazymax/diun/tags
+    image: crazymax/diun:4.28.0
+    container_name: diun
+    command: serve
+    volumes:
+      - "./data:/data"
+      - "/var/run/docker.sock:/var/run/docker.sock"
+    environment:
+      - "TZ=Asia/Tokyo"
+      - "DIUN_WATCH_WORKERS=20"
+      - "DIUN_WATCH_SCHEDULE=0 */6 * * *"
+      - "DIUN_WATCH_JITTER=30s"
+      - "DIUN_PROVIDERS_DOCKER=true"
+      # https://crazymax.dev/diun/notif/gotify/
+      - "DIUN_NOTIF_GOTIFY_ENDPOINT=http://gotify:80"
+      - "DIUN_NOTIF_GOTIFY_TOKENFILE=/run/secrets/gotify_token"
+      - "DIUN_NOTIF_GOTIFY_PRIORITY=1"
+      - "DIUN_NOTIF_GOTIFY_TIMEOUT=10s"
+    secrets:
+      - gotify_token
+    labels:
+      - "diun.enable=true"
+    restart: unless-stopped
+    networks:
+      - gotify
+
+secrets:
+  gotify_token:
+    file: ./secrets/gotify_token
+
+networks:
+  gotify:
+    external: true
