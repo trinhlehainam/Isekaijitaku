@@ -1,0 +1,74 @@
+# https://docs.stirlingpdf.com/Getting%20started/Installation/Docker/Docker%20Install
+
+services:
+  stirling-pdf:
+    # https://hub.docker.com/r/frooodle/s-pdf/tags
+    image: frooodle/s-pdf:0.35.1-fat
+    container_name: stirling-pdf
+    restart: unless-stopped
+    volumes:
+      - ./data/trainingData:/usr/share/tessdata # Required for extra OCR languages
+      - ./data/extraConfigs/:/configs/
+      - ./data/customFiles:/customFiles/
+      - ./data/logs:/logs/
+      - ./data/pipeline:/pipeline/
+      # NOTE: mount step ca cert to /usr/local/share/ca-certificates
+      # run update-ca-certificates in entrypoint before running stirling
+      - /path/to/step-ca/root_ca.crt:/usr/local/share/ca-certificates/root_ca.crt:ro
+    environment:
+      # https://github.com/Stirling-Tools/Stirling-PDF?tab=readme-ov-file#environment-only-parameters
+      INSTALL_BOOK_AND_ADVANCED_HTML_OPS: false
+      LANGS: en_US,ja_JP
+      # https://github.com/Stirling-Tools/Stirling-PDF?tab=readme-ov-file#customization
+      # https://docs.stirlingpdf.com/Advanced%20Configuration/Single%20Sign-On%20Configuration
+      DOCKER_ENABLE_SECURITY: true
+      SECURITY_ENABLELOGIN: true
+      SECURITY_OAUTH2_ENABLED: true
+      SECURITY_OAUTH2_AUTOCREATEUSER: true
+      SECURITY_OAUTH2_CLIENT_KEYCLOAK_ISSUER: "https://keycloak.mydomain.local/realms/your-realm"
+      SECURITY_OAUTH2_CLIENT_KEYCLOAK_CLIENTID: "stirling-pdf"
+      SECURITY_OAUTH2_CLIENT_KEYCLOAK_SCOPES: "openid, profile, email"
+    secrets:
+      - username
+      - password
+      - keycloak_client_secret
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        export SECURITY_INITIALlOGIN_USERNAME=$$(cat /run/secrets/username)
+        export SECURITY_INITIALlOGIN_PASSWORD=$$(cat /run/secrets/password)
+        export SECURITY_OAUTH2_CLIENT_KEYCLOAK_CLIENTSECRET=$$(cat /run/secrets/keycloak_client_secret)
+        update-ca-certificates
+        tini -- /scripts/init.sh java -Dfile.encoding=UTF-8 -jar /app.jar
+    # ports:
+    #   - '8080:8080'
+    networks:
+      proxy:
+      dns:
+        ipv4_address: 172.30.0.X
+    dns:
+      - 172.30.0.10
+      - 1.1.1.1
+      - 1.0.0.1
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.services.stirling-pdf.loadbalancer.server.port=8080"
+      - "traefik.http.routers.stirling-pdf-local.rule=Host(`stirling-pdf.mydomain.local`)"
+      - "traefik.http.routers.stirling-pdf-local.entrypoints=websecure"
+      - "traefik.http.routers.stirling-pdf-local.tls.certresolver=stepca"
+
+networks:
+  proxy:
+    external: true
+  dns:
+    external: true
+
+secrets:
+  username:
+    file: ./secrets/username
+  password:
+    file: ./secrets/password
+  keycloak_client_secret:
+    file: ./secrets/keycloak_client_secret

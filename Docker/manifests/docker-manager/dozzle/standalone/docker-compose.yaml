@@ -2,10 +2,12 @@
 
 services:
   dozzle:
-    container_name: dozzle
     # https://hub.docker.com/r/amir20/dozzle/tags
     image: amir20/dozzle:v8.7.2
-    restart: unless-stopped
+    container_name: dozzle
+    environment:
+      DOZZLE_HOSTNAME: dozzle
+      DOZZLE_REMOTE_AGENT: agent_ip:7007
     ports:
       - 8080:8080
     volumes:
@@ -18,6 +20,14 @@ services:
       - "traefik.http.routers.dozzle-local.entrypoints=websecure"
       - "traefik.http.routers.dozzle-local.tls.certresolver=stepca"
       - "traefik.http.routers.dozzle-local.middlewares=oauth2-admin@file"
+    # https://dozzle.dev/guide/healthcheck
+    healthcheck:
+      test: [ "CMD", "/dozzle", "healthcheck" ]
+      interval: 3s
+      timeout: 30s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped
 
 networks:
   proxy:
