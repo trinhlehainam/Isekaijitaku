@@ -10,11 +10,15 @@ services:
       - "./data:/data"
       - "/var/run/docker.sock:/var/run/docker.sock"
     environment:
+      # https://crazymax.dev/diun/config/
       - "TZ=Asia/Tokyo"
-      - "DIUN_WATCH_WORKERS=20"
+      - "DIUN_WATCH_WORKERS=10"
       - "DIUN_WATCH_SCHEDULE=0 */6 * * *"
       - "DIUN_WATCH_JITTER=30s"
+      # https://crazymax.dev/diun/providers/docker/
       - "DIUN_PROVIDERS_DOCKER=true"
+      - "DIUN_PROVIDERS_DOCKER_WATCHBYDEFAULT=true"
+      - "DIUN_PROVIDERS_DOCKER_WATCHSTOPPED=false"
       # https://crazymax.dev/diun/notif/gotify/
       - "DIUN_NOTIF_GOTIFY_ENDPOINT=http://gotify:80"
       - "DIUN_NOTIF_GOTIFY_TOKENFILE=/run/secrets/gotify_token"
@@ -22,8 +26,6 @@ services:
       - "DIUN_NOTIF_GOTIFY_TIMEOUT=10s"
     secrets:
       - gotify_token
-    labels:
-      - "diun.enable=true"
     restart: unless-stopped
     networks:
       - gotify
