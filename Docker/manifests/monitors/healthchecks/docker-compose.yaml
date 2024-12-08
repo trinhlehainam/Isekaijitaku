@@ -1,4 +1,77 @@
 # https://github.com/healthchecks/healthchecks
 # https://hub.docker.com/r/healthchecks/healthchecks
 
+services:
+  healthchecks:
+    # https://hub.docker.com/r/healthchecks/healthchecks/tags
+    image: healthchecks/healthchecks:v3.7
+    container_name: healthchecks
+    depends_on:
+      - healthchecks-postgres
+    restart: unless-stopped
+    environment:
+      # https://healthchecks.io/docs/self_hosted_configuration/
+      ALLOWED_HOSTS: healthchecks.mydomain.local,keycloak.mydomain.local
+      DB: postgres
+      DB_HOST: healthchecks-postgres
+      DB_NAME: ${POSTGRES_DB}
+      DB_USER: ${POSTGRES_USER}
+      DEBUG=true
+      SITE_ROOT=https://healthchecks.mydomain.local
+    secrets:
+      - db_password
+      - secret_key
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        export DB_PASSWORD=$$(cat /run/secrets/db_password)
+        export SECRET_KEY=$$(cat /run/secrets/secret_key)
+        uwsgi /opt/healthchecks/docker/uwsgi.ini
+    volumes:
+      - ./data:/data
+    # ports:
+    #   - 8000:8000
+    networks:
+      - proxy
+      - healthchecks
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.services.healthchecks.loadbalancer.server.port=8000"
+      - "traefik.http.routers.healthchecks-local.rule=Host(`healthchecks.mydomain.local`)"
+      - "traefik.http.routers.healthchecks-local.entrypoints=websecure"
+      - "traefik.http.routers.healthchecks-local.tls.certresolver=stepca"
 
+  healthchecks-postgres:
+    # https://hub.docker.com/_/postgres/tags
+    image: postgres:16.5-alpine3.20
+    container_name: healthchecks-postgres
+    volumes:
+      - ./postgres:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD_FILE: "/run/secrets/db_password"
+    networks:
+      - healthchecks
+    secrets:
+      - db_password
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-q", "-d", "${POSTGRES_DB}", "-U", "${POSTGRES_USER}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: unless-stopped
+    
+networks:
+  proxy:
+    external: true
+  healthchecks:
+    driver: bridge
+    
+secrets:
+  db_password:
+    file: ./secrets/db_password
+  secret_key:
+    file: ./secrets/secret_key
