@@ -1,5 +1,9 @@
 # https://github.com/healthchecks/healthchecks
 # https://hub.docker.com/r/healthchecks/healthchecks
+# TODO: create superuser follow the instruction:
+# docker compose exec -it healthchecks bash 
+# export DB_PASSWORD=$(cat /run/secrets/db_password)
+# /opt/healthchecks/manage.py createsuperuser
 
 services:
   healthchecks:
@@ -16,8 +20,9 @@ services:
       DB_HOST: healthchecks-postgres
       DB_NAME: ${POSTGRES_DB}
       DB_USER: ${POSTGRES_USER}
-      DEBUG=true
-      SITE_ROOT=https://healthchecks.mydomain.local
+      DEBUG: "True"
+      EMAIL_USE_VERIFICATION: "False"
+      SITE_ROOT: https://healthchecks.mydomain.local
     secrets:
       - db_password
       - secret_key
@@ -42,10 +47,11 @@ services:
       - "traefik.http.routers.healthchecks-local.rule=Host(`healthchecks.mydomain.local`)"
       - "traefik.http.routers.healthchecks-local.entrypoints=websecure"
       - "traefik.http.routers.healthchecks-local.tls.certresolver=stepca"
+      - "traefik.http.routers.healthchecks-local.middlewares=oauth2@file,oauth2-admin@file"
 
   healthchecks-postgres:
     # https://hub.docker.com/_/postgres/tags
-    image: postgres:16.5-alpine3.20
+    image: postgres:16.6-alpine3.20
     container_name: healthchecks-postgres
     volumes:
       - ./postgres:/var/lib/postgresql/data

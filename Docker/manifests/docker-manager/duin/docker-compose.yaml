@@ -24,7 +24,7 @@ services:
       - "DIUN_DEFAULTS_WATCHREPO=true"
       - "DIUN_DEFAULTS_NOTIFYON=new,update"
       - "DIUN_DEFAULTS_MAXTAGS=10"
-      - "DIUN_DEFAULTS_INCLUDETAGS=latest"
+      - "DIUN_DEFAULTS_INCLUDETAGS=^latest$"
       # https://crazymax.dev/diun/notif/gotify/
       - "DIUN_NOTIF_GOTIFY_ENDPOINT=http://gotify:80"
       - "DIUN_NOTIF_GOTIFY_TOKENFILE=/run/secrets/gotify_token"

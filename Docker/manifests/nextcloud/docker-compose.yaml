@@ -6,11 +6,15 @@
 # NOTE: Collabora
 # https://help.nextcloud.com/t/collabora-integration-guide/151879
 # https://help.nextcloud.com/t/docker-compose-for-nextcloud-collabora-traefik/127733/6
-# NOTE: Japanese, Chinese fonts
+# NOTE: Collabora Dark Mode
+# https://github.com/CollaboraOnline/online/issues/9059
+# NOTE: Japanese, Chinese fonts (use Standalone Collabora solved this issue)
 # https://forum.collaboraonline.com/t/cannot-display-chinese/2607/5
 # https://help.nextcloud.com/t/installing-new-fonts-in-collabora/22758
 # NOTE: Nextcloud SSO
 # https://github.com/zorn-v/nextcloud-social-login/blob/master/docs/sso/keycloak.md
+# NOTE: Nextcloud cron jobs
+# https://help.nextcloud.com/t/nextcloud-docker-container-best-way-to-run-cron-job/157734/4
 
 services:
   nextcloud:
