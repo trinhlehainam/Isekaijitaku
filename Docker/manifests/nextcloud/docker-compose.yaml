@@ -104,7 +104,7 @@ services:
   # https://forum.collaboraonline.com/t/docker-compose-file-example-needed/2976/4
   collabora:
     # https://hub.docker.com/r/collabora/code/tags
-    image: collabora/code:24.04.10.1.1
+    image: collabora/code:24.04.10.2.1
     container_name: collabora
     hostname: collabora
     restart: unless-stopped
@@ -112,7 +112,8 @@ services:
       - TZ=Asia/Tokyo
       - aliasgroup1=https://nextcloud.yourdomain.local
       # - dictionaries=en_US,de_DE
-      - extra_params=--o:ssl.enable=false --o:ssl.termination=true
+      - server_name=collabora.mydomain.local
+      - "extra_params=--o:ssl.enable=false --o:ssl.termination=true"
     secrets:
       - collabora_username
       - collabora_password
