@@ -5,14 +5,14 @@ services:
     # https://hub.docker.com/r/crazymax/diun/tags
     image: crazymax/diun:4.28.0
     container_name: diun
-    command: serve
     volumes:
       - "./data:/data"
       - "/var/run/docker.sock:/var/run/docker.sock"
+      - "/path/to/step/certs/root_ca.crt:/usr/local/share/ca-certificates/step_root_ca.crt:ro"
     environment:
       # https://crazymax.dev/diun/config/
       - "TZ=Asia/Tokyo"
-      - "DIUN_WATCH_WORKERS=10"
+      - "DIUN_WATCH_WORKERS=20"
       # https://crontab.guru/every-night-at-midnight
       - "DIUN_WATCH_SCHEDULE=0 0 * * *"
       - "DIUN_WATCH_JITTER=30s"
@@ -26,20 +26,37 @@ services:
       - "DIUN_DEFAULTS_MAXTAGS=10"
       - "DIUN_DEFAULTS_INCLUDETAGS=^latest$"
       # https://crazymax.dev/diun/notif/gotify/
-      - "DIUN_NOTIF_GOTIFY_ENDPOINT=http://gotify:80"
-      - "DIUN_NOTIF_GOTIFY_TOKENFILE=/run/secrets/gotify_token"
+      - "DIUN_NOTIF_GOTIFY_ENDPOINT=https://gotify.mydomain.local"
       - "DIUN_NOTIF_GOTIFY_PRIORITY=1"
       - "DIUN_NOTIF_GOTIFY_TIMEOUT=10s"
+      - "DIUN_WATCH_HEALTHCHECKS_BASEURL=https://healthchecks.mydomain.local"
     secrets:
       - gotify_token
-    restart: unless-stopped
+      - healthchecks_uuid
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        export DIUN_NOTIF_GOTIFY_TOKEN=$$(cat /run/secrets/gotify_token)
+        export DIUN_WATCH_HEALTHCHECKS_UUID=$$(cat /run/secrets/healthchecks_uuid)
+        update-ca-certificates
+        diun serve
     networks:
-      - gotify
+      dns:
+        ipv4_address: 172.30.0.x
+    dns:
+      # NOTE: need to access local dns server to resolve Gotify and Healthchecks servers local domain
+      - 172.30.0.10
+      - 1.1.1.1
+      - 1.0.0.1
+    restart: unless-stopped
 
 secrets:
   gotify_token:
     file: ./secrets/gotify_token
+  healthchecks_uuid:
+    file: ./secrets/healthchecks_uuid
 
 networks:
-  gotify:
+  dns:
     external: true
