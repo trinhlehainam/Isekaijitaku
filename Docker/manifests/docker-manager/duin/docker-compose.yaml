@@ -16,6 +16,7 @@ services:
       # https://crontab.guru/every-night-at-midnight
       - "DIUN_WATCH_SCHEDULE=0 0 * * *"
       - "DIUN_WATCH_JITTER=30s"
+      - "DIUN_WATCH_HEALTHCHECKS_BASEURL=https://healthchecks.mydomain.local"
       # https://crazymax.dev/diun/providers/docker/
       - "DIUN_PROVIDERS_DOCKER=true"
       - "DIUN_PROVIDERS_DOCKER_WATCHBYDEFAULT=true"
@@ -29,7 +30,6 @@ services:
       - "DIUN_NOTIF_GOTIFY_ENDPOINT=https://gotify.mydomain.local"
       - "DIUN_NOTIF_GOTIFY_PRIORITY=1"
       - "DIUN_NOTIF_GOTIFY_TIMEOUT=10s"
-      - "DIUN_WATCH_HEALTHCHECKS_BASEURL=https://healthchecks.mydomain.local"
     secrets:
       - gotify_token
       - healthchecks_uuid

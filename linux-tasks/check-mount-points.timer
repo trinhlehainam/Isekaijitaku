@@ -1,0 +1,9 @@
+[Unit]
+Description=Run mount points check hourly
+
+[Timer]
+OnCalendar=hourly
+Persistent=true
+
+[Install]
+WantedBy=timers.target
