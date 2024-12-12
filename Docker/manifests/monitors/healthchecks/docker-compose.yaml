@@ -44,6 +44,12 @@ services:
       - "traefik.enable=true"
       - "traefik.docker.network=proxy"
       - "traefik.http.services.healthchecks.loadbalancer.server.port=8000"
+      ### API
+      # https://healthchecks.vice.local/docs/http_api/
+      - 'traefik.http.routers.healthchecks-api-local.rule=Host(`healthchecks.mydomain.local`) && (PathPrefix(`/ping`) || PathPrefix(`/api`))'
+      - 'traefik.http.routers.healthchecks-api-local.entrypoints=websecure'
+      - 'traefik.http.routers.healthchecks-api-local.tls.certresolver=stepca'
+      ### Healthchecks
       - "traefik.http.routers.healthchecks-local.rule=Host(`healthchecks.mydomain.local`)"
       - "traefik.http.routers.healthchecks-local.entrypoints=websecure"
       - "traefik.http.routers.healthchecks-local.tls.certresolver=stepca"

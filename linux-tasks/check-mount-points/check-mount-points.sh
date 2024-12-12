@@ -51,11 +51,15 @@ else
 fi
 
 # Send results to Healthchecks
-if [ $exit_code -eq 1 ]; then
-    curl -fsS -m 10 --retry 5 --data-raw "$log" "$HEALTHCHECKS_URL/$HEALTHCHECKS_UUID/$exit_code"
-else
-    curl -m 10 --retry 5 "$HEALTHCHECKS_URL/$HEALTHCHECKS_UUID/$exit_code"
+if [ -n "$HEALTHCHECKS_UUID" ] && [ -n "$HEALTHCHECKS_URL" ]; then
+    printf "Result from Healthchecks: "
+    if [ $exit_code -eq 1 ]; then
+        curl -fsS -m 10 --retry 5 --data-raw "$log" "$HEALTHCHECKS_URL/ping/$HEALTHCHECKS_UUID/$exit_code"
+    else
+        curl -m 10 --retry 5 "$HEALTHCHECKS_URL/ping/$HEALTHCHECKS_UUID/$exit_code"
+    fi
 fi
 
+printf '\n'
 echo "$log"
 exit $exit_code
