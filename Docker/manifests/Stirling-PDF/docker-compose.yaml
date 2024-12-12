@@ -44,11 +44,9 @@ services:
     # ports:
     #   - '8080:8080'
     networks:
-      proxy:
-      dns:
-        ipv4_address: 172.30.0.X
+      - proxy
     dns:
-      - 172.30.0.10
+      - 192.168.x.y
       - 1.1.1.1
       - 1.0.0.1
     labels:
@@ -61,8 +59,6 @@ services:
 
 networks:
   proxy:
-    external: true
-  dns:
     external: true
 
 secrets:

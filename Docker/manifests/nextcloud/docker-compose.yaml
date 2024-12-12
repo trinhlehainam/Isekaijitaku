@@ -66,13 +66,11 @@ services:
         export NEXTCLOUD_ADMIN_PASSWORD=$$(cat /run/secrets/nextcloud_password)
         /entrypoint.sh apache2-foreground
     networks:
-      nextcloud:
-      proxy:
-      dns:
-        ipv4_address: 172.30.0.x
+      - nextcloud
+      - proxy
     dns:
       # NOTE: need to access local dns server to resolve Collabora server local domain
-      - 172.30.0.10
+      - 192.168.x.y
       - 1.1.1.1
       - 1.0.0.1
     labels:
@@ -125,13 +123,11 @@ services:
         export password=$$(cat /run/secrets/collabora_password)
         /start-collabora-online.sh
     networks:
-      nextcloud:
-      proxy:
-      dns:
-        ipv4_address: 172.30.0.x
+      - nextcloud
+      - proxy
     dns:
       # NOTE: need to access local dns server to resolve Nextcloud server local domain
-      - 172.30.0.10
+      - 192.168.x.y
       - 1.1.1.1
       - 1.0.0.1
     labels:
@@ -207,8 +203,6 @@ networks:
   nextcloud:
     driver: bridge
   proxy:
-    external: true
-  dns:
     external: true
 
 secrets:

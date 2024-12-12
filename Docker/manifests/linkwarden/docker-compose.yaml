@@ -48,11 +48,8 @@ services:
     networks:
       linkwarden:
       proxy: # NOTE: Use to discover Keycloak private domain by query local DNS server
-
-      dns:
-        ipv4_address: 172.30.0.16
     dns:
-      - 172.30.0.10
+      - 192.168.x.y
       - 1.1.1.1
       - 1.0.0.1
     labels:
@@ -74,8 +71,6 @@ networks:
   linkwarden:
     driver: bridge
   proxy:
-    external: true
-  dns:
     external: true
 
 secrets:

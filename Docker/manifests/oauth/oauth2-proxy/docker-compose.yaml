@@ -20,12 +20,11 @@ services:
       - ./oauth2-proxy.cfg:/etc/oauth2-proxy/oauth2-proxy.cfg:ro
       - /path/to/step-ca/certs/root_ca.crt:/etc/ssl/step-ca/root_ca.crt:ro
     networks:
-      proxy:
-      dns:
-        ipv4_address: 172.30.0.14
+      - proxy
+      - dns
     # NOTE: oicd_issuer_url need to match url request from browser
     dns:
-      - 172.30.0.10
+      - 192.168.x.y
       - 1.1.1.1
       - 1.0.0.2
     secrets:
@@ -40,8 +39,6 @@ services:
 
 networks:
   proxy:
-    external: true
-  dns:
     external: true
 
 secrets:

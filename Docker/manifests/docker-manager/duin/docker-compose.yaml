@@ -41,12 +41,9 @@ services:
         export DIUN_WATCH_HEALTHCHECKS_UUID=$$(cat /run/secrets/healthchecks_uuid)
         update-ca-certificates
         diun serve
-    networks:
-      dns:
-        ipv4_address: 172.30.0.x
     dns:
       # NOTE: need to access local dns server to resolve Gotify and Healthchecks servers local domain
-      - 172.30.0.10
+      - 192.168.x.y
       - 1.1.1.1
       - 1.0.0.1
     restart: unless-stopped
@@ -56,7 +53,3 @@ secrets:
     file: ./secrets/gotify_token
   healthchecks_uuid:
     file: ./secrets/healthchecks_uuid
-
-networks:
-  dns:
-    external: true

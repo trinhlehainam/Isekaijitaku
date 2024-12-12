@@ -22,15 +22,13 @@ services:
       # sudo chown -R 1000:1000 step
       - './step/certs:/home/step/certs'
     networks:
-      proxy:
-      dns:
-        ipv4_address: 172.30.0.12
+      - proxy
     # NOTE: container network may not reach local domain in private network
     # if local DNS server is hosted in another docker container, create dns bridge network and setup this network for both containers
     # docker network create --driver=bridge --subnet=172.20.0.0/16 dns
     dns:
       # DNS server IP address
-      - 172.30.0.10
+      - 192.168.x.y
       - 1.1.1.1
       - 1.0.0.2
 
@@ -137,6 +135,4 @@ networks:
   proxy:
     external: true
   crowdsec:
-    external: true
-  dns:
     external: true

@@ -18,12 +18,10 @@ services:
     #   - 3001:3001 # <Host Port>:<Container Port>
     restart: unless-stopped
     networks:
-      proxy:
-      dns:
-        ipv4_address: 172.30.0.13
+      - proxy
     dns:
       # DNS server IP address
-      - 172.30.0.10
+      - 192.168.x.y
       - 1.1.1.1
       - 1.0.0.2
     labels:
@@ -36,6 +34,4 @@ services:
 
 networks:
   proxy:
-    external: true
-  dns:
     external: true
