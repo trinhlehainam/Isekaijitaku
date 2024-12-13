@@ -1,26 +1,6 @@
 # https://docs.linkwarden.app/self-hosting/installation#docker-compose-
 
 services:
-  linkwarden-postgres:
-    image: postgres:16.5-alpine3.20
-    container_name: linkwarden-postgres
-    restart: unless-stopped
-    environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_PASSWORD_FILE: "/run/secrets/db_password"
-    volumes:
-      - ./pgdata:/var/lib/postgresql/data
-    networks:
-      - linkwarden
-    secrets:
-      - db_password
-    healthcheck:
-      test: [ "CMD", "pg_isready", "-q", "-d", "${POSTGRES_DB}", "-U", "${POSTGRES_USER}" ]
-      interval: 10s
-      timeout: 5s
-      retries: 3
-
   linkwarden:
     container_name: linkwarden
     # https://github.com/linkwarden/linkwarden/pkgs/container/linkwarden
@@ -42,7 +22,8 @@ services:
     volumes:
       - ./data:/data/data
     depends_on:
-      - linkwarden-postgres
+        linkwarden-postgres:
+          condition: service_healthy
     # ports:
     #   - 3000:3000
     networks:
@@ -66,6 +47,26 @@ services:
       - "traefik.http.routers.linkwarden-admin-local.entrypoints=websecure"
       - "traefik.http.routers.linkwarden-admin-local.tls.certresolver=stepca"
       - "traefik.http.routers.linkwarden-admin-local.middlewares=oauth2@file,oauth2-admin@file"
+
+  linkwarden-postgres:
+    image: postgres:16.5-alpine3.20
+    container_name: linkwarden-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD_FILE: "/run/secrets/db_password"
+    volumes:
+      - ./pgdata:/var/lib/postgresql/data
+    networks:
+      - linkwarden
+    secrets:
+      - db_password
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-q", "-d", "${POSTGRES_DB}", "-U", "${POSTGRES_USER}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
 
 networks:
   linkwarden:

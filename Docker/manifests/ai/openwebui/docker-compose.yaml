@@ -1,3 +1,6 @@
+# NOTE: Ollama slow loading models problems running on wsl2 docker
+# https://www.reddit.com/r/ollama/comments/1awq12e/memory_allocation_is_slow_loading_models_in/
+
 services:
   # https://github.com/open-webui/open-webui?tab=readme-ov-file#installation-with-default-configuration
   openwebui:
@@ -29,7 +32,8 @@ services:
   # https://registry.hub.docker.com/r/ollama/ollama
   ollama:
     container_name: ollama
-    image: ollama/ollama:0.3.14
+    # https://hub.docker.com/r/ollama/ollama/tags
+    image: ollama/ollama:0.5.1
     restart: unless-stopped
     ports:
       - "11434:11434"

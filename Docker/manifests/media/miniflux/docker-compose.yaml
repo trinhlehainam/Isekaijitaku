@@ -6,7 +6,7 @@ services:
     image: miniflux/miniflux:2.1.4-distroless
     restart: unless-stopped
     # ports:
-    #   - "80:8080"
+    #   - "8080:8080"
     depends_on:
       db:
         condition: service_healthy
@@ -17,31 +17,46 @@ services:
       - ADMIN_USERNAME=admin
       - ADMIN_PASSWORD=test123
     networks:
-      openwrt_vlan:
-        ipv4_address: 10.10.10.12
+      - miniflux
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.services.miniflux.loadbalancer.server.port=8080"
+      - "traefik.http.routers.miniflux-local.rule=Host(`miniflux.yourdomain.local`)"
+      - "traefik.http.routers.miniflux-local.entrypoints=websecure"
+      - "traefik.http.routers.miniflux-local.tls.certresolver=stepca"
 
   db:
     container_name: miniflux-db
-    image: postgres:15.7-bookworm
+    # https://hub.docker.com/_/postgres/tags
+    image: postgres:16.5-alpine3.20
     restart: unless-stopped
     environment:
       - POSTGRES_USER=miniflux
-      - POSTGRES_PASSWORD=secret
       - POSTGRES_DB=miniflux
+      - POSTGRES_PASSWORD_FILE=/run/secrets/db_password
     volumes:
       - miniflux-db:/var/lib/postgresql/data
+    secrets:
+      - db_password
+    networks:
+      - miniflux
     healthcheck:
       test: [ "CMD", "pg_isready", "-U", "miniflux" ]
       interval: 10s
       start_period: 30s
-    networks:
-      openwrt_vlan:
-        ipv4_address: 10.10.10.13
 
 volumes:
   miniflux-db:
     driver: local
-
+    
 networks:
-  openwrt_vlan:
+  miniflux:
+    driver: bridge
+  proxy:
     external: true
+
+secrets:
+  db_password:
+    file: ./secrets/db_password
