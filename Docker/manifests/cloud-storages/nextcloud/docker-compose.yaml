@@ -29,7 +29,8 @@ services:
       nextcloud-redis:
         condition: service_healthy
         restart: true
-      collabora:
+      # collabora:
+      #   condition: service_started
     # ports:
     #   - 80:80
     volumes:
