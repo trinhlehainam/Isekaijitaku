@@ -37,10 +37,10 @@ send_healthcheck() {
             curl -m 10 --retry 5 "$HEALTHCHECKS_BASE_URL/ping/$HEALTHCHECKS_UUID/start" || log_message "WARNING: Failed to send start ping"
         else
             log_message "Sending result to Healthchecks"
-            if [ "$status" = "failure" ]; then
-                curl -fsS -m 10 --retry 5 --data-raw "$message" "$HEALTHCHECKS_BASE_URL/ping/$HEALTHCHECKS_UUID/1" || log_message "WARNING: Failed to send result ping"
-            elif [ "$status" = "success" ]; then
-                curl -m 10 --retry 5 "$HEALTHCHECKS_BASE_URL/ping/$HEALTHCHECKS_UUID/0" || log_message "WARNING: Failed to send result ping"
+            if [ -n "$message" ]; then
+                curl -fsS -m 10 --retry 5 --data-raw "$message" "$HEALTHCHECKS_BASE_URL/ping/$HEALTHCHECKS_UUID/$exit_code" || log_message "WARNING: Failed to send result ping"
+            else
+                curl -m 10 --retry 5 "$HEALTHCHECKS_BASE_URL/ping/$HEALTHCHECKS_UUID/$exit_code" || log_message "WARNING: Failed to send result ping"
             fi
         fi
     fi
@@ -59,7 +59,7 @@ main() {
     if ! check_container; then
         exit_code=1
         log="Container check failed"
-        send_healthcheck "failure" "$log"
+        send_healthcheck "$exit_code" "$log"
         exit "$exit_code"
     fi
     
@@ -72,7 +72,7 @@ main() {
     log_message "INFO: Cron job completed successfully"
 
     # Send result to Healthchecks
-    send_healthcheck "success" "$log"
+    send_healthcheck "$exit_code" "$log"
     
     # Output final log message
     [ -n "$log" ] && log_message "$log"
