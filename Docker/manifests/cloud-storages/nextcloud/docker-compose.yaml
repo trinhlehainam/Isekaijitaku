@@ -114,7 +114,6 @@ services:
     image: collabora/code:24.04.10.2.1
     container_name: collabora
     hostname: collabora
-    restart: always
     environment:
       - TZ=Asia/Tokyo
       - aliasgroup1=https://nextcloud.yourdomain.local
@@ -161,6 +160,14 @@ services:
       - 'traefik.http.middlewares.collabora-headers.headers.stsIncludeSubdomains=true'
       - 'traefik.http.middlewares.collabora-headers.headers.browserXssFilter=true'
       - 'traefik.http.middlewares.collabora-headers.headers.customRequestHeaders.X-Forwarded-Proto=https'
+    healthcheck:
+      # https://stackoverflow.com/questions/47722898/how-can-i-make-a-docker-healthcheck-with-wget-instead-of-curl
+      test: curl --fail http://localhost:9980 || exit 1
+      interval: 10s
+      timeout: 30s
+      retries: 3
+      start_period: 30s
+    restart: always
 
   nextcloud-postgres:
     # https://docs.nextcloud.com/server/latest/admin_manual/configuration_database/linux_database_configuration.html#postgresql-database
