@@ -1,8 +1,8 @@
 [Unit]
-Description=Run mount points check hourly
+Description=Run checking mount points in every minute
 
 [Timer]
-OnCalendar=hourly
+OnCalendar=*:0/1
 Persistent=true
 
 [Install]

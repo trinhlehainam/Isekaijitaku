@@ -1,22 +1,22 @@
 http:
   routers:
-    pve-local-router:
+    pve-local:
       rule: Host(`pve.yourdomain.local`)
-      service: pve-local-service
+      service: pve
       entryPoints:
         - "websecure"
       tls:
         certResolver: stepca
 
   services:
-    pve-service:
+    pve:
       loadBalancer:
         # https://doc.traefik.io/traefik/v3.2/routing/services/#serverstransport
-        serversTransport: pve-transport
+        serversTransport: pve
         servers:
           - url: "https://192.168.xxx.xxx:8006"
 
   # https://doc.traefik.io/traefik/v3.2/routing/services/#insecureskipverify
   serversTransports:
-    pve-transport:
+    pve:
       insecureSkipVerify: true

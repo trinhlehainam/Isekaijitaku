@@ -19,8 +19,8 @@ http:
           crowdsecAppsecHost: crowdsec:7422
           crowdsecAppsecFailureBlock: true
           crowdsecAppsecUnreachableBlock: true
-          # NOTE: generate LAPI key
-          # sudo docker exec crowdsec cscli bouncers add traefik-bouncer
+          # NOTE: generate LAPI key command:
+          # `sudo docker exec crowdsec cscli bouncers add traefik-bouncer`
           crowdsecLapiKey: privateKey-foo
           crowdsecLapiHost: crowdsec:8080
           crowdsecLapiScheme: http

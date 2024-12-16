@@ -27,9 +27,9 @@ services:
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=proxy"
+      - "traefik.http.services.uptime-kuma.loadbalancer.server.port=3001"
       - "traefik.http.routers.uptime-kuma-local.rule=Host(`uptime-kuma.yourdomain.local`)"
       - "traefik.http.routers.uptime-kuma-local.entrypoints=websecure"
-      - "traefik.http.services.uptime-kuma-local.loadbalancer.server.port=3001"
       - "traefik.http.routers.uptime-kuma-local.tls.certresolver=stepca"
 
 networks:

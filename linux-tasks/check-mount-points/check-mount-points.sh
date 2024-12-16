@@ -35,6 +35,12 @@ check_mount_point() {
     return $error
 }
 
+if [ -n "$HEALTHCHECKS_UUID" ] && [ -n "$HEALTHCHECKS_URL" ]; then
+    printf "Starting Healthchecks ping: "
+    curl -m 10 --retry 5 "$HEALTHCHECKS_URL/ping/$HEALTHCHECKS_UUID/start"
+    printf '\n'
+fi
+
 # Check all mount points
 for mount_point in "${MOUNT_POINTS[@]}"; do
     if ! check_mount_point "$mount_point"; then
@@ -50,7 +56,6 @@ else
     log="Success: All mount points are properly mounted"
 fi
 
-# Send results to Healthchecks
 if [ -n "$HEALTHCHECKS_UUID" ] && [ -n "$HEALTHCHECKS_URL" ]; then
     printf "Result from Healthchecks: "
     if [ $exit_code -eq 1 ]; then
@@ -58,8 +63,8 @@ if [ -n "$HEALTHCHECKS_UUID" ] && [ -n "$HEALTHCHECKS_URL" ]; then
     else
         curl -m 10 --retry 5 "$HEALTHCHECKS_URL/ping/$HEALTHCHECKS_UUID/$exit_code"
     fi
+    printf '\n'
 fi
 
-printf '\n'
 echo "$log"
 exit $exit_code

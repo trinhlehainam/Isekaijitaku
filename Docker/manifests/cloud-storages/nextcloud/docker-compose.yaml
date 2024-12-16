@@ -21,15 +21,17 @@ services:
     # https://hub.docker.com/_/nextcloud/tags
     image: nextcloud:30.0.2-apache
     container_name: nextcloud
-    restart: unless-stopped
+    restart: always
     depends_on:
       nextcloud-postgres:
         condition: service_healthy
+        restart: true
       nextcloud-redis:
         condition: service_healthy
+        restart: true
       collabora:
     # ports:
-    #   - 8080:80
+    #   - 80:80
     volumes:
       - ./nextcloud/html:/var/www/html
       - ./nextcloud/custom_apps:/var/www/html/custom_apps
@@ -107,7 +109,7 @@ services:
     image: collabora/code:24.04.10.2.1
     container_name: collabora
     hostname: collabora
-    restart: unless-stopped
+    restart: always
     environment:
       - TZ=Asia/Tokyo
       - aliasgroup1=https://nextcloud.yourdomain.local
@@ -158,7 +160,7 @@ services:
   nextcloud-postgres:
     # https://docs.nextcloud.com/server/latest/admin_manual/configuration_database/linux_database_configuration.html#postgresql-database
     # https://hub.docker.com/_/postgres/tags
-    image: postgres:16.5-alpine3.20
+    image: postgres:16.6-alpine3.20
     container_name: nextcloud-postgres
     volumes:
       - ./postgres:/var/lib/postgresql/data
@@ -175,7 +177,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
-    restart: unless-stopped
+    restart: always
 
   nextcloud-redis:
     # https://hub.docker.com/_/redis/tags
@@ -194,12 +196,12 @@ services:
       - redis_password
     networks:
       - nextcloud
-    restart: unless-stopped
     healthcheck:
       test: [ "CMD", "redis-cli", "ping" ]
       interval: 10s
       timeout: 30s
       retries: 3
+    restart: always
 
 networks:
   nextcloud:
