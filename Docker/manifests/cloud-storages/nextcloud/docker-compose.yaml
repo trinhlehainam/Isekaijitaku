@@ -40,6 +40,9 @@ services:
       # make sure root_ca.crt can be read by user www-data: `sudo chmod 644 /path/to/step/certs/root_ca.crt`
       # `docker exec -it -u www-data nextcloud ./occ security:certificates:import /certs/step-ca/root_ca.crt`
       - /path/to/step/certs/root_ca.crt:/certs/step-ca/root_ca.crt:ro
+      # NOTE: enable OPcache
+      # https://github.com/nextcloud/docker/issues/2184#issuecomment-2082845207
+      - ./config/opcache-recommended.ini:/usr/local/etc/php/conf.d/opcache-recommended.ini
     secrets:
       - db_password
       - redis_password
@@ -55,6 +58,9 @@ services:
       REDIS_HOST: "nextcloud-redis"
       REDIS_HOST_PASSWORD_FILE: "/run/secrets/redis_password"
       REDIS_HOST_PORT: 6379
+      # PHP
+      # https://github.com/nextcloud/docker?tab=readme-ov-file#php-configuration
+      PHP_MEMORY_LIMIT: 1024M
       # Nextcloud
       NEXTCLOUD_TRUSTED_DOMAINS: nextcloud.yourdomain.local
       OVERWRITECLIURL: https://nextcloud.yourdomain.local
