@@ -13,9 +13,9 @@ services:
     image: vaultwarden/server:1.32.5-alpine
     restart: unless-stopped
     depends_on:
-        # https://docs.docker.com/compose/how-tos/startup-order/
-        vaultwarden-postgres:
-          condition: service_healthy
+      # https://docs.docker.com/compose/how-tos/startup-order/
+      vaultwarden-postgres:
+        condition: service_healthy
     entrypoint:
       - /bin/sh
       - -c

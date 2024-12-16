@@ -11,7 +11,8 @@ services:
     image: healthchecks/healthchecks:v3.7
     container_name: healthchecks
     depends_on:
-      - healthchecks-postgres
+      healthchecks-postgres:
+        condition: service_healthy
     restart: unless-stopped
     environment:
       # https://healthchecks.io/docs/self_hosted_configuration/

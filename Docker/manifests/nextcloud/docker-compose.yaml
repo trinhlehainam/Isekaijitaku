@@ -23,9 +23,11 @@ services:
     container_name: nextcloud
     restart: unless-stopped
     depends_on:
-      - nextcloud-postgres
-      - nextcloud-redis
-      - collabora
+      nextcloud-postgres:
+        condition: service_healthy
+      nextcloud-redis:
+        condition: service_healthy
+      collabora:
     # ports:
     #   - 8080:80
     volumes:

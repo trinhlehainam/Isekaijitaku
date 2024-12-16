@@ -16,7 +16,10 @@ services:
       # https://crontab.guru/every-night-at-midnight
       - "DIUN_WATCH_SCHEDULE=0 0 * * *"
       - "DIUN_WATCH_JITTER=30s"
-      - "DIUN_WATCH_HEALTHCHECKS_BASEURL=https://healthchecks.mydomain.local"
+      # NOTE: Base URL for the Healthchecks Ping API
+      # https://crazymax.dev/diun/config/watch/#healthchecks
+      # https://healthchecks.vice.local/docs/http_api/
+      - "DIUN_WATCH_HEALTHCHECKS_BASEURL=https://healthchecks.mydomain.local/ping"
       # https://crazymax.dev/diun/providers/docker/
       - "DIUN_PROVIDERS_DOCKER=true"
       - "DIUN_PROVIDERS_DOCKER_WATCHBYDEFAULT=true"
