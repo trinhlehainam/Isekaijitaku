@@ -1,0 +1,9 @@
+[Unit]
+Description=Nextcloud cron.php job
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/docker-nextcloud-cron.sh
+
+[Install]
+WantedBy=multi-user.target
