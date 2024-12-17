@@ -1,0 +1,55 @@
+# Mount Point Monitor
+# Monitors mount points for proper mounting by checking for .mount files
+# Integrates with docker-autoheal for automatic recovery
+# References:
+#   - Base Image: https://hub.docker.com/_/bash
+
+services:
+  mountcheck:
+    # https://hub.docker.com/_/bash/tags
+    container_name: mountcheck
+    image: bash:5.2.37-alpine3.21
+    entrypoint: bash /mountcheck.sh
+    volumes:
+      - /mount/point1:/mnt/point1:ro
+      - /mount/point2:/mnt/point2:ro
+      - /mount/point3:/mnt/point3:ro
+      - ./mountcheck.sh:/mountcheck.sh:ro
+      - ./healthcheck.sh:/healthcheck.sh:ro
+    healthcheck:
+      test: ["CMD", "/usr/local/bin/bash", "/healthcheck.sh"]
+      interval: 10s
+      timeout: 10s
+      retries: 3
+    restart: always
+    user: nobody
+    read_only: true
+    security_opt:
+      - no-new-privileges:true
+
+  # Example: How to make other services wait for mount points to be ready
+  # postgres:
+  #   image: postgres:16.6-alpine3.21
+  #   container_name: postgres
+  #   depends_on:
+  #     mountcheck:
+  #       condition: service_healthy
+  #       restart: true
+  #   volumes:
+  #     - /path/to/mount/point/postgres/data:/var/lib/postgresql/data
+  #   environment:
+  #     POSTGRES_DB: ${POSTGRES_DB}
+  #     POSTGRES_USER: ${POSTGRES_USER}
+  #     POSTGRES_PASSWORD_FILE: "/run/secrets/db_password"
+  #   secrets:
+  #     - db_password
+  #   healthcheck:
+  #     test: [ "CMD", "pg_isready", "-q", "-d", "${POSTGRES_DB}", "-U", "${POSTGRES_USER}" ]
+  #     interval: 10s
+  #     timeout: 5s
+  #     retries: 3
+  #   restart: always
+  # 
+  # secrets:
+  #   db_password:
+  #     file: ./secrets/db_password

@@ -1,7 +1,7 @@
 services:
   postgres:
     # https://hub.docker.com/_/postgres/tags
-    image: postgres:16.5-alpine3.20
+    image: postgres:16.6-alpine3.21
     container_name: postgres
     volumes:
       - ./data:/var/lib/postgresql/data
@@ -16,7 +16,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
-    restart: unless-stopped
+    restart: always
 
 secrets:
   db_password:

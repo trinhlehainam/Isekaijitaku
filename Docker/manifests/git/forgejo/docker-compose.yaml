@@ -1,9 +1,10 @@
+# https://forgejo.org/docs/latest/admin/installation-docker/
 # https://forgejo.org/docs/next/admin/installation-docker/#postgresql-database
 
 services:
   server:
     # https://codeberg.org/forgejo/-/packages/container/forgejo/versions
-    image: codeberg.org/forgejo/forgejo:9.0.1
+    image: codeberg.org/forgejo/forgejo:9.0.3
     container_name: forgejo
     environment:
       - USER_UID=1000
@@ -18,9 +19,9 @@ services:
       - ./forgejo:/data
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
-    ports:
-      - "3000:3000"
-      - "222:22"
+    # ports:
+    #   - "3000:3000"
+    #   - "22:22"
     depends_on:
       forgejo-db:
         condition: service_healthy
@@ -45,7 +46,7 @@ services:
   forgejo-db:
     container_name: forgejo-db
     # https://hub.docker.com/_/postgres/tags
-    image: postgres:16.6-alpine3.20
+    image: postgres:16.6-alpine3.21
     environment:
       - POSTGRES_PASSWORD_FILE=/run/secrets/db_password
       - POSTGRES_USER=forgejo
