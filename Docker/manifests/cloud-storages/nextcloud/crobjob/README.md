@@ -14,7 +14,7 @@ This directory contains scripts and configuration files for managing Nextcloud c
 - `docker-nextcloud-cron.service`: Systemd service unit file for running the cron job
 - `docker-nextcloud-cron.timer`: Systemd timer unit for scheduling cron job execution every 5 minutes
 
-- `set-docker-nextcloud-maintenance.sh`: Script to manage time-related settings. Features:
+- `set-docker-nextcloud-maintenance.sh`: Script to manage setting Nextcloud container maintenance time. Features:
   - System and container timezone configuration
   - Maintenance window time configuration
   - Time format validation

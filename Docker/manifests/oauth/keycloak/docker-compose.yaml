@@ -13,7 +13,6 @@ services:
     # https://quay.io/repository/keycloak/keycloak?tab=tags
     image: quay.io/keycloak/keycloak:26.0.5
     container_name: keycloak
-    restart: unless-stopped
     # NOTE: how to use docker secrets
     # https://github.com/keycloak/keycloak/issues/10816
     entrypoint:
@@ -24,14 +23,12 @@ services:
         export KC_BOOTSTRAP_ADMIN_USERNAME=$$(cat /run/secrets/keycloak_admin)
         export KC_BOOTSTRAP_ADMIN_PASSWORD=$$(cat /run/secrets/keycloak_admin_password)
         /opt/keycloak/bin/kc.sh start
-    #
     # NOTE: keycloak all configuration
     # https://www.keycloak.org/server/all-config
     environment:
       KC_DB: postgres
       KC_DB_URL: jdbc:postgresql://keycloak-postgres:5432/${POSTGRES_DB}
       KC_DB_USERNAME: ${POSTGRES_USER}
-
       # NOTE: hostname configuration
       # https://www.keycloak.org/server/hostname#_validations
       # Disable Keycloak hostname because we are using Traefik as reverse proxy to manage the hostname
@@ -44,7 +41,6 @@ services:
       # NOTE: reverse proxy configuration
       # https://www.keycloak.org/server/reverseproxy
       KC_PROXY_HEADERS: 'xforwarded'
-
       # NOTE: logging
       # https://www.keycloak.org/server/logging
       KC_LOG_LEVEL: info
@@ -67,20 +63,10 @@ services:
     depends_on:
         keycloak-postgres:
           condition: service_healthy
+          restart: true
     networks:
       - keycloak
       - proxy
-    # https://gist.github.com/sarath-soman/5d9aec06953bbd0990c648605d4dba07?permalink_comment_id=5225953#gistcomment-5225953
-    healthcheck:
-      test:
-        - "CMD-SHELL"
-        - |
-          exec 3<>/dev/tcp/127.0.0.1/9000 &&
-          echo -e 'GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3 &&
-          cat <&3 | grep -q '\"status\": \"UP\"' && exit 0 || exit 1
-      interval: 30s
-      timeout: 10s
-      retries: 3
     labels:
       - "traefik.enable=true"
       # NOTE: specific docker network for Traefik to use
@@ -94,10 +80,22 @@ services:
       - "traefik.http.routers.keycloak-local.service=keycloak"
       - "traefik.http.routers.keycloak-local.entrypoints=websecure"
       - "traefik.http.routers.keycloak-local.tls.certresolver=stepca"
+    # https://gist.github.com/sarath-soman/5d9aec06953bbd0990c648605d4dba07?permalink_comment_id=5225953#gistcomment-5225953
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - |
+          exec 3<>/dev/tcp/127.0.0.1/9000 &&
+          echo -e 'GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3 &&
+          cat <&3 | grep -q '\"status\": \"UP\"' && exit 0 || exit 1
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: always
 
   keycloak-postgres:
     # https://hub.docker.com/_/postgres/tags
-    image: postgres:16.5-alpine3.20
+    image: postgres:16.6-alpine3.21
     container_name: keycloak-postgres
     volumes:
       - ./postgres:/var/lib/postgresql/data
@@ -114,7 +112,7 @@ services:
       interval: 10s
       timeout: 5s
       retries: 3
-    restart: unless-stopped
+    restart: always
 
 secrets:
   db_password:

@@ -1,0 +1,13 @@
+# https://github.com/willfarrell/docker-autoheal
+
+services:
+  autoheal:
+    # https://hub.docker.com/r/willfarrell/autoheal/tags
+    image: willfarrell/autoheal:latest
+    container_name: autoheal
+    restart: always
+    volumes:
+      - /etc/localtime:/etc/localtime:ro
+      - /var/run/docker.sock:/var/run/docker.sock
+    environment:
+      AUTOHEAL_ONLY_MONITOR_RUNNING: "true"

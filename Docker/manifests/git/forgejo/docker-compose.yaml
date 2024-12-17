@@ -14,7 +14,6 @@ services:
       - FORGEJO__database__USER=forgejo
       # NOTE: can be set up on admin page
       # - FORGEJO__database__PASSWD=forgejo
-    restart: unless-stopped
     volumes:
       - ./forgejo:/data
       - /etc/timezone:/etc/timezone:ro
@@ -23,8 +22,10 @@ services:
       - "3000:3000"
       - "222:22"
     depends_on:
-        forgejo-db:
-          condition: service_healthy
+      forgejo-db:
+        condition: service_healthy
+        restart: true
+    restart: always
     networks:
       - forgejo
       - proxy
@@ -56,11 +57,11 @@ services:
     secrets:
       - db_password
     healthcheck:
-      test: [ "CMD", "pg_isready", "-q", "-d", "${POSTGRES_DB}", "-U", "${POSTGRES_USER}" ]
+      test: [ "CMD", "pg_isready", "-q", "-d", "forgejo", "-U", "forgejo" ]
       interval: 10s
       timeout: 5s
       retries: 3
-    restart: unless-stopped
+    restart: always
 
 networks:
   forgejo:

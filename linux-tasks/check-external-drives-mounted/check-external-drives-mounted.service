@@ -1,0 +1,10 @@
+[Unit]
+Description=Check external drives mount status
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/check-external-drives-mounted.sh
+
+[Install]
+WantedBy=multi-user.target

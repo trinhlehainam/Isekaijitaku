@@ -21,7 +21,6 @@ log_message() {
 # Check if container exists and is running
 check_container() {
     if ! docker ps -q -f name="^/${CONTAINER_NAME}$"; then
-        log_message "ERROR: Nextcloud container '${CONTAINER_NAME}' is not running"
         return 1
     fi
     return 0
@@ -58,7 +57,7 @@ main() {
     # Check container status
     if ! check_container; then
         exit_code=1
-        log="Container check failed"
+        log="ERROR: Nextcloud container '${CONTAINER_NAME}' is not running"
         send_healthcheck "$exit_code" "$log"
         exit "$exit_code"
     fi
@@ -66,10 +65,10 @@ main() {
     # Run cron job
     if ! docker exec -u www-data "$CONTAINER_NAME" php /var/www/html/cron.php; then
         exit_code=1
-        log="Cron job execution failed"
+        log="ERROR: Nextcloud container's cron job execution failed"
     fi
     
-    log_message "INFO: Cron job completed successfully"
+    log_message "INFO: Nextcloud container's cron job completed successfully"
 
     # Send result to Healthchecks
     send_healthcheck "$exit_code" "$log"
