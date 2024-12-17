@@ -27,6 +27,9 @@ services:
       nextcloud-redis:
         condition: service_healthy
         restart: true
+      # nextcloud-mountcheck:
+      #   condition: service_healthy
+      #   restart: true
       # collabora:
       #   condition: service_started
     # ports:
@@ -214,6 +217,28 @@ services:
       timeout: 30s
       retries: 3
     restart: always
+
+  # nextcloud-mountcheck:
+  #   container_name: nextcloud-mountcheck
+  #   # https://hub.docker.com/_/bash/tags
+  #   image: bash:5.2.37-alpine3.21
+  #   entrypoint: bash /mountcheck.sh
+  #   volumes:
+  #     - /mount/point1:/mnt/point1:ro
+  #     - /mount/point2:/mnt/point2:ro
+  #     - /mount/point3:/mnt/point3:ro
+  #     - ./mountcheck/mountcheck.sh:/mountcheck.sh:ro
+  #     - ./mountcheck/healthcheck.sh:/healthcheck.sh:ro
+  #   healthcheck:
+  #     test: ["CMD", "/usr/local/bin/bash", "/healthcheck.sh"]
+  #     interval: 10s
+  #     timeout: 10s
+  #     retries: 3
+  #   restart: always
+  #   user: nobody
+  #   read_only: true
+  #   security_opt:
+  #     - no-new-privileges:true
 
 networks:
   nextcloud:

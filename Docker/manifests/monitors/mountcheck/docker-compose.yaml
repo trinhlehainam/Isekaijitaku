@@ -6,8 +6,8 @@
 
 services:
   mountcheck:
-    # https://hub.docker.com/_/bash/tags
     container_name: mountcheck
+    # https://hub.docker.com/_/bash/tags
     image: bash:5.2.37-alpine3.21
     entrypoint: bash /mountcheck.sh
     volumes:

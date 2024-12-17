@@ -26,6 +26,9 @@ services:
       forgejo-db:
         condition: service_healthy
         restart: true
+      # forgejo-mountcheck:
+      #   condition: service_healthy
+      #   restart: true
     restart: always
     networks:
       - forgejo
@@ -47,6 +50,10 @@ services:
     container_name: forgejo-db
     # https://hub.docker.com/_/postgres/tags
     image: postgres:16.6-alpine3.21
+    # depends_on:
+    #   forgejo-mountcheck:
+    #     condition: service_healthy
+    #     restart: true
     environment:
       - POSTGRES_PASSWORD_FILE=/run/secrets/db_password
       - POSTGRES_USER=forgejo
@@ -63,6 +70,28 @@ services:
       timeout: 5s
       retries: 3
     restart: always
+  
+  # forgejo-mountcheck:
+  #   container_name: forgejo-mountcheck
+  #   # https://hub.docker.com/_/bash/tags
+  #   image: bash:5.2.37-alpine3.21
+  #   entrypoint: bash /mountcheck.sh
+  #   volumes:
+  #     - /mount/point1:/mnt/point1:ro
+  #     - /mount/point2:/mnt/point2:ro
+  #     - /mount/point3:/mnt/point3:ro
+  #     - ./mountcheck/mountcheck.sh:/mountcheck.sh:ro
+  #     - ./mountcheck/healthcheck.sh:/healthcheck.sh:ro
+  #   healthcheck:
+  #     test: ["CMD", "/usr/local/bin/bash", "/healthcheck.sh"]
+  #     interval: 10s
+  #     timeout: 10s
+  #     retries: 3
+  #   restart: always
+  #   user: nobody
+  #   read_only: true
+  #   security_opt:
+  #     - no-new-privileges:true
 
 networks:
   forgejo:
