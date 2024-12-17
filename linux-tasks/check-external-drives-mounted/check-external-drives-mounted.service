@@ -1,6 +1,5 @@
 [Unit]
 Description=Check external drives mount status
-After=network.target
 
 [Service]
 Type=oneshot
