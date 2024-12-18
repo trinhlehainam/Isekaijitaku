@@ -20,6 +20,7 @@ log_message() {
 
 # Check if container exists and is running
 check_container() {
+    log_message "INFO: Checking Nextcloud container status"
     if ! docker ps -q -f name="^/${CONTAINER_NAME}$"; then
         return 1
     fi

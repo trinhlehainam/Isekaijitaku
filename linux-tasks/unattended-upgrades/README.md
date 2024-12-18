@@ -100,7 +100,6 @@ systemctl list-timers apt-daily.timer apt-daily-upgrade.timer
 ```
 
 ## Notes
-
 - `OnCalendar`: Specifies when the timer should trigger
 - `RandomizedDelaySec`: Adds random delay to prevent system load spikes
   - 1m (1 minute) for updates
