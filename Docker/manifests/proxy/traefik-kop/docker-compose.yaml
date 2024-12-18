@@ -5,7 +5,7 @@ services:
     container_name: "traefik-kop"
     # https://github.com/jittering/traefik-kop/pkgs/container/traefik-kop
     image: "ghcr.io/jittering/traefik-kop:latest"
-    restart: unless-stopped
+    restart: always
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     environment:

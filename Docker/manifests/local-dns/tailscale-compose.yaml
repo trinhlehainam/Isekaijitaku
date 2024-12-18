@@ -21,8 +21,9 @@ services:
       - sys_module
     volumes:
       - ./tailscale/state:/var/lib/tailscale
-      # NOTE: enable access to tun for LXC containers
-      # https://tailscale.com/kb/1130/lxc-unprivileged
+    # NOTE: latest containerd version >=v1.7.24
+    # https://github.com/tailscale/tailscale/issues/14256#issuecomment-2509791148
+    devices:
       - /dev/net/tun:/dev/net/tun
     networks:
       proxy:
