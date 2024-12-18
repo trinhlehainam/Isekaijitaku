@@ -8,6 +8,7 @@ HEALTHCHECKS_BASE_URL="https://healthchecks.yourdomain"
 HEALTHCHECKS_UUID=""
 GOTIFY_URL="https://gotify.yourdomain"
 GOTIFY_TOKEN=""
+GOTIFY_HOSTNAME="your-hostname"
 # Define external drives to check
 LOG_FILE="/var/log/unattentded-upgrades-notify.log"
 exit_code=0
@@ -26,14 +27,14 @@ send_healthcheck() {
     local message="${2:-}"
     if [ -n "$HEALTHCHECKS_UUID" ] && [ -n "$HEALTHCHECKS_BASE_URL" ]; then
         if [ "$endpoint" = "start" ]; then
-            log_message "Starting Healthchecks ping"
-            curl -m 10 --retry 5 "$HEALTHCHECKS_BASE_URL/ping/$HEALTHCHECKS_UUID/start" || log_message "WARNING: Failed to send start ping"
+            log_message "INFO: Starting Healthchecks ping"
+            curl -fsS -m 10 --retry 5 -o /dev/null "$HEALTHCHECKS_BASE_URL/ping/$HEALTHCHECKS_UUID/start" || log_message "WARNING: Failed to send start ping"
         else
-            log_message "Sending result to Healthchecks"
+            log_message "INFO: Sending result to Healthchecks"
             if [ -n "$message" ]; then
-                curl -fsS -m 10 --retry 5 --data-raw "$message" "$HEALTHCHECKS_BASE_URL/ping/$HEALTHCHECKS_UUID/$endpoint" || log_message "WARNING: Failed to send result ping"
+                curl -fsS -m 10 --retry 5 -o /dev/null --data-raw "$message" "$HEALTHCHECKS_BASE_URL/ping/$HEALTHCHECKS_UUID/$endpoint" || log_message "WARNING: Failed to send result ping"
             else
-                curl -m 10 --retry 5 "$HEALTHCHECKS_BASE_URL/ping/$HEALTHCHECKS_UUID/$endpoint" || log_message "WARNING: Failed to send result ping"
+                curl -fsS -m 10 --retry 5 -o /dev/null "$HEALTHCHECKS_BASE_URL/ping/$HEALTHCHECKS_UUID/$endpoint" || log_message "WARNING: Failed to send result ping"
             fi
         fi
     fi
@@ -42,8 +43,8 @@ send_healthcheck() {
 send_gotify() {
     local message=$1
     if [ -n "$GOTIFY_URL" ] && [ -n "$GOTIFY_TOKEN" ]; then
-        log_message "Sending message to Gotify"
-        curl -m 10 --retry 5 "$GOTIFY_URL/message?token=$GOTIFY_TOKEN" -F "title=Unattended Upgrades Notification" -F "message=$message" -F "priority=5"
+        log_message "INFO: Sending message to Gotify"
+        curl -fsS -m 10 --retry 5 -o /dev/null "$GOTIFY_URL/message?token=$GOTIFY_TOKEN" -F "title=$GOTIFY_HOSTNAME" -F "message=$message" -F "priority=5"
     fi
 }   
 
@@ -84,9 +85,9 @@ check_updates() {
     # Check for successful updates in current session
     if echo "$current_session_log" | grep "Packages that will be upgraded" >/dev/null; then
         local upgraded_msg
-        upgraded_msg=$(echo "$current_session_log" | grep -A1 "Packages that will be upgraded" | tail -n1)
-        log_message "INFO: Updates found: $upgraded_msg"
-        send_gotify "System updates completed: $upgraded_msg"
+        upgraded_msg=$(echo "$current_session_log" | grep -o "Packages that will be upgraded.*")
+        log_message "INFO: $upgraded_msg"
+        send_gotify "$upgraded_msg"
     fi
     
     exit_code=0
@@ -103,6 +104,8 @@ check_reboot_required() {
 main() {
     # Create log directory if it doesn't exist
     mkdir -p "$(dirname "$LOG_FILE")"
+
+    send_healthcheck "start"
     
     # Check for updates and reboot required
     check_updates

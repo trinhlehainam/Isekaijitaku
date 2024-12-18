@@ -80,14 +80,14 @@ send_healthcheck() {
     local message="${2:-}"
     if [ -n "$HEALTHCHECKS_UUID" ] && [ -n "$HEALTHCHECKS_BASE_URL" ]; then
         if [ "$status" = "start" ]; then
-            log_message "Starting Healthchecks ping"
-            curl -m 10 --retry 5 "$HEALTHCHECKS_BASE_URL/ping/$HEALTHCHECKS_UUID/start" || log_message "WARNING: Failed to send start ping"
+            log_message "INFO: Starting Healthchecks ping"
+            curl -fsS -m 10 --retry 5 -o /dev/null "$HEALTHCHECKS_BASE_URL/ping/$HEALTHCHECKS_UUID/start" || log_message "WARNING: Failed to send start ping"
         else
-            log_message "Sending result to Healthchecks"
+            log_message "INFO: Sending result to Healthchecks"
             if [ -n "$message" ]; then
-                curl -fsS -m 10 --retry 5 --data-raw "$message" "$HEALTHCHECKS_BASE_URL/ping/$HEALTHCHECKS_UUID/$exit_code" || log_message "WARNING: Failed to send result ping"
+                curl -fsS -m 10 --retry 5 -o /dev/null --data-raw "$message" "$HEALTHCHECKS_BASE_URL/ping/$HEALTHCHECKS_UUID/$status" || log_message "WARNING: Failed to send result ping"
             else
-                curl -m 10 --retry 5 "$HEALTHCHECKS_BASE_URL/ping/$HEALTHCHECKS_UUID/$exit_code" || log_message "WARNING: Failed to send result ping"
+                curl -fsS -m 10 --retry 5 -o /dev/null "$HEALTHCHECKS_BASE_URL/ping/$HEALTHCHECKS_UUID/$status" || log_message "WARNING: Failed to send result ping"
             fi
         fi
     fi
@@ -97,7 +97,7 @@ main() {
     # Create log directory if it doesn't exist
     mkdir -p "$(dirname "$LOG_FILE")"
     
-    log_message "Starting external drive mount check"
+    log_message "INFO: Starting external drive mount check"
     
     # Send start ping to Healthchecks
     send_healthcheck "start"

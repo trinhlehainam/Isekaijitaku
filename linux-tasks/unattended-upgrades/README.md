@@ -69,12 +69,14 @@ sudo systemctl enable unattended-upgrades-notify.service
 
 3. Configure notification endpoints:
    Edit the script and set your notification endpoints:
-   ```bash
-   HEALTHCHECKS_BASE_URL="https://healthchecks.yourdomain"
-   HEALTHCHECKS_UUID="your-uuid"
-   GOTIFY_URL="https://gotify.yourdomain"
-   GOTIFY_TOKEN="your-token"
-   ```
+
+```bash
+HEALTHCHECKS_BASE_URL="https://healthchecks.yourdomain"
+HEALTHCHECKS_UUID="your-uuid"
+GOTIFY_URL="https://gotify.yourdomain"
+GOTIFY_TOKEN="your-token"
+GOTIFY_HOSTNAME="your-hostname"
+```
 
 ## Applying Changes
 
