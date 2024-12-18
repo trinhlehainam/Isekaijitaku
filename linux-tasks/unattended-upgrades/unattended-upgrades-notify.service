@@ -1,0 +1,12 @@
+[Unit]
+Description=Notify about unattended upgrades status
+After=unattended-upgrades.service
+Wants=unattended-upgrades.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/unattended-upgrades-notify.sh
+RemainAfterExit=yes
+
+[Install]
+WantedBy=unattended-upgrades.service

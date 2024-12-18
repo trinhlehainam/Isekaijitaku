@@ -1,0 +1,119 @@
+#!/bin/bash
+
+# Exit on error, undefined variables, and pipe failures
+set -euo pipefail
+
+# Configuration
+HEALTHCHECKS_BASE_URL="https://healthchecks.yourdomain"
+HEALTHCHECKS_UUID=""
+GOTIFY_URL="https://gotify.yourdomain"
+GOTIFY_TOKEN=""
+# Define external drives to check
+LOG_FILE="/var/log/unattentded-upgrades-notify.log"
+exit_code=0
+log=""
+
+# Logging function
+log_message() {
+    local timestamp
+    timestamp=$(date '+%Y-%m-%d %H:%M:%S')
+    echo "[$timestamp] $1" | tee -a "$LOG_FILE"
+}
+
+# Healthchecks ping function
+send_healthcheck() {
+    local endpoint=$1
+    local message="${2:-}"
+    if [ -n "$HEALTHCHECKS_UUID" ] && [ -n "$HEALTHCHECKS_BASE_URL" ]; then
+        if [ "$endpoint" = "start" ]; then
+            log_message "Starting Healthchecks ping"
+            curl -m 10 --retry 5 "$HEALTHCHECKS_BASE_URL/ping/$HEALTHCHECKS_UUID/start" || log_message "WARNING: Failed to send start ping"
+        else
+            log_message "Sending result to Healthchecks"
+            if [ -n "$message" ]; then
+                curl -fsS -m 10 --retry 5 --data-raw "$message" "$HEALTHCHECKS_BASE_URL/ping/$HEALTHCHECKS_UUID/$endpoint" || log_message "WARNING: Failed to send result ping"
+            else
+                curl -m 10 --retry 5 "$HEALTHCHECKS_BASE_URL/ping/$HEALTHCHECKS_UUID/$endpoint" || log_message "WARNING: Failed to send result ping"
+            fi
+        fi
+    fi
+}
+
+send_gotify() {
+    local message=$1
+    if [ -n "$GOTIFY_URL" ] && [ -n "$GOTIFY_TOKEN" ]; then
+        log_message "Sending message to Gotify"
+        curl -m 10 --retry 5 "$GOTIFY_URL/message?token=$GOTIFY_TOKEN" -F "title=Unattended Upgrades Notification" -F "message=$message" -F "priority=5"
+    fi
+}   
+
+# Check if updates were performed
+check_updates() {
+    local UNATTENDED_UPGRADES_LOG="/var/log/unattended-upgrades/unattended-upgrades.log"
+    local start_line
+    local current_session_log
+
+    if [ ! -f "$UNATTENDED_UPGRADES_LOG" ]; then
+        log="ERROR: Unattended upgrades log not found"
+        log_message "$log"
+        exit_code=1
+        return 1
+    fi
+
+    # Find the last occurrence of the start message
+    start_line=$(grep -n "INFO Starting unattended upgrades script" "$UNATTENDED_UPGRADES_LOG" | tail -n1 | cut -d: -f1)
+    
+    if [ -z "$start_line" ]; then
+        log="ERROR: No unattended upgrades session found"
+        log_message "$log"
+        exit_code=1
+        return 1
+    fi
+
+    # Extract logs from the latest session
+    current_session_log=$(tail -n +"$start_line" "$UNATTENDED_UPGRADES_LOG")
+
+    # Check for any errors in the current session
+    if echo "$current_session_log" | grep -i "error\|warning\|fail" >/dev/null; then
+        log="ERROR: Errors found in current unattended upgrades session"
+        log_message "$log"
+        exit_code=1
+        return 1
+    fi
+
+    # Check for successful updates in current session
+    if echo "$current_session_log" | grep "Packages that will be upgraded" >/dev/null; then
+        local upgraded_msg
+        upgraded_msg=$(echo "$current_session_log" | grep -A1 "Packages that will be upgraded" | tail -n1)
+        log_message "INFO: Updates found: $upgraded_msg"
+        send_gotify "System updates completed: $upgraded_msg"
+    fi
+    
+    exit_code=0
+    return 0
+}
+
+# Check for reboot required
+check_reboot_required() {
+    if [ -f /var/run/reboot-required ]; then
+         send_gotify "Reboot required"
+    fi
+}
+
+main() {
+    # Create log directory if it doesn't exist
+    mkdir -p "$(dirname "$LOG_FILE")"
+    
+    # Check for updates and reboot required
+    check_updates
+    check_reboot_required
+
+    # Send result to Healthchecks
+    send_healthcheck "$exit_code" "$log"
+    
+    # Output final log message
+    [ -n "$log" ] && log_message "$log"
+    exit "$exit_code"
+}
+
+main "$@"

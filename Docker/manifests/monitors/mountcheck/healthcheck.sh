@@ -13,7 +13,7 @@ check_single_mount() {
     local mount_file="$mount_point/.mounted"
     
     if [ ! -f "$mount_file" ]; then
-        echo "ERROR: Mount point check failed - .mount file not found at $mount_file"
+        echo "ERROR: Mount point check failed - .mounted file not found at $mount_file"
         return 1
     fi
     return 0
