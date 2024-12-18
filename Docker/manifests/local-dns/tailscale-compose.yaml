@@ -2,10 +2,9 @@ services:
   # https://tailscale.com/kb/1282/docker#code-examples
   tailscale-adguardhome:
     # https://hub.docker.com/r/tailscale/tailscale/tags
-    image: tailscale/tailscale:v1.76.6
+    image: tailscale/tailscale:v1.78.3
     container_name: tailscale-adguardhome
     # hostname: Docker-Tailscale
-    restart: unless-stopped
     # NOTE: setup port forwarding to expose docker container ip to host
     ports:
       - '5353:53/udp'
@@ -39,18 +38,27 @@ services:
       - "traefik.http.routers.adguardhome-local.entrypoints=websecure"
       - "traefik.http.routers.adguardhome-local.tls.certresolver=stepca"
       - "traefik.http.routers.adguardhome-local.middlewares=oauth2-admin@file"
+    # https://github.com/tailscale/tailscale/issues/12758#issuecomment-2265152534
+    healthcheck:
+      test: tailscale status --peers=false --json | grep -q 'Online.*true'
+      interval: 5s
+      timeout: 5s
+      retries: 3
+    restart: always
 
   # https://github.com/AdguardTeam/AdGuardHome/wiki/Docker
   adguardhome:
     container_name: adguardhome
     # https://hub.docker.com/r/adguard/adguardhome/tags
     image: adguard/adguardhome:v0.107.54
-    restart: unless-stopped
     volumes:
       - './adguardhome/conf:/opt/adguardhome/conf'
       - './adguardhome/work:/opt/adguardhome/work'
+    restart: always
     depends_on:
-      - tailscale-adguardhome
+      tailscale-adguardhome:
+        condition: service_healthy
+        restart: true
     network_mode: service:tailscale-adguardhome
 
   # https://github.com/MatthewVance/unbound-docker?tab=readme-ov-file#docker-compose

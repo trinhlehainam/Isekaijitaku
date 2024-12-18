@@ -3,7 +3,7 @@
 services:
   dozzle-agent:
     # https://hub.docker.com/r/amir20/dozzle/tags
-    image: amir20/dozzle:v8.7.2
+    image: amir20/dozzle:v8.9.0
     container_name: dozzle-agent
     restart: unless-stopped
     command: agent
