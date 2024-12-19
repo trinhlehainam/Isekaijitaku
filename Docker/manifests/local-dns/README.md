@@ -174,30 +174,34 @@ echo "source /etc/network/interfaces.d/*" | sudo tee -a /etc/network/interfaces
 
 #### For systemd-networkd based systems:
 
-1. Create a network configuration file `/etc/systemd/network/adguardhome.network`:
+1. Create network configuration files:
 ```bash
-sudo mkdir -p /etc/systemd/network
-sudo nano /etc/systemd/network/adguardhome.network
+# Create network configuration file (30- prefix sets priority)
+sudo touch /etc/systemd/network/30-adguardhome.network
+sudo nano /etc/systemd/network/30-adguardhome.network
 ```
 
-Add the following:
+Add the following configuration:
 ```ini
 [Match]
 Name=adguardhome-lan
 
 [Network]
 Address=192.168.x.z/32
+
 [Route]
 Destination=192.168.x.y/32
 Scope=link
 ```
 
-2. Create a netdev file `/etc/systemd/network/adguardhome.netdev`:
+2. Create netdev configuration:
 ```bash
-sudo nano /etc/systemd/network/adguardhome.netdev
+# Create netdev configuration file
+sudo touch /etc/systemd/network/30-adguardhome.netdev
+sudo nano /etc/systemd/network/30-adguardhome.netdev
 ```
 
-Add the following:
+Add the following configuration:
 ```ini
 [NetDev]
 Name=adguardhome-lan
@@ -208,10 +212,21 @@ Mode=bridge
 Parent=eth0
 ```
 
+Note: The `30-` prefix in filenames determines the processing order. Lower numbers are processed first.
+
 3. Enable and restart systemd-networkd:
 ```bash
+# Enable systemd-networkd if not already enabled
 sudo systemctl enable systemd-networkd
+
+# Restart the service to apply changes
 sudo systemctl restart systemd-networkd
+
+# Check service status
+sudo systemctl status systemd-networkd
+
+# Verify interface creation
+ip addr show adguardhome-lan
 ```
 
 Replace the following values:
@@ -251,13 +266,13 @@ docker exec -it adguardhome ping 192.168.x.z  # Host IP
    3. Set an available IP address for AdGuard Home
 
 3. Start the services:
-   ```bash
-   # For basic setup
-   docker-compose up -d
+```bash
+# For basic setup
+docker-compose up -d
 
-   # For Tailscale setup
-   docker-compose -f tailscale-compose.yaml up -d
-   ```
+# For Tailscale setup
+docker-compose -f tailscale-compose.yaml up -d
+```
 
 ## References
 - [Docker Bridge Network](https://docs.docker.com/engine/network/drivers/bridge/)
