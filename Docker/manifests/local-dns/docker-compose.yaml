@@ -4,11 +4,14 @@ services:
     container_name: adguardhome
     # https://hub.docker.com/r/adguard/adguardhome/tags
     image: adguard/adguardhome:v0.107.54
-    restart: unless-stopped
-    # NOTE: setup port forwarding to expose docker container ip to host
-    ports:
-      - '5353:53/udp'
-      - '5353:53/tcp'
+    restart: always
+    depends_on:
+      unbound:
+        condition: service_healthy
+        restart: true
+    # ports:
+    #   - '53:53/udp'
+    #   - '53:53/tcp'
     volumes:
       - './adguardhome/conf:/opt/adguardhome/conf'
       - './adguardhome/work:/opt/adguardhome/work'
@@ -16,6 +19,8 @@ services:
       proxy:
       dns:
         ipv4_address: 172.20.0.10
+      adguardhome-macvlan:
+        ipv4_address: 192.168.x.y  # Change this to your preferred DNS IP
     labels:
       - "traefik.enable=true"
       # NOTE: specific docker network for Traefik to use
@@ -32,7 +37,7 @@ services:
     container_name: unbound
     # https://hub.docker.com/r/mvance/unbound/tags
     image: 'mvance/unbound:1.21.1'
-    restart: unless-stopped
+    restart: always
     # ports:
     #   - '53:53/udp'
     #   - '53:53/tcp'
@@ -47,6 +52,16 @@ networks:
     external: true
   dns:
     driver: bridge
+    internal: true  # This network is not connected to any external interfaces
     ipam:
       config:
         - subnet: 172.20.0.0/16
+  adguardhome-macvlan:
+    driver: macvlan
+    driver_opts:
+      parent: eth0  # Change this to match your network interface
+    ipam:
+      config:
+        - subnet: 192.168.x.0/24  # Change to match your network
+          gateway: 192.168.x.1    # Change to match your network gateway
+          ip_range: 192.168.x.y/32  # Restrict to single IP
