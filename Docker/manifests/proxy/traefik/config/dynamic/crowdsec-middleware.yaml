@@ -33,9 +33,12 @@ http:
           redisCacheDatabase: "5"
           # NOTE: trusted IPs
           # https://github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin/blob/main/examples/trusted-ips/README.md
-          # forwardedHeadersTrustedIPs: 
-          #   - 10.0.10.23/32
-          #   - 10.0.20.0/24
+          forwardedHeadersTrustedIPs: 
+            # NOTE: Traefik is behind Cloudflare Tunnel, Traefik and Cloudflare share the docker bridge network "cloudflared"
+            # Use "docker network inspect cloudflared" to get subnet
+            # NOTE: Also need to setup Traefik entrypoints.websecure.forwardedHeaders.trustedIPs to include Cloudflare Tunnel IP
+            # https://doc.traefik.io/traefik/routing/entrypoints/#forwarded-headers
+            - 172.50.0.0/16
           clientTrustedIPs: 
             # NOTE: Tailscale IPs
             # https://tailscale.com/kb/1015/100.x-addresses

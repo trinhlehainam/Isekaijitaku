@@ -35,9 +35,8 @@ services:
   # https://erdaltoprak.com/blog/setting-up-a-local-reverse-proxy-on-proxmox-with-traefik-and-cloudflare/
   traefik:
     # https://hub.docker.com/_/traefik/tags
-    image: "traefik:v3.2.0"
+    image: "traefik:v3.2.3"
     container_name: "traefik"
-    restart: unless-stopped
     depends_on:
       step-ca:
         condition: service_healthy
@@ -70,6 +69,15 @@ services:
       - proxy
       - redis
       - crowdsec
+    # NOTE: need to enable ping api
+    # # https://doc.traefik.io/traefik/operations/ping/
+    healthcheck:
+      test: ["CMD", "traefik", "healthcheck"]
+      interval: 10s
+      timeout: 30s
+      retries: 5
+      start_period: 30s
+    restart: always
 
   # https://doc.crowdsec.net/docs/next/appsec/quickstart/traefik
   # https://github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin?tab=readme-ov-file#usage

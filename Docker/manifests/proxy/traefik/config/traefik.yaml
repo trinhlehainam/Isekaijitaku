@@ -19,6 +19,9 @@ api:
   debug: true
   # insecure: true
 
+# https://doc.traefik.io/traefik/operations/ping/
+ping: {}
+
 log:
   level: DEBUG
 
@@ -43,15 +46,18 @@ entryPoints:
   web:
     address: :80
     http:
-      middlewares:
-        - "cloudflarewarp@file"
-        - "crowdsec@file"
       redirections:
         entryPoint:
           to: websecure
           scheme: https
   websecure:
     address: :443
+    # https://doc.traefik.io/traefik/routing/entrypoints/#forwarded-headers
+    forwardedHeaders:
+      trustedIPs:
+        # NOTE: Traefik is behind Cloudflare Tunnel, Traefik and Cloudflare share the docker bridge network "cloudflared"
+        # Use "docker network inspect cloudflared" to get subnet
+        - 172.50.0.0/16
     http:
       middlewares:
         - "cloudflarewarp@file"
@@ -60,9 +66,9 @@ entryPoints:
       tls:
         certResolver: cloudflare
         domains:
-          - main: "your_cloudflare_domain"
+          - main: "yourdomain.com"
             sans:
-              - "*.your_cloudflare_domain"
+              - "*.yourdomain.com"
     transport:
       # https://doc.traefik.io/traefik/routing/entrypoints/#respondingtimeouts
       # NOTE: problem when upload large file with Traefik, set longer timeout

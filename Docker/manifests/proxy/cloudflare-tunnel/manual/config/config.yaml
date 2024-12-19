@@ -15,17 +15,16 @@ credentials-file: /home/nonroot/.cloudflared/UUID.json
 #       originServerName: "anysubdomain.yourdomain.com"
 
 ingress:
-  # NOTE: make sure main domain is setup in nginx
   - hostname: "mydomain.com"
-    service: https://<PROXY_IP|PROXY_CONTAINER_NAME>:<PORT>
+    service: https://traefik:443
     originRequest:
-      originServerName: "anysubdomain.mydomain.com"
-      # noTLSVerify: true
+      originServerName: "mydomain.com"
+      noTLSVerify: true
 
   - hostname: "*.mydomain.com"
-    service: https://<PROXY_IP|PROXY_CONTAINER_NAME>:<PORT>
+    service: https://traefik:443
     originRequest:
-      originServerName: "anysubdomain.mydomain.com"
-      # noTLSVerify: true
+      originServerName: "mydomain.com"
+      noTLSVerify: true
 
   - service: http_status:404

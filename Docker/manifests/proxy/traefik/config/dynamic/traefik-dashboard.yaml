@@ -15,6 +15,18 @@ http:
         - oauth2@file
         - oauth2-admin@file
 
+    traefik-dashboard-router:
+      rule: Host(`traefik.yourdomain.local`)
+      service: api@internal
+      entryPoints:
+        - "websecure"
+      tls:
+        certResolver: cloudflare
+      middlewares:
+        # - oauth2-errors@file
+        - oauth2@file
+        - oauth2-admin@file
+
   # services:
   #   # NOTE: avoid port forwarding from host machine by using container network
   #   # need to enable insecure Mode to tell Traefik expose dashboard on port 8080

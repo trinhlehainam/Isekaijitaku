@@ -65,10 +65,11 @@ services:
       # https://github.com/nextcloud/docker?tab=readme-ov-file#php-configuration
       PHP_MEMORY_LIMIT: 1024M
       # Nextcloud
-      NEXTCLOUD_TRUSTED_DOMAINS: nextcloud.yourdomain.local
+      # NOTE: if Nextcloud already installed, modify config.php
+      # https://help.nextcloud.com/t/howto-individual-themes-per-domain/27585/22
+      NEXTCLOUD_TRUSTED_DOMAINS: nextcloud.yourdomain.local,nextcloud.yourdomain
       OVERWRITECLIURL: https://nextcloud.yourdomain.local
       OVERWRITEPROTOCOL: https
-      OVERWRITEHOST: nextcloud.yourdomain.local
       TRUSTED_PROXIES: 172.16.0.0/12 192.168.0.0/16 10.0.0.0/8 fc00::/7 fe80::/10 2001:db8::/32
     entrypoint:
       - /bin/sh
@@ -91,10 +92,16 @@ services:
       - "traefik.docker.network=proxy"
       - "traefik.http.services.nextcloud.loadbalancer.server.port=80"
       - "traefik.http.services.nextcloud.loadbalancer.passhostheader=true"
+      ## Router
+      ### Private
       - "traefik.http.routers.nextcloud-local.rule=Host(`nextcloud.yourdomain.local`)"
       - "traefik.http.routers.nextcloud-local.entrypoints=websecure"
       - "traefik.http.routers.nextcloud-local.tls.certresolver=stepca"
       - "traefik.http.routers.nextcloud-local.middlewares=nextcloud-dav,nextcloud-headers"
+      ### Public
+      - "traefik.http.routers.nextcloud.rule=Host(`nextcloud.yourdomain`)"
+      - "traefik.http.routers.nextcloud.entrypoints=websecure"
+      - "traefik.http.routers.nextcloud.tls.certresolver=cloudflare"
       ## Middlewares
       ### Security Headers
       - 'traefik.http.middlewares.nextcloud-headers.headers.referrerPolicy=no-referrer'
@@ -119,7 +126,10 @@ services:
     hostname: collabora
     environment:
       - TZ=Asia/Tokyo
+      # NOTE: Allow multiple nextcloud domains
+      # https://help.nextcloud.com/t/important-changes-regarding-cool-code-docker-versions-from-v21-11-3-6-on-multiple-domains-setup/137867/2
       - aliasgroup1=https://nextcloud.yourdomain.local
+      - aliasgroup2=https://nextcloud.yourdomain
       # - dictionaries=en_US,de_DE
       - server_name=collabora.mydomain.local
       - "extra_params=--o:ssl.enable=false --o:ssl.termination=true"
@@ -146,15 +156,25 @@ services:
       - 'traefik.docker.network=proxy'
       - 'traefik.http.services.collabora.loadbalancer.server.port=9980'
       ## Router
+      ### Private
       - 'traefik.http.routers.collabora-local.rule=Host(`collabora.mydomain.local`)'
       - 'traefik.http.routers.collabora-local.entrypoints=websecure'
       - 'traefik.http.routers.collabora-local.tls.certresolver=stepca'
       - 'traefik.http.routers.collabora-local.middlewares=collabora-headers'
-      ### Admin Console
+      #### Admin Console
       - 'traefik.http.routers.collabora-admin-local.rule=Host(`collabora.mydomain.local`) && PathPrefix(`/browser/dist/admin`)'
       - 'traefik.http.routers.collabora-admin-local.entrypoints=websecure'
       - 'traefik.http.routers.collabora-admin-local.tls.certresolver=stepca'
       - 'traefik.http.routers.collabora-admin-local.middlewares=collabora-headers,oauth2@file,oauth2-admin@file'
+      ### Public
+      - 'traefik.http.routers.collabora.rule=Host(`collabora.mydomain`)'
+      - 'traefik.http.routers.collabora.entrypoints=websecure'
+      - 'traefik.http.routers.collabora.tls.certresolver=cloudflare'
+      #### Admin Console
+      - 'traefik.http.routers.collabora-admin.rule=Host(`collabora.mydomain`) && PathPrefix(`/browser/dist/admin`)'
+      - 'traefik.http.routers.collabora-admin.entrypoints=websecure'
+      - 'traefik.http.routers.collabora-admin.tls.certresolver=cloudflare'
+      - 'traefik.http.routers.collabora-admin.middlewares=oauth2@file,oauth2-admin@file'
       ## Middleware
       - 'traefik.http.middlewares.collabora-headers.headers.referrerPolicy=no-referrer'
       - 'traefik.http.middlewares.collabora-headers.headers.stsSeconds=15552000'

@@ -140,19 +140,21 @@ Here are examples of different ingress configurations in `config.yaml`:
 1. Basic domain forwarding to Traefik:
    ```yaml
    ingress:
-     - hostname: "app.example.com"
-       service: http://traefik:80  # Use HTTP since Traefik handles SSL termination
+     - hostname: "example.com"
+       service: https://traefik:443
        originRequest:
-         originServerName: "app.example.com"
+         originServerName: "example.com"
+         noTLSVerify: true
    ```
 
 2. Wildcard subdomain forwarding:
    ```yaml
    ingress:
      - hostname: "*.example.com"
-       service: http://traefik:80
+       service: https://traefik:443
        originRequest:
          originServerName: "example.com"
+         noTLSVerify: true
    ```
 
 3. Multiple domains with different services:
@@ -160,9 +162,10 @@ Here are examples of different ingress configurations in `config.yaml`:
    ingress:
      # Main application through Traefik
      - hostname: "app1.example.com"
-       service: http://traefik:80
+       service: https://traefik:443
        originRequest:
          originServerName: "app1.example.com"
+         noTLSVerify: true
      
      # Direct service access (bypassing Traefik)
      - hostname: "app2.example.com"
@@ -175,9 +178,10 @@ Here are examples of different ingress configurations in `config.yaml`:
 ### Important Notes for Traefik Configuration
 
 1. Traefik Setup:
-   - Traefik handles SSL termination internally
+   - Traefik handles SSL/TLS with Cloudflare certificates
+   - Use HTTPS (port 443) when connecting from Cloudflare tunnel
    - Configure Traefik to use Cloudflare certificates or Let's Encrypt
-   - Use HTTP (not HTTPS) in cloudflared config when connecting to Traefik
+   - Set `noTLSVerify: true` when using self-signed certificates
 
 2. Container Name vs IP:
    - Use container names (e.g., `traefik`) instead of IP addresses
@@ -200,10 +204,11 @@ Here are examples of different ingress configurations in `config.yaml`:
    ```yaml
    ingress:
      - hostname: "*.example.com"
-       service: http://traefik:80
+       service: https://traefik:443
        originRequest:
          # anysubbdomain.example.com must exist in Cloudflare DNS records
          originServerName: "anysubdomain.example.com"
+         noTLSVerify: true
    ```
 
    b. Using Cloudflare Origin Certificate:
@@ -216,7 +221,7 @@ Here are examples of different ingress configurations in `config.yaml`:
    ```yaml
    ingress:
      - hostname: "app.example.com"
-       service: http://traefik:80
+       service: https://traefik:443
        originRequest:
          noTLSVerify: true
    ```
