@@ -7,6 +7,7 @@
 
 MOUNT_PATH="/mnt"
 CHECK_INTERVAL=10  # Check every 10 seconds
+RETRIES=3
 
 # Function to check a single mount point
 check_single_mount() {
@@ -46,7 +47,12 @@ term_handler() {
 trap 'kill $$; term_handler' SIGTERM
 
 # Main loop
-while true; do
-    check_all_mounts || exit 1
+while true && [ $RETRIES -gt 0 ]; do
+    if ! check_all_mounts; then
+        RETRIES=$((RETRIES - 1))
+    fi
+    if [ $RETRIES -eq 0 ]; then
+        exit 1
+    fi
     sleep $CHECK_INTERVAL
 done

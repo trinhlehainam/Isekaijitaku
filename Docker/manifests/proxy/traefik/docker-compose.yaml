@@ -10,7 +10,7 @@ services:
   #   - enable step-ca acme provisioner: "docker compose run --rm step-ca step ca provisioner add acme --type ACME"
   step-ca:
     # https://hub.docker.com/r/smallstep/step-ca/tags
-    image: 'smallstep/step-ca:0.28.0'
+    image: 'smallstep/step-ca:0.28.1'
     container_name: step-ca
     restart: unless-stopped
     ports:
@@ -30,7 +30,7 @@ services:
       # DNS server IP address
       - 192.168.x.y
       - 1.1.1.1
-      - 1.0.0.2
+      - 1.0.0.1
 
   # https://erdaltoprak.com/blog/setting-up-a-local-reverse-proxy-on-proxmox-with-traefik-and-cloudflare/
   traefik:
@@ -39,9 +39,9 @@ services:
     container_name: "traefik"
     restart: unless-stopped
     depends_on:
-      - step-ca
-    environment:
-      - TZ=Asia/Tokyo
+      step-ca:
+        condition: service_healthy
+        restart: true
     command:
       # https://doc.traefik.io/traefik/getting-started/configuration-overview/#configuration-file
       - "--configFile=/etc/traefik/traefik.yaml"
@@ -54,14 +54,21 @@ services:
       - "./letsencrypt:/etc/letsencrypt"
       # NOTE: make sure step-ca is initialized before creating Traefik
       - "./step/certs/root_ca.crt:/certs/step-ca/root_ca.crt:ro"
+    environment:
+      - TZ=Asia/Tokyo
+      # https://go-acme.github.io/lego/dns/cloudflare/
+      - CF_DNS_API_TOKEN_FILE=/run/secrets/cloudflare_dns_api_token
+    secrets:
+      - cloudflare_dns_api_token
     ports:
       - "80:80" # web
       - "443:443" # websecure
       # - "6379:6379" # redis
       # - "8080:8080" # insecure dashboard
     networks:
-      - redis
+      - cloudflared
       - proxy
+      - redis
       - crowdsec
 
   # https://doc.crowdsec.net/docs/next/appsec/quickstart/traefik
@@ -129,10 +136,16 @@ volumes:
   step:
     driver: local
 
+secrets:
+  cloudflare_dns_api_token:
+    file: ./secrets/cloudflare_dns_api_token
+
 networks:
-  redis:
+  cloudflared:
     external: true
   proxy:
+    external: true
+  redis:
     external: true
   crowdsec:
     external: true

@@ -1,0 +1,10 @@
+# https://github.com/BetterCorp/cloudflarewarp?tab=readme-ov-file#plugin-configuration
+
+http:
+  middlewares:
+    cloudflarewarp:
+      plugin:
+        cloudflarewarp:
+          disableDefault: false
+          trustip: # Trust IPS not required if disableDefault is false - we will allocate Cloud Flare IPs automatically
+            - "2400:cb00::/32"

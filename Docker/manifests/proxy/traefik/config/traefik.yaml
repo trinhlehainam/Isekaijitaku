@@ -44,6 +44,7 @@ entryPoints:
     address: :80
     http:
       middlewares:
+        - "cloudflarewarp@file"
         - "crowdsec@file"
       redirections:
         entryPoint:
@@ -53,7 +54,15 @@ entryPoints:
     address: :443
     http:
       middlewares:
+        - "cloudflarewarp@file"
         - "crowdsec@file"
+      # https://doc.traefik.io/traefik/routing/entrypoints/#tls
+      tls:
+        certResolver: cloudflare
+        domains:
+          - main: "your_cloudflare_domain"
+            sans:
+              - "*.your_cloudflare_domain"
     transport:
       # https://doc.traefik.io/traefik/routing/entrypoints/#respondingtimeouts
       # NOTE: problem when upload large file with Traefik, set longer timeout
@@ -83,9 +92,24 @@ certificatesResolvers:
       caCertificates:
         - "/certs/step-ca/root_ca.crt"
       tlsChallenge: {}
+  
+  cloudflare:
+    acme:
+      email: YOUR_CF_EMAIL
+      storage: "/etc/letsencrypt/cloudflare-acme.json"
+      # https://doc.traefik.io/traefik/https/acme/#dnschallenge
+      dnsChallenge:
+        provider: cloudflare
+        resolvers:
+          - "1.1.1.1:53"
+          - "1.0.0.1:53"
 
 experimental:
   plugins:
+    cloudflarewarp:
+      moduleName: github.com/BetterCorp/cloudflarewarp
+      version: v1.3.3
+
     bouncer:
       moduleName: github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin
       version: v1.3.5
