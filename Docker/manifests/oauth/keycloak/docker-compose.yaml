@@ -11,7 +11,7 @@
 services:
   keycloak:
     # https://quay.io/repository/keycloak/keycloak?tab=tags
-    image: quay.io/keycloak/keycloak:26.0.5
+    image: quay.io/keycloak/keycloak:26.0.7
     container_name: keycloak
     # NOTE: how to use docker secrets
     # https://github.com/keycloak/keycloak/issues/10816
@@ -61,9 +61,9 @@ services:
     #   - "8443:8443"
     #   - "9000:9000"
     depends_on:
-        keycloak-postgres:
-          condition: service_healthy
-          restart: true
+      keycloak-postgres:
+        condition: service_healthy
+        restart: true
     networks:
       - keycloak
       - proxy
@@ -76,10 +76,16 @@ services:
       - "traefik.http.services.keycloak.loadbalancer.server.port=8080"
       - "traefik.http.services.keycloak.loadbalancer.server.scheme=http"
       # Router configuration
+      # Private
       - "traefik.http.routers.keycloak-local.rule=Host(`keycloak.yourdomain.local`)"
       - "traefik.http.routers.keycloak-local.service=keycloak"
       - "traefik.http.routers.keycloak-local.entrypoints=websecure"
       - "traefik.http.routers.keycloak-local.tls.certresolver=stepca"
+      # Public
+      - "traefik.http.routers.keycloak.rule=Host(`keycloak.yourdomain`)"
+      - "traefik.http.routers.keycloak.service=keycloak"
+      - "traefik.http.routers.keycloak.entrypoints=websecure"
+      - "traefik.http.routers.keycloak.tls.certresolver=cloudflare"
     # https://gist.github.com/sarath-soman/5d9aec06953bbd0990c648605d4dba07?permalink_comment_id=5225953#gistcomment-5225953
     healthcheck:
       test:

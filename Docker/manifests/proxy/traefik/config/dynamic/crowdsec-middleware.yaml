@@ -36,7 +36,7 @@ http:
           forwardedHeadersTrustedIPs: 
             # NOTE: Traefik is behind Cloudflare Tunnel, Traefik and Cloudflare share the docker bridge network "cloudflared"
             # Use "docker network inspect cloudflared" to get subnet
-            # NOTE: Also need to setup Traefik entrypoints.websecure.forwardedHeaders.trustedIPs to include Cloudflare Tunnel IP
+            # IMPORTANT: Also need to setup Traefik entrypoints.websecure.forwardedHeaders.trustedIPs to include Cloudflare Tunnel IP
             # https://doc.traefik.io/traefik/routing/entrypoints/#forwarded-headers
             - 172.50.0.0/16
           clientTrustedIPs: 
@@ -47,3 +47,6 @@ http:
             - 192.168.0.1/24
             # NOTE: May need to include gateway IP of crowdsec network
             - 172.40.0.1/32
+            # NOTE: May need to include gateway IP of Cloudflared Tunnel gateway network
+            # When container use private dns server to resolve Domain, sometimes container ip is resolved to Cloudflared Tunnel gateway IP
+            - 172.50.0.1/32
