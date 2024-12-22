@@ -36,12 +36,18 @@ services:
       # https://doc.traefik.io/traefik/providers/docker/#network
       - "traefik.docker.network=proxy"
       - "traefik.http.services.forgejo.loadbalancer.server.port=3000"
+      ## Priavte
       - "traefik.http.routers.forgejo-local.entrypoints=websecure"
       - "traefik.http.routers.forgejo-local.service=forgejo"
       - "traefik.http.routers.forgejo-local.rule=Host(`forgejo.yourdomain.local`)"
       # NOTE: solve git client certificate issue on Windows
       # https://github.com/desktop/desktop/issues/9293#issuecomment-607357181
       - "traefik.http.routers.forgejo-local.tls.certresolver=stepca"
+      ## Public
+      - "traefik.http.routers.forgejo.entrypoints=websecure"
+      - "traefik.http.routers.forgejo.service=forgejo"
+      - "traefik.http.routers.forgejo.rule=Host(`forgejo.yourdomain`)"
+      - "traefik.http.routers.forgejo.tls.certresolver=cloudflare"
       # forgejo-ssh
       # NOTE: ssh doesn't support TLS natively, so we need define ssh service by providing it's own port
       # https://community.traefik.io/t/ssh-proxy-from-traefik-to-lxc/608
