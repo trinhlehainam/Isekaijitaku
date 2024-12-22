@@ -1,7 +1,10 @@
-# https://forgejo.org/docs/latest/admin/installation-docker/
-# https://forgejo.org/docs/next/admin/installation-docker/#postgresql-database
+# NOTE: forgejo runner installation
+# https://forgejo.org/docs/latest/admin/runner-installation/#oci-image-installation 
+# https://code.forgejo.org/forgejo/runner/src/branch/main/examples/docker-compose/compose-forgejo-and-runner.yml
+# https://docs.codeberg.org/ci/actions/#running-on-docker
 
 services:
+  # https://forgejo.org/docs/next/admin/installation-docker/#hosting-repository-data-on-remote-storage-systems
   forgejo:
     # https://codeberg.org/forgejo/-/packages/container/forgejo/versions
     image: codeberg.org/forgejo/forgejo:9.0.3-rootless
@@ -30,6 +33,7 @@ services:
     restart: always
     networks:
       - forgejo
+      - runner
       - proxy
     labels:
       - "traefik.enable=true"
@@ -42,6 +46,44 @@ services:
       # NOTE: solve git client certificate issue on Windows
       # https://github.com/desktop/desktop/issues/9293#issuecomment-607357181
       - "traefik.http.routers.forgejo-local.tls.certresolver=stepca"
+      
+  forgejo-docker-dind:
+    # https://hub.docker.com/_/docker/tags?name=dind
+    image: docker:27.4.1-dind
+    container_name: 'docker_dind'
+    hostname: docker  # Must set hostname as TLS certificates are only valid for docker or localhost
+    privileged: 'true'
+    environment:
+      DOCKER_TLS_CERTDIR: /certs
+    volumes:
+      - docker_certs:/certs
+      - docker_certs_client:/certs/client
+    networks:
+      - runner
+    restart: always
+
+  forgejo-runner:
+    # https://code.forgejo.org/forgejo/-/packages/container/runner/versions
+    image: 'code.forgejo.org/forgejo/runner:5.0.4'
+    container_name: 'forgejo-runner'
+    depends_on:
+      forgejo-docker-dind:
+        condition: service_started
+    environment:
+      DOCKER_HOST: tcp://docker:2376
+      DOCKER_CERT_PATH: /certs/client
+      DOCKER_TLS_VERIFY: "1"
+    # User without root privileges, but with access to `./data`.
+    # NOTE: labels "docker:docker://node:20-bullseye,ubuntu-22.04:docker://node:20-bullseye,ubuntu-20.04:docker://node:20-bookworm,ubuntu-18.04:docker://node:20-bookworm"
+    user: 1000:1000
+    volumes:
+      - docker_certs_client:/certs/client:ro
+      - ./runner:/data
+    networks:
+      - runner
+    restart: always
+    # NOTE: use command instead of entrypoint to avoid docker execute command when using `docker compose run`
+    command: 'bash -c "while : ; do test -w .runner && forgejo-runner --config config.yml && daemon ; sleep 1 ; done"'
 
   # https://hub.docker.com/_/postgres
   forgejo-db:
@@ -94,9 +136,17 @@ services:
 networks:
   forgejo:
     driver: bridge
+  runner:
+    driver: bridge
   proxy:
     external: true
 
 secrets:
   db_password:
     file: ./secrets/db_password
+
+volumes:
+  docker_certs:
+    driver: local
+  docker_certs_client:
+    driver: local
