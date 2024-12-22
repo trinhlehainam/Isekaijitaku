@@ -13,6 +13,8 @@ services:
     image: 'smallstep/step-ca:0.28.1'
     container_name: step-ca
     restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
     ports:
       - "9000:9000"
     volumes:
@@ -62,7 +64,8 @@ services:
     ports:
       - "80:80" # web
       - "443:443" # websecure
-      # - "6379:6379" # redis
+      - "6379:6379" # redis
+      - "2222:2222/tcp" # forgejo-ssh
       # - "8080:8080" # insecure dashboard
     networks:
       - cloudflared

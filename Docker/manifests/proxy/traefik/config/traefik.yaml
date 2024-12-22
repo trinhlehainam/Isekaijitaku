@@ -16,14 +16,15 @@ providers:
 # https://doc.traefik.io/traefik/operations/api/
 api:
   dashboard: true
-  debug: true
+  # debug: true
   # insecure: true
 
 # https://doc.traefik.io/traefik/operations/ping/
 ping: {}
 
 log:
-  level: DEBUG
+  # https://doc.traefik.io/traefik/observability/logs/#level
+  level: ERROR
 
 # https://doc.traefik.io/traefik/observability/access-logs/
 accessLog:
@@ -79,6 +80,8 @@ entryPoints:
         idleTimeout: 300s
   redis:
     address: :6379
+  forgejo-ssh:
+    address: :2222
 
 certificatesResolvers:
   # https://smallstep.com/docs/tutorials/acme-protocol-acme-clients/#traefik

@@ -17,7 +17,7 @@ services:
       - ./conf:/var/lib/gitea/custom/conf
     # ports:
     #   - "3000:3000"
-    #   - "2222:2222" # SSH
+    #   - "2222:2222/tcp" # SSH
     depends_on:
       forgejo-db:
         condition: service_healthy
@@ -37,14 +37,22 @@ services:
       - "traefik.docker.network=proxy"
       - "traefik.http.services.forgejo.loadbalancer.server.port=3000"
       - "traefik.http.routers.forgejo-local.entrypoints=websecure"
+      - "traefik.http.routers.forgejo-local.service=forgejo"
       - "traefik.http.routers.forgejo-local.rule=Host(`forgejo.yourdomain.local`)"
       # NOTE: solve git client certificate issue on Windows
       # https://github.com/desktop/desktop/issues/9293#issuecomment-607357181
       - "traefik.http.routers.forgejo-local.tls.certresolver=stepca"
+      # forgejo-ssh
+      # NOTE: ssh doesn't support TLS natively, so we need define ssh service by providing it's own port
+      # https://community.traefik.io/t/ssh-proxy-from-traefik-to-lxc/608
+      - "traefik.tcp.services.forgejo-ssh.loadbalancer.server.port=2222"
+      - "traefik.tcp.routers.forgejo-ssh.rule=HostSNI(`*`)"
+      - "traefik.tcp.routers.forgejo-ssh.service=forgejo-ssh"
+      - "traefik.tcp.routers.forgejo-ssh.entrypoints=forgejo-ssh"
       
   forgejo-docker-dind:
     # https://hub.docker.com/_/docker/tags?name=dind
-    image: docker:27.4.1-dind
+    image: docker:27.4.1-dind-alpine3.21
     container_name: 'docker_dind'
     hostname: docker  # Must set hostname as TLS certificates are only valid for docker or localhost
     privileged: 'true'
@@ -53,6 +61,8 @@ services:
     volumes:
       - docker_certs:/certs
       - docker_certs_client:/certs/client
+      # https://hub.docker.com/_/docker
+      - ./docker:/var/lib/docker
     networks:
       - runner
     restart: always
@@ -64,6 +74,7 @@ services:
     depends_on:
       forgejo-docker-dind:
         condition: service_started
+        restart: true
     environment:
       DOCKER_HOST: tcp://docker:2376
       DOCKER_CERT_PATH: /certs/client
@@ -78,7 +89,7 @@ services:
       - runner
     restart: always
     # NOTE: use command instead of entrypoint to avoid docker execute command when using `docker compose run`
-    command: 'bash -c "while : ; do test -w .runner && forgejo-runner --config config.yml && daemon ; sleep 1 ; done"'
+    command: 'bash -c "while : ; do test -w .runner && forgejo-runner --config config.yml daemon ; sleep 1 ; done"'
 
   # https://hub.docker.com/_/postgres
   forgejo-db:
