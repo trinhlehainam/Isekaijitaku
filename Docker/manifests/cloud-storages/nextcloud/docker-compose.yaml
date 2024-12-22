@@ -133,6 +133,10 @@ services:
       # - dictionaries=en_US,de_DE
       - server_name=collabora.mydomain.local
       - "extra_params=--o:ssl.enable=false --o:ssl.termination=true"
+    volumes:
+      # NOTE: mount step ca cert to /usr/local/share/ca-certificates
+      # "docker exec -it -u root collabora update-ca-certificates"
+      - /path/to/step-ca/root_ca.crt:/usr/local/share/ca-certificates/root_ca.crt:ro
     secrets:
       - collabora_username
       - collabora_password
