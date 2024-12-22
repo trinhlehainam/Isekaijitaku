@@ -1,8 +1,3 @@
-# NOTE: forgejo runner installation
-# https://forgejo.org/docs/latest/admin/runner-installation/#oci-image-installation 
-# https://code.forgejo.org/forgejo/runner/src/branch/main/examples/docker-compose/compose-forgejo-and-runner.yml
-# https://docs.codeberg.org/ci/actions/#running-on-docker
-
 services:
   # https://forgejo.org/docs/next/admin/installation-docker/#hosting-repository-data-on-remote-storage-systems
   forgejo:
@@ -72,7 +67,7 @@ services:
     environment:
       DOCKER_HOST: tcp://docker:2376
       DOCKER_CERT_PATH: /certs/client
-      DOCKER_TLS_VERIFY: "1"
+      DOCKER_TLS_VERIFY: 1
     # User without root privileges, but with access to `./data`.
     # NOTE: labels "docker:docker://node:20-bullseye,ubuntu-22.04:docker://node:20-bullseye,ubuntu-20.04:docker://node:20-bookworm,ubuntu-18.04:docker://node:20-bookworm"
     user: 1000:1000
