@@ -43,11 +43,13 @@ services:
       # NOTE: solve git client certificate issue on Windows
       # https://github.com/desktop/desktop/issues/9293#issuecomment-607357181
       - "traefik.http.routers.forgejo-local.tls.certresolver=stepca"
+      # NOTE: Forgejo has not support multiple domains yet
+      # https://codeberg.org/forgejo/forgejo/issues/1270
       ## Public
-      - "traefik.http.routers.forgejo.entrypoints=websecure"
-      - "traefik.http.routers.forgejo.service=forgejo"
-      - "traefik.http.routers.forgejo.rule=Host(`forgejo.yourdomain`)"
-      - "traefik.http.routers.forgejo.tls.certresolver=cloudflare"
+      # - "traefik.http.routers.forgejo.entrypoints=websecure"
+      # - "traefik.http.routers.forgejo.service=forgejo"
+      # - "traefik.http.routers.forgejo.rule=Host(`forgejo.yourdomain`)"
+      # - "traefik.http.routers.forgejo.tls.certresolver=cloudflare"
       # forgejo-ssh
       # NOTE: ssh doesn't support TLS natively, so we need define ssh service by providing it's own port
       # https://community.traefik.io/t/ssh-proxy-from-traefik-to-lxc/608
@@ -69,6 +71,9 @@ services:
       - docker_certs_client:/certs/client
       # https://hub.docker.com/_/docker
       - ./docker:/var/lib/docker
+      # NOTE: mount data need to use for runner container need to exist on bind_mount
+      # because docker_dind actual create and bind mount data for runner containers
+      - /path/to/step-ca/certs/root_ca.crt:/usr/local/share/ca-certificates/root_ca.crt:ro
     networks:
       - runner
     restart: always

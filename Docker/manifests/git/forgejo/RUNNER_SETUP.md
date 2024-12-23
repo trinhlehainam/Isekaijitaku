@@ -73,9 +73,10 @@ runner:
 
 container:
   network: "host"
-  options: -v /certs/client:/certs/client
+  options: -v /certs/client:/certs/client -v /usr/local/share/ca-certificates/step_root_ca.crt:/usr/local/share/ca-certificates/step_root_ca.crt
   valid_volumes:
     - /certs/client
+    - /usr/local/share/ca-certificates/step_root_ca.crt
 ```
 
 > Note: These settings are crucial for:
@@ -84,7 +85,56 @@ container:
 > - Host network access for containers
 > - Correct certificate mounting
 > - Labels in config.yml will override the labels stored in .runner file
+
+### Local Root CA Configuration
+To enable HTTPS connections using local root CA certificates:
+
+1. In `docker-compose.yaml`, mount your root CA certificate to the Docker-in-Docker container:
+```yaml
+services:
+  forgejo-docker-dind:
+    volumes:
+      - /path/to/step-ca/certs/step_root_ca.crt:/usr/local/share/ca-certificates/step_root_ca.crt:ro
+```
+
+2. Configure volume bindings in `runner/config.yml`:
+```yaml
+container:
+  network: "host"
+  # These volumes must exist in the docker-dind container as it manages runner containers
+  options: -v /certs/client:/certs/client -v /usr/local/share/ca-certificates/step_root_ca.crt:/usr/local/share/ca-certificates/step_root_ca.crt
+  valid_volumes:
+    - /certs/client
+    - /usr/local/share/ca-certificates/step_root_ca.crt
+```
+
+> **Important**: The volumes specified in `runner/config.yml` must exist inside the Docker-in-Docker container because:
+> - The Docker-in-Docker (dind) container is responsible for creating and managing runner containers
+> - Any volumes you want to mount in runner containers must first exist in the dind container
+> - The path in the dind container must match exactly with the path specified in the runner config
+> - Always ensure the volumes are properly mounted in docker-compose.yaml before referencing them in runner config
+
+3. In your workflow files, add this step before any HTTPS connections:
+```yaml
+- name: Install local root CA
+  run: |
+    sudo update-ca-certificates
+```
+
+> **Note**: The `update-ca-certificates` command is specific to Linux-based systems (Ubuntu, Debian, etc.). For other operating systems:
+> - Windows: Uses a different certificate management system
+> - macOS: Uses the Keychain for certificate management
+> - Alpine Linux: Uses `update-ca-certificates` but might need to install `ca-certificates` package first
 >
+> If you need to support multiple operating systems, you'll need to handle certificate installation differently for each platform.
+
+This configuration is necessary when:
+- Your runner needs to access internal HTTPS services
+- You're using a private certificate authority
+- You need to clone repositories over HTTPS from local Git servers
+
+> Note: Make sure to replace `/path/to/step-ca/certs/step_root_ca.crt` with the actual path to your root CA certificate.
+
 > **Important Network Configuration:**
 > Setting `network: "host"` is crucial when containers need to access the Docker daemon. Here's why:
 > - When using Docker-in-Docker (dind), containers created by the runner need to communicate with the Docker daemon
@@ -141,7 +191,12 @@ jobs:
   test:
     runs-on: ubuntu-22.04  # This will use the ubuntu-22.04 label we configured
     steps:
+      - name: Install local root CA
+        run: |
+          sudo update-ca-certificates
+
       - uses: actions/checkout@v3
+      
       - name: Test Runner Environment
         run: |
           echo "Testing runner environment..."
@@ -160,6 +215,8 @@ jobs:
           echo "Testing Node.js environment..."
           node -e "console.log('Hello from Node.js', process.version)"
 ```
+
+> Note: The first step `Install local root CA` is required when your runner needs to access services using local root CA certificates. This ensures that HTTPS connections to local services using custom certificates work properly.
 
 2. Commit and push this workflow file to your repository
 3. Go to your repository's Actions tab to see the workflow run

@@ -80,7 +80,7 @@ container:
   # Whether to use privileged mode or not when launching task containers (privileged mode is required for Docker-in-Docker).
   privileged: false
   # And other options to be used when the container is started (eg, --add-host=my.forgejo.url:host-gateway).
-  options: -v /certs/client:/certs/client
+  options: -v /certs/client:/certs/client -v /usr/local/share/ca-certificates/step_root_ca.crt:/usr/local/share/ca-certificates/step_root_ca.crt
   # The parent directory of a job's working directory.
   # If it's empty, /workspace will be used.
   workdir_parent:
@@ -95,6 +95,7 @@ container:
   #   - '**'
   valid_volumes:
     - /certs/client
+    - /usr/local/share/ca-certificates/step_root_ca.crt
   # overrides the docker client host with the specified one.
   # If "-" or "", an available docker host will automatically be found.
   # If "automount", an available docker host will automatically be found and mounted in the job container (e.g. /var/run/docker.sock).
