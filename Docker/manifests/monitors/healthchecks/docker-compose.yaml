@@ -8,7 +8,7 @@
 services:
   healthchecks:
     # https://hub.docker.com/r/healthchecks/healthchecks/tags
-    image: healthchecks/healthchecks:v3.8.1
+    image: healthchecks/healthchecks:v3.9
     container_name: healthchecks
     depends_on:
       healthchecks-postgres:

@@ -3,7 +3,7 @@
 services:
   uptime-kuma:
     # https://hub.docker.com/r/louislam/uptime-kuma/tags
-    image: louislam/uptime-kuma:1.23.15-alpine
+    image: louislam/uptime-kuma:1.23.16-alpine
     container_name: uptime-kuma
     environment:
       # NOTE: add self hosted step-ca root CA

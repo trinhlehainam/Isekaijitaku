@@ -10,12 +10,13 @@ services:
   vaultwarden:
     container_name: vaultwarden
     # https://hub.docker.com/r/vaultwarden/server/tags
-    image: vaultwarden/server:1.32.5-alpine
+    image: vaultwarden/server:1.32.7-alpine
     restart: unless-stopped
     depends_on:
       # https://docs.docker.com/compose/how-tos/startup-order/
       vaultwarden-postgres:
         condition: service_healthy
+        restart: true
     entrypoint:
       - /bin/sh
       - -c
