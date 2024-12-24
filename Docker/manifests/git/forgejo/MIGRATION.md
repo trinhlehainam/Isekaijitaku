@@ -65,7 +65,7 @@ This approach converts your setup to use the rootless directory structure:
    mkdir -p test/data test/conf
 
    # Copy your app.ini to test environment
-   cp ./data/gitea/conf/app.ini ./test/conf/
+   cp ./data/gitea/conf/app.ini ./test/conf/app.ini
 
    # Start test container
    docker compose -f docker-compose.test.yaml up -d
@@ -111,9 +111,9 @@ This approach converts your setup to use the rootless directory structure:
    sudo chown -R 1000:1000 ./conf
    
    # Copy data with preserved ownership and permissions
-   sudo cp -a ./data/gitea/conf/app.ini ./conf/
-   
-   # Copy data files to their new locations
+   sudo cp -a ./data/gitea/conf/app.ini ./conf/app.ini
+
+   # Copy user data preserving ownership and permissions (-a flag)
    sudo cp -a ./data/gitea/attachments ./data-new/data/attachments
    sudo cp -a ./data/gitea/avatars ./data-new/data/avatars
    sudo cp -a ./data/gitea/repo-avatars ./data-new/data/repo-avatars
@@ -147,8 +147,10 @@ This approach converts your setup to use the rootless directory structure:
    :%s/\/data\/gitea/\/var\/lib\/gitea/g
    # Replace /data/git with /var/lib/gitea/git
    :%s/\/data\/git/\/var\/lib\/gitea\/git/g
-   # Replace remaining /var/lib/gitea/* paths with /var/lib/gitea/data/*
-   :%s/\/var\/lib\/gitea\/\(attachments\|avatars\|repo-avatars\|sessions\|log\|gitea\.db\)/\/var\/lib\/gitea\/data\/\1/g
+   # Replace /data/gitea/tmp/local-repo with /tmp/gitea/local-repo
+   :%s/\/data\/gitea\/tmp\/local-repo/\/tmp\/gitea\/local-repo/g
+   # Replace /data/gitea/uploads with /tmp/gitea/uploads
+   :%s/\/data\/gitea\/uploads/\/tmp\/gitea\/uploads/g
    ```
 
    Here are all the paths that will be updated:
@@ -194,6 +196,10 @@ This approach converts your setup to use the rootless directory structure:
 
    [lfs]
    PATH = /var/lib/gitea/git/lfs                       # was: /data/git/lfs
+
+   [openid]
+   ENABLE_OPENID_SIGNIN = false
+   ENABLE_OPENID_SIGNUP = false
    ```
 
    General rules for path conversion:
@@ -228,12 +234,91 @@ This approach converts your setup to use the rootless directory structure:
 - Option 1 (Compatibility) uses environment variables to maintain the standard structure
 - Option 2 (Recommended) uses the native rootless paths for better maintainability
 - SSH server needs to be explicitly enabled with `START_SSH_SERVER = true` in app.ini
-- Always use `cp -a` and `mv -a` when handling data to preserve ownership and permissions
 - The app.ini file should be placed in `/var/lib/gitea/custom/conf/app.ini`
 - All user data (attachments, avatars, etc.) is stored under `/var/lib/gitea/data/`
 - Git repositories and LFS objects are stored under `/var/lib/gitea/git/`
 - Temporary files are stored in `/tmp/gitea/`
 - The log directory from standard image might be owned by root, make sure to change ownership to 1000:1000
+- OpenID signin and signup are disabled by default for security. If needed, they can be enabled in app.ini:
+  ```ini
+  [openid]
+  ENABLE_OPENID_SIGNIN = false  # Set to true to enable OpenID signin
+  ENABLE_OPENID_SIGNUP = false  # Set to true to enable OpenID signup
+  ```
+- Always use `cp -a` when copying files to preserve ownership and permissions:
+  ```bash
+  # The -a flag preserves:
+  # - ownership (user and group IDs)
+  # - permissions (read/write/execute)
+  # - timestamps
+  # - symbolic links
+  sudo cp -a source_file destination_file
+  ```
+
+### Known Issues
+
+#### Config Path Changes
+
+Starting with Forgejo version 9.x rootless image, the default config path has changed from `/etc/gitea/app.ini` to `/var/lib/gitea/custom/conf/app.ini`. You have two options to handle this:
+
+1. Move to New Default Path (Recommended):
+   ```bash
+   # First, backup your data
+   docker exec -it forgejo gitea dump --config /etc/gitea/app.ini
+   
+   # Stop the container
+   docker compose down
+   
+   # Move your config file to the new location
+   sudo mkdir -p ./conf
+   sudo mv ./data/gitea/conf/app.ini ./conf/
+   sudo chown -R 1000:1000 ./conf
+   
+   # Update docker-compose.yaml to use new paths
+   # - Remove GITEA_APP_INI environment variable
+   # - Update volume mounts to use /var/lib/gitea paths
+   
+   # Start container with new config
+   docker compose up -d
+   
+   # Restore if needed
+   docker exec -it forgejo gitea restore --config /var/lib/gitea/custom/conf/app.ini --file /path/to/backup.zip
+   ```
+
+2. Keep Legacy Path:
+   Add this environment variable to your docker-compose.yaml:
+   ```yaml
+   environment:
+     - GITEA_APP_INI=/etc/gitea/app.ini
+   ```
+
+   Note: Using the legacy path will show a warning:
+   ```
+   WARNING: detected configuration file in deprecated default path /etc/gitea/app.ini.
+   The new default is /var/lib/gitea/custom/conf/app.ini. To remove this warning, choose one of the options:
+   * Move /etc/gitea/app.ini to /var/lib/gitea/custom/conf/app.ini
+   * Explicitly override GITEA_APP_INI=/etc/gitea/app.ini in the container environment
+   ```
+
+#### Backup and Restore
+
+When performing backup or restore operations, always specify the correct config path:
+
+1. For new default path:
+   ```bash
+   docker exec -it forgejo gitea dump --config /var/lib/gitea/custom/conf/app.ini
+   docker exec -it forgejo gitea restore --config /var/lib/gitea/custom/conf/app.ini --file /path/to/backup.zip
+   ```
+
+2. For legacy path:
+   ```bash
+   docker exec -it forgejo gitea dump --config /etc/gitea/app.ini
+   docker exec -it forgejo gitea restore --config /etc/gitea/app.ini --file /path/to/backup.zip
+   ```
+
+For more information, see:
+- [Gitea Issue #31190](https://github.com/go-gitea/gitea/issues/31190)
+- [Gitea Backup and Restore Documentation](https://docs.gitea.com/1.21/administration/backup-and-restore#backup-command-dump)
 
 ## Troubleshooting
 

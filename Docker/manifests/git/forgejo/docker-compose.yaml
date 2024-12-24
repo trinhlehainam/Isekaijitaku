@@ -1,3 +1,7 @@
+version: "3"
+# https://forgejo.org/docs/latest/admin/installation-docker/
+# https://forgejo.org/docs/next/admin/installation-docker/#postgresql-database
+
 services:
   # https://forgejo.org/docs/next/admin/installation-docker/#hosting-repository-data-on-remote-storage-systems
   forgejo:
@@ -9,12 +13,20 @@ services:
       - FORGEJO__database__HOST=forgejo-db:5432
       - FORGEJO__database__NAME=forgejo
       - FORGEJO__database__USER=forgejo
+      # NOTE: can be set up on admin page
+      # - FORGEJO__database__PASSWD=forgejo
+      
+      # Keep using legacy config path (not recommended)
+      # - GITEA_APP_INI=/etc/gitea/app.ini
     volumes:
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
       # NOTE: make sure ./data and ./conf folders are exists and changed to 1000:1000 before starting
       - ./data:/var/lib/gitea
-      - ./conf:/var/lib/gitea/custom/conf
+      - ./conf/app.ini:/var/lib/gitea/custom/conf/app.ini
+      # NOTE: use legacy config path
+      # need to define GITEA_APP_INI=/etc/gitea/app.ini
+      # - ./conf/app.ini:/etc/gitea/app.ini
     # ports:
     #   - "3000:3000"
     #   - "2222:2222/tcp" # SSH
