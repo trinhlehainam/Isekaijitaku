@@ -9,52 +9,127 @@ This guide explains how to set up and register a Forgejo runner for your CI/CD w
 
 ## Steps to Register Runner
 
-### 1. Start Docker-in-Docker Service
-First, start the Docker-in-Docker service that the runner will use:
-```bash
-docker compose up forgejo-docker-dind -d
-```
+### 1. Register Runner on Forgejo Instance
 
-### 2. Get Runner Token
+There are two ways to register a runner:
+
+#### Option 1: Using Runner Token (from Web UI)
 1. Log in to your Forgejo dashboard
 2. Go to Site Administration → Actions → Runners
 3. Click "Create new runner token"
-4. Copy the generated token (you'll need this in the next step)
+4. Copy the generated token
 
-### 3. Register the Runner
+#### Option 2: Using Runner Secret (CLI Method)
+1. Generate a 40-character hexadecimal secret string:
 
 ```bash
-# Enter the runner container in interactive mode
-docker compose run --rm -it forgejo-runner bash
+# Method 1: Using openssl (recommended)
+# Generate 20 random bytes and convert to 40 hex characters
+openssl rand -hex 20
 
-# Register the runner using the token from step 2
-forgejo-runner register
+# Method 2: Using /dev/urandom and hexdump
+head -c 20 /dev/urandom | hexdump -v -e '/1 "%02x"'
 ```
 
-When registering, you'll be prompted for several inputs:
-- Instance URL: Enter your Forgejo instance URL
-  ```
-  http://forgejo:3000
-  ```
-- Runner token: Paste the token from step 2
-- Runner name: Choose a name for your runner
-- Runner labels: Use these predefined labels:
-  ```
-  docker:docker://node:20-bullseye,ubuntu-22.04:docker://ghcr.io/catthehacker/ubuntu:act-22.04,ubuntu-20.04:docker://ghcr.io/catthehacker/ubuntu:act-20.04,ubuntu-18.04:docker://ghcr.io/catthehacker/ubuntu:act-18.04
-  ```
+The generated secret will be a 40-character hexadecimal string where:
+- First 16 characters: Runner identifier (first 8 bytes)
+- Last 24 characters: Actual secret (last 12 bytes)
+
+Example output: `7c31591e8b67225a116d4a4519ea8e507e08f71f`
+
+> Note: Save both parts of the secret. You can update the runner later by keeping the same 16-character identifier and only changing the 24-character secret portion.
+
+To update an existing runner's secret:
+```bash
+# Generate initial 40-character secret
+FULL_SECRET=$(openssl rand -hex 20)
+
+# Extract runner ID (first 16 characters) using cut or head
+RUNNER_ID=$(echo $FULL_SECRET | cut -c1-16)
+# OR using head
+RUNNER_ID=$(echo $FULL_SECRET | head -c16)
+
+# Generate new 24-character secret
+NEW_SECRET=$(openssl rand -hex 12)  # Generates 24 characters (12 bytes)
+
+# Combine runner ID with new secret
+NEW_FULL_SECRET="${RUNNER_ID}${NEW_SECRET}"
+echo "Original Secret: $FULL_SECRET"
+echo "Runner ID: $RUNNER_ID"
+echo "New Full Secret: $NEW_FULL_SECRET"
+
+# Register the runner with the new secret
+docker compose exec forgejo forgejo forgejo-cli actions register \
+  --name "your-runner-name" \
+  --scope "myorganization" \
+  --secret "${NEW_FULL_SECRET}"
+```
+
+2. Register the runner on your Forgejo instance:
+```bash
+# Execute this command inside the Forgejo container
+docker compose exec forgejo forgejo forgejo-cli actions register \
+  --name "your-runner-name" \
+  --scope "myorganization" \
+  --secret "7c31591e8b67225a116d4a4519ea8e507e08f71f"
+```
+
+> Note: The `actions register` command registers the runner with the Forgejo instance, allowing it to accept this runner when it connects.
+
+### 2. Set Up Environment Variables
+
+Create a `.env` file in your Forgejo directory:
+```bash
+# Runner Registration
+FORGEJO_INSTANCE_URL=http://forgejo:3000
+RUNNER_NAME=your-runner-name
+# Choose one of these authentication methods:
+RUNNER_TOKEN=your-runner-token
+# OR
+RUNNER_SECRET=7c31591e8b67225a116d4a4519ea8e507e08f71f
+
+# Runner Labels
+RUNNER_LABELS="docker:docker://node:20-bullseye,ubuntu-22.04:docker://ghcr.io/catthehacker/ubuntu:act-22.04,ubuntu-20.04:docker://ghcr.io/catthehacker/ubuntu:act-20.04,ubuntu-18.04:docker://ghcr.io/catthehacker/ubuntu:act-18.04"
+```
+
+### 3. Configure Runner Authentication
+
+You can configure the runner using either the token or secret method:
+
+#### Using Runner Token
+```bash
+# Using environment variables
+docker compose run --rm forgejo-runner register --no-interactive \
+  --token "${RUNNER_TOKEN}" \
+  --name "${RUNNER_NAME}" \
+  --instance "${FORGEJO_INSTANCE_URL}" \
+  --labels "${RUNNER_LABELS}"
+```
+
+#### Using Runner Secret
+```bash
+# Using environment variables
+# This command configures the runner to connect using the previously registered secret
+docker compose run --rm forgejo-runner create-runner-file \
+  --instance "${FORGEJO_INSTANCE_URL}" \
+  --secret "${RUNNER_SECRET}" \
+  --connect
+```
+
+> Note: The `create-runner-file` command configures the runner with credentials that allow it to start picking up tasks from the Forgejo instance as soon as it comes online.
+
+### 4. Generate Configuration
+
+After registration, generate the runner configuration:
+```bash
+docker compose run --rm forgejo-runner generate-config > runner/config.yml
+```
 
 > Note: These labels use catthehacker's Docker images which are specifically designed for GitHub Actions compatibility. They include:
 > - Pre-installed common tools and software
 > - GitHub Actions-compatible environment variables
 > - Support for most GitHub Actions workflows
 > - Regular security updates
-
-### 4. Generate Configuration
-After registration, generate the runner configuration:
-```bash
-forgejo-runner generate-config > config.yml
-exit
-```
 
 Important configuration settings in `config.yml`:
 ```yaml
@@ -85,6 +160,18 @@ container:
 > - Host network access for containers
 > - Correct certificate mounting
 > - Labels in config.yml will override the labels stored in .runner file
+
+### 5. Start the Services
+
+1. Start the Docker-in-Docker service:
+```bash
+docker compose up forgejo-docker-dind -d
+```
+
+2. Start the runner service:
+```bash
+docker compose up forgejo-runner -d
+```
 
 ### Local Root CA Configuration
 To enable HTTPS connections using local root CA certificates:
@@ -142,14 +229,6 @@ This configuration is necessary when:
 > - Host network mode allows these containers to access the Docker daemon's Unix socket
 > - Without host network mode, containers might fail to perform Docker operations
 > - This is especially important for CI/CD workflows that build or manage containers
-
-### 5. Start the Runner
-After completing the registration, start the runner service:
-```bash
-docker compose up forgejo-runner -d
-```
-
-The runner service should now be running and ready to execute CI/CD jobs.
 
 ## Labels Explanation
 The configured labels provide different Ubuntu environments with pre-installed tools:
@@ -229,7 +308,8 @@ This test workflow will verify that:
 - The runner can handle multi-step jobs
 
 ## References
-- [Forgejo Runner Installation Guide](https://forgejo.org/docs/latest/admin/runner-installation/#oci-image-installation)
+- [Forgejo Runner Docker Installation Guide](https://forgejo.org/docs/latest/admin/runner-installation/#oci-image-installation)
+- [Forgejo Runner Installation Guide for CI/CD](https://forgejo.org/docs/latest/admin/runner-installation/#offline-registration)
 - [Forgejo Runner Configuration Guide](https://forgejo.org/docs/latest/admin/runner-installation/#configuration)
 - [Forgejo Runner Docker Compose Example](https://code.forgejo.org/forgejo/runner/src/branch/main/examples/docker-compose/compose-forgejo-and-runner.yml)
 - [Forgejo Actions - Choosing Labels](https://forgejo.org/docs/latest/admin/actions/#choosing-labels)
