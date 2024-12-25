@@ -1,0 +1,8 @@
+[Unit]
+Description=Watch for unattended upgrades stamp file changes
+
+[Path]
+PathChanged=/var/lib/apt/periodic/upgrade-stamp
+
+[Install]
+WantedBy=multi-user.target
