@@ -19,6 +19,15 @@ The script will be triggered automatically when network interfaces become routab
 
 ## How It Works
 
+### Purpose
+
+This script is particularly important when you have multiple Tailscale nodes on the same private LAN:
+- When one Tailscale node acts as a router for the network
+- Other Tailscale nodes need to route their Tailscale subnet traffic through this router
+- Prevents routing loops and ensures proper traffic flow in multi-node setups
+
+The routing rule ensures that traffic to the Tailscale subnet (100.64.0.0/10) is properly routed through the main routing table, allowing it to be forwarded to your designated Tailscale router instead of being handled locally.
+
 ### Network Events That Reset Rules
 
 The routing rule might be reset in several scenarios:
