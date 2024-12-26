@@ -138,7 +138,6 @@ runner:
     DOCKER_HOST: tcp://docker:2376
     DOCKER_CERT_PATH: /certs/client
     DOCKER_TLS_VERIFY: 1
-  # Override .runner labels with these labels
   labels: [
     "docker:docker://node:20-bullseye",
     "ubuntu-22.04:docker://ghcr.io/catthehacker/ubuntu:act-22.04",
@@ -148,7 +147,14 @@ runner:
 
 container:
   network: "host"
-  options: -v /certs/client:/certs/client -v /usr/local/share/ca-certificates/step_root_ca.crt:/usr/local/share/ca-certificates/step_root_ca.crt
+  # Resource constraints using Docker options
+  options: >-
+    -v /certs/client:/certs/client 
+    -v /usr/local/share/ca-certificates/step_root_ca.crt:/usr/local/share/ca-certificates/step_root_ca.crt 
+    --cpus=2.0 
+    --memory=2g 
+    --memory-swap=2.5g 
+    --memory-reservation=1.5g
   valid_volumes:
     - /certs/client
     - /usr/local/share/ca-certificates/step_root_ca.crt
@@ -160,75 +166,34 @@ container:
 > - Host network access for containers
 > - Correct certificate mounting
 > - Labels in config.yml will override the labels stored in .runner file
+> - Resource constraints:
+>   - CPU: Limited to 2 out of 4 vCPUs using --cpus
+>   - Memory: Hard limit of 2GB with 512MB swap using --memory
+>   - Memory Reservation: Soft limit of 1.5GB using --memory-reservation
+>   - These limits apply to each runner container
 
-### 5. Start the Services
+## Resource Constraints
 
-1. Start the Docker-in-Docker service:
-```bash
-docker compose up forgejo-docker-dind -d
-```
+The runner can be configured with resource constraints using Docker options in the `config.yml`. These options are passed directly to the `docker run` command:
 
-2. Start the runner service:
-```bash
-docker compose up forgejo-runner -d
-```
-
-### Local Root CA Configuration
-To enable HTTPS connections using local root CA certificates:
-
-1. In `docker-compose.yaml`, mount your root CA certificate to the Docker-in-Docker container:
-```yaml
-services:
-  forgejo-docker-dind:
-    volumes:
-      - /path/to/step-ca/certs/step_root_ca.crt:/usr/local/share/ca-certificates/step_root_ca.crt:ro
-```
-
-2. Configure volume bindings in `runner/config.yml`:
+### Available Resource Options
 ```yaml
 container:
-  network: "host"
-  # These volumes must exist in the docker-dind container as it manages runner containers
-  options: -v /certs/client:/certs/client -v /usr/local/share/ca-certificates/step_root_ca.crt:/usr/local/share/ca-certificates/step_root_ca.crt
-  valid_volumes:
-    - /certs/client
-    - /usr/local/share/ca-certificates/step_root_ca.crt
+  options: >-
+    --cpus=2.0            # Limit to 2 CPU cores
+    --memory=2g           # Hard memory limit (2GB)
+    --memory-swap=2.5g    # Total memory limit including swap (2GB + 512MB)
+    --memory-reservation=1.5g  # Soft memory limit (1.5GB)
 ```
 
-> **Important**: The volumes specified in `runner/config.yml` must exist inside the Docker-in-Docker container because:
-> - The Docker-in-Docker (dind) container is responsible for creating and managing runner containers
-> - Any volumes you want to mount in runner containers must first exist in the dind container
-> - The path in the dind container must match exactly with the path specified in the runner config
-> - Always ensure the volumes are properly mounted in docker-compose.yaml before referencing them in runner config
+These constraints help:
+- Control resource usage for each runner container
+- Prevent resource exhaustion on the host
+- Ensure fair resource sharing between runners
+- Maintain stable system performance
 
-3. In your workflow files, add this step before any HTTPS connections:
-```yaml
-- name: Install local root CA
-  run: |
-    sudo update-ca-certificates
-```
-
-> **Note**: The `update-ca-certificates` command is specific to Linux-based systems (Ubuntu, Debian, etc.). For other operating systems:
-> - Windows: Uses a different certificate management system
-> - macOS: Uses the Keychain for certificate management
-> - Alpine Linux: Uses `update-ca-certificates` but might need to install `ca-certificates` package first
->
-> If you need to support multiple operating systems, you'll need to handle certificate installation differently for each platform.
-
-This configuration is necessary when:
-- Your runner needs to access internal HTTPS services
-- You're using a private certificate authority
-- You need to clone repositories over HTTPS from local Git servers
-
-> Note: Make sure to replace `/path/to/step-ca/certs/step_root_ca.crt` with the actual path to your root CA certificate.
-
-> **Important Network Configuration:**
-> Setting `network: "host"` is crucial when containers need to access the Docker daemon. Here's why:
-> - When using Docker-in-Docker (dind), containers created by the runner need to communicate with the Docker daemon
-> - Some images (like catthehacker's) include Docker client and need to access Docker socket
-> - Host network mode allows these containers to access the Docker daemon's Unix socket
-> - Without host network mode, containers might fail to perform Docker operations
-> - This is especially important for CI/CD workflows that build or manage containers
+> Note: The options string uses YAML's block scalar indicator (`>-`) for better readability of multiple Docker options.
+> Each option should be on a new line for clarity.
 
 ## Labels Explanation
 The configured labels provide different Ubuntu environments with pre-installed tools:
@@ -307,6 +272,78 @@ This test workflow will verify that:
 - Node.js is available and functioning
 - The runner can handle multi-step jobs
 
+
+## Local Root CA Configuration
+To enable HTTPS connections using local root CA certificates:
+
+1. In `docker-compose.yaml`, mount your root CA certificate to the Docker-in-Docker container:
+```yaml
+services:
+  forgejo-docker-dind:
+    volumes:
+      - /path/to/step-ca/certs/step_root_ca.crt:/usr/local/share/ca-certificates/step_root_ca.crt:ro
+```
+
+2. Configure volume bindings in `runner/config.yml`:
+```yaml
+container:
+  network: "host"
+  # These volumes must exist in the docker-dind container as it manages runner containers
+  options: >- 
+    -v /certs/client:/certs/client
+    -v /usr/local/share/ca-certificates/step_root_ca.crt:/usr/local/share/ca-certificates/step_root_ca.crt
+  valid_volumes:
+    - /certs/client
+    - /usr/local/share/ca-certificates/step_root_ca.crt
+```
+
+> **Important**: The volumes specified in `runner/config.yml` must exist inside the Docker-in-Docker container because:
+> - The Docker-in-Docker (dind) container is responsible for creating and managing runner containers
+> - Any volumes you want to mount in runner containers must first exist in the dind container
+> - The path in the dind container must match exactly with the path specified in the runner config
+> - Always ensure the volumes are properly mounted in docker-compose.yaml before referencing them in runner config
+
+3. In your workflow files, add this step before any HTTPS connections:
+```yaml
+- name: Install local root CA
+  run: |
+    sudo update-ca-certificates
+```
+
+> **Note**: The `update-ca-certificates` command is specific to Linux-based systems (Ubuntu, Debian, etc.). For other operating systems:
+> - Windows: Uses a different certificate management system
+> - macOS: Uses the Keychain for certificate management
+> - Alpine Linux: Uses `update-ca-certificates` but might need to install `ca-certificates` package first
+>
+> If you need to support multiple operating systems, you'll need to handle certificate installation differently for each platform.
+
+This configuration is necessary when:
+- Your runner needs to access internal HTTPS services
+- You're using a private certificate authority
+- You need to clone repositories over HTTPS from local Git servers
+
+> Note: Make sure to replace `/path/to/step-ca/certs/step_root_ca.crt` with the actual path to your root CA certificate.
+
+> **Important Network Configuration:**
+> Setting `network: "host"` is crucial when containers need to access the Docker daemon. Here's why:
+> - When using Docker-in-Docker (dind), containers created by the runner need to communicate with the Docker daemon
+> - Some images (like catthehacker's) include Docker client and need to access Docker socket
+> - Host network mode allows these containers to access the Docker daemon's Unix socket
+> - Without host network mode, containers might fail to perform Docker operations
+> - This is especially important for CI/CD workflows that build or manage containers
+
+### 5. Start the Services
+
+1. Start the Docker-in-Docker service:
+```bash
+docker compose up forgejo-docker-dind -d
+```
+
+2. Start the runner service:
+```bash
+docker compose up forgejo-runner -d
+```
+
 ## References
 - [Forgejo Runner Docker Installation Guide](https://forgejo.org/docs/latest/admin/runner-installation/#oci-image-installation)
 - [Forgejo Runner Installation Guide for CI/CD](https://forgejo.org/docs/latest/admin/runner-installation/#offline-registration)
@@ -315,3 +352,4 @@ This test workflow will verify that:
 - [Forgejo Actions - Choosing Labels](https://forgejo.org/docs/latest/admin/actions/#choosing-labels)
 - [Codeberg Actions - Running on Docker](https://docs.codeberg.org/ci/actions/#running-on-docker)
 - [CatTheHacker Docker Images](https://github.com/catthehacker/docker_images) - Pre-built Docker images for GitHub Actions
+- [Docker Resource Constraints](https://docs.docker.com/engine/containers/resource_constraints/)
