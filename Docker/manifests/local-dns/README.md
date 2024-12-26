@@ -39,9 +39,9 @@ networks:
       parent: eth0  # Change this to your network interface
     ipam:
       config:
-        - subnet: 192.168.x.0/24  # Single IP for AdGuard Home
-          gateway: 192.168.x.1     # Change to match your network gateway
-          ip_range: 192.168.x.y/32  # Restrict to single IP
+        - subnet: 192.168.X.0/24  # Single IP for AdGuard Home
+          gateway: 192.168.X.1     # Change to match your network gateway
+          ip_range: 192.168.X.Y/32  # Restrict to single IP
 ```
 
 Benefits:
@@ -73,10 +73,10 @@ docker network inspect dns
 # Create macvlan network with single IP and host recognition
 docker network create adguardhome-macvlan \
   --driver macvlan \
-  --subnet 192.168.x.0/24 \
-  --gateway 192.168.x.1 \
-  --ip-range 192.168.x.y/32 \
-  --aux-address="host=192.168.x.z" \
+  --subnet 192.168.X.0/24 \
+  --gateway 192.168.X.1 \
+  --ip-range 192.168.X.Y/32 \
+  --aux-address="host=192.168.X.Z" \
   --option parent=eth0
 
 # Verify network configuration
@@ -122,82 +122,163 @@ After getting your host IP, create a macvlan interface to communicate with the c
 
 ```bash
 # Create a new macvlan interface
-ip link add adguardhome-lan link eth0 type macvlan mode bridge
+ip link add adguardhome-macvlan link eth0 type macvlan mode bridge
 
 # Assign host's IP address to the macvlan interface with 32-bit mask
-ip addr add 192.168.x.z/32 dev adguardhome-lan
+ip addr add 192.168.X.Z/32 dev adguardhome-macvlan
 
 # Set the interface up
-ip link set adguardhome-lan up
+ip link set adguardhome-macvlan up
 
-# Add a route to the container's subnet via adguardhome-lan
-ip route add 192.168.x.y/32 dev adguardhome-lan
+# Add a route to the container's subnet via adguardhome-macvlan
+ip route add 192.168.X.Y/32 dev adguardhome-macvlan
 ```
 
 ### 3. Make Configuration Persistent
 
-The recommended way to make the network configuration persistent is using `systemd-networkd`, which is the default network service on most modern Linux distributions:
+First, check which network tools are available on your system:
 
-1. Create network configuration file:
 ```bash
-sudo mkdir -p /etc/systemd/network
-sudo nano /etc/systemd/network/25-adguardhome.netdev
+# Check if systemd-networkd is installed and running
+systemctl status systemd-networkd
+
+# Check if networkd-dispatcher is available
+which networkd-dispatcher
+
+# Check if netplan is being used
+ls /etc/netplan/
 ```
 
-Add the following configuration:
+Choose the appropriate configuration method based on your system:
+
+#### Option A: Using systemd-networkd with cloud-init
+
+Since the main network interface (eth0) is already configured by cloud-init through netplan, we only need to configure the macvlan interface using systemd-networkd:
+
+1. Create parent interface configuration:
+```bash
+sudo mkdir -p /etc/systemd/network
+sudo nano /etc/systemd/network/80-parent.network
+```
+
+```ini
+[Match]
+# Main interface configured by cloud-init
+Name=eth0  
+
+[Network]
+MACVLAN=adguardhome-macvlan
+```
+
+2. Create macvlan interface definition:
+```bash
+sudo nano /etc/systemd/network/80-adguardhome-macvlan.netdev
+```
+
 ```ini
 [NetDev]
-Name=adguardhome-lan
+Name=adguardhome-macvlan
 Kind=macvlan
-MACAddress=
 
 [MACVLAN]
 Mode=bridge
-Parent=eth0  # Change to your network interface
 ```
 
-2. Create interface configuration:
+3. Create macvlan interface configuration:
 ```bash
-sudo nano /etc/systemd/network/25-adguardhome.network
+sudo nano /etc/systemd/network/80-adguardhome-macvlan.network
 ```
 
-Add the following configuration:
 ```ini
 [Match]
-Name=adguardhome-lan
+Name=adguardhome-macvlan
 
 [Network]
-Address=192.168.x.z/32  # Your host IP
-Gateway=192.168.x.1     # Your network gateway
+# Host IP
+Address=192.168.X.Z/32  
 
 [Route]
-Destination=192.168.x.y/32  # Container IP
+# Container IP
+Destination=192.168.X.Y/32  
 Scope=link
 ```
 
-3. Enable and restart systemd-networkd:
+4. Apply configuration:
 ```bash
-sudo systemctl enable systemd-networkd
 sudo systemctl restart systemd-networkd
 ```
 
-Alternative methods for systems not using systemd-networkd:
+Benefits:
+- Works seamlessly with cloud-init network configuration
+- No modification to existing netplan configuration needed
+- Configuration persists across reboots
+- Clean separation of cloud-init and custom network configurations
 
-#### Option 1: Using systemd service
+#### Option B: Using systemd service
 
-See the instructions in the [`docker-macvlan-setup`](./docker-macvlan-setup) directory for setting up automatic macvlan configuration using a custom systemd service.
+For systems that don't use systemd-networkd or when you prefer a service-based approach, you can use the provided systemd service. See the instructions in the [`docker-macvlan-setup`](./docker-macvlan-setup) directory for setting up automatic macvlan configuration using a custom systemd service.
 
-#### Option 2: Using network configuration files (Legacy)
+Benefits:
+- Works on any systemd-based system
+- No dependency on specific network management tools
+- Easy to configure through environment variables
+- Automatic setup and cleanup
+- Persists across reboots
 
-### 4. Verify Configuration
+#### Option C: Using networkd-dispatcher
+
+For systems with networkd-dispatcher installed, this option provides dynamic interface configuration:
+
+1. Install networkd-dispatcher:
+```bash
+sudo apt install networkd-dispatcher
+```
+
+2. Create macvlan setup script:
+```bash
+sudo mkdir -p /etc/networkd-dispatcher/routable.d/
+sudo nano /etc/networkd-dispatcher/routable.d/50-adguardhome-macvlan
+```
+
+```bash
+#!/bin/sh
+PARENT_IF="$1"  # Network interface that triggered this script
+IFACE="adguardhome-macvlan"
+
+# Create macvlan interface if it doesn't exist
+if ! ip link show "$IFACE" >/dev/null 2>&1; then
+    ip link add "$IFACE" link "$PARENT_IF" type macvlan mode bridge
+    ip addr add 192.168.X.Z/32 dev "$IFACE"  # Host IP
+    ip link set "$IFACE" up
+    ip route add 192.168.X.Y/32 dev "$IFACE"  # Container IP
+fi
+```
+
+3. Make the script executable:
+```bash
+sudo chmod +x /etc/networkd-dispatcher/routable.d/50-adguardhome-macvlan
+```
+
+Benefits:
+- Automatically creates macvlan when parent interface becomes available
+- Works with dynamic network interfaces
+- No need to specify parent interface in configuration
+- Handles network interface changes automatically
+
+Choose the method that best matches your system's configuration and requirements:
+- Option A (systemd-networkd): Best for systems using cloud-init/netplan
+- Option B (systemd service): Best for systems without specific network management tools
+- Option C (networkd-dispatcher): Best for systems with dynamic network configurations
+
+## Verify Configuration
 
 Test the connection:
 ```bash
 # From host to container
-ping 192.168.x.y  # Container IP
+ping 192.168.X.Y  # Container IP
 
 # From container to host (exec into container first)
-docker exec -it adguardhome ping 192.168.x.z  # Host IP
+docker exec -it adguardhome ping 192.168.X.Z  # Host IP
 ```
 
 ## Notes
@@ -238,3 +319,4 @@ docker-compose -f tailscale-compose.yaml up -d
 - [Using Docker Macvlan Networks](https://blog.oddbit.com/post/2018-03-12-using-docker-macvlan-networks/)
 - [Linux Network Interfaces](https://wiki.archlinux.org/title/Network_configuration#Network_interfaces)
 - [Arch Linux systemd-networkd](https://wiki.archlinux.org/title/Systemd-networkd)
+- [netplan macvlan bug report](https://bugs.launchpad.net/netplan/+bug/1664847)
