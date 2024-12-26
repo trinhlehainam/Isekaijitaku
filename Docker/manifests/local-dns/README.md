@@ -136,49 +136,29 @@ ip route add 192.168.x.y/32 dev adguardhome-lan
 
 ### 3. Make Configuration Persistent
 
-The method to make network configuration persistent varies depending on your Linux distribution:
+The recommended way to make the network configuration persistent is using `systemd-networkd`, which is the default network service on most modern Linux distributions:
 
-#### For Debian/Ubuntu-based systems:
-
-1. Install `ifupdown` if not already installed:
+1. Create network configuration file:
 ```bash
-sudo apt update
-sudo apt install ifupdown
-```
-
-2. Create or edit `/etc/network/interfaces.d/adguardhome`:
-```bash
-sudo mkdir -p /etc/network/interfaces.d
-sudo nano /etc/network/interfaces.d/adguardhome
+sudo mkdir -p /etc/systemd/network
+sudo nano /etc/systemd/network/25-adguardhome.netdev
 ```
 
 Add the following configuration:
-```
-auto adguardhome-lan
-iface adguardhome-lan inet static
-    address 192.168.x.z/32  # Your host's IP address
-    pre-up ip link add adguardhome-lan link eth0 type macvlan mode bridge
-    post-up ip route add 192.168.x.y/32 dev adguardhome-lan
-    pre-down ip route del 192.168.x.y/32 dev adguardhome-lan
-    post-down ip link del adguardhome-lan
+```ini
+[NetDev]
+Name=adguardhome-lan
+Kind=macvlan
+MACAddress=
+
+[MACVLAN]
+Mode=bridge
+Parent=eth0  # Change to your network interface
 ```
 
-3. Include the configuration in main interfaces file:
+2. Create interface configuration:
 ```bash
-# Create if not exists
-sudo touch /etc/network/interfaces
-
-# Add source line if not present
-echo "source /etc/network/interfaces.d/*" | sudo tee -a /etc/network/interfaces
-```
-
-#### For systemd-networkd based systems:
-
-1. Create network configuration files:
-```bash
-# Create network configuration file (30- prefix sets priority)
-sudo touch /etc/systemd/network/30-adguardhome.network
-sudo nano /etc/systemd/network/30-adguardhome.network
+sudo nano /etc/systemd/network/25-adguardhome.network
 ```
 
 Add the following configuration:
@@ -187,52 +167,27 @@ Add the following configuration:
 Name=adguardhome-lan
 
 [Network]
-Address=192.168.x.z/32
+Address=192.168.x.z/32  # Your host IP
+Gateway=192.168.x.1     # Your network gateway
 
 [Route]
-Destination=192.168.x.y/32
+Destination=192.168.x.y/32  # Container IP
 Scope=link
 ```
 
-2. Create netdev configuration:
-```bash
-# Create netdev configuration file
-sudo touch /etc/systemd/network/30-adguardhome.netdev
-sudo nano /etc/systemd/network/30-adguardhome.netdev
-```
-
-Add the following configuration:
-```ini
-[NetDev]
-Name=adguardhome-lan
-Kind=macvlan
-
-[MACVLAN]
-Mode=bridge
-Parent=eth0
-```
-
-Note: The `30-` prefix in filenames determines the processing order. Lower numbers are processed first.
-
 3. Enable and restart systemd-networkd:
 ```bash
-# Enable systemd-networkd if not already enabled
 sudo systemctl enable systemd-networkd
-
-# Restart the service to apply changes
 sudo systemctl restart systemd-networkd
-
-# Check service status
-sudo systemctl status systemd-networkd
-
-# Verify interface creation
-ip addr show adguardhome-lan
 ```
 
-Replace the following values:
-- `eth0`: Your network interface name
-- `192.168.x.y`: Your AdGuard Home container's IP
-- `192.168.x.z`: Your host's main IP address
+Alternative methods for systems not using systemd-networkd:
+
+#### Option 1: Using systemd service
+
+See the instructions in the [`docker-macvlan-setup`](./docker-macvlan-setup) directory for setting up automatic macvlan configuration using a custom systemd service.
+
+#### Option 2: Using network configuration files (Legacy)
 
 ### 4. Verify Configuration
 

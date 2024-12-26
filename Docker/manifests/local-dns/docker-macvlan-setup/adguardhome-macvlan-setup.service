@@ -1,0 +1,15 @@
+[Unit]
+Description=AdGuard Home Macvlan Network Interface Setup
+After=network.target network-online.target
+Before=docker.service
+Wants=network-online.target docker.service
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+EnvironmentFile=/etc/docker-macvlan.d/adguardhome-macvlan.conf
+ExecStart=/usr/local/bin/adguardhome-macvlan-setup.sh
+ExecStop=/usr/local/bin/adguardhome-macvlan-cleanup.sh
+
+[Install]
+WantedBy=multi-user.target
