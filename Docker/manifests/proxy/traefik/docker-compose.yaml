@@ -107,7 +107,7 @@ services:
   # https://github.com/xavier-hernandez/goaccess-for-nginxproxymanager
   goaccess:
     # https://hub.docker.com/r/xavierh/goaccess-for-nginxproxymanager/tags
-    image: xavierh/goaccess-for-nginxproxymanager:v1.1.31
+    image: xavierh/goaccess-for-nginxproxymanager:v1.1.32
     container_name: goaccess
     restart: unless-stopped
     depends_on:
