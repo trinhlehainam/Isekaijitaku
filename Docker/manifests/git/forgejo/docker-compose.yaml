@@ -78,6 +78,14 @@ services:
     privileged: 'true'
     environment:
       DOCKER_TLS_CERTDIR: /certs
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 2G
+        reservations:
+          cpus: '0.5'
+          memory: 512M
     volumes:
       - docker_certs:/certs
       - docker_certs_client:/certs/client

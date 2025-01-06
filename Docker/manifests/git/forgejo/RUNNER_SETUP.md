@@ -118,6 +118,28 @@ docker compose run --rm forgejo-runner create-runner-file \
 
 > Note: The `create-runner-file` command configures the runner with credentials that allow it to start picking up tasks from the Forgejo instance as soon as it comes online.
 
+### 4. Resource Management
+
+The Docker-in-Docker (DinD) service that manages runner containers is configured with resource limits to prevent excessive resource usage. These limits are applied at the DinD level, ensuring that all runner containers combined cannot exceed these limits:
+
+```yaml
+deploy:
+  resources:
+    limits:
+      cpus: '2'      # Maximum of 2 CPU cores total
+      memory: 2G     # Maximum of 2GB memory total
+    reservations:    # Optional: Minimum guaranteed resources
+      cpus: '0.5'    # Guaranteed minimum of 0.5 CPU cores
+      memory: 512M   # Guaranteed minimum of 512MB memory
+```
+
+These limits ensure that:
+- The total resource usage of all runner containers is controlled
+- The service has guaranteed minimum resources for stability
+- System resources are protected from potential overuse
+
+> Note: Resource reservations are optional. If not specified, Docker will not guarantee any minimum resources (defaults to 0). However, for CI/CD runners, it's recommended to set reservations to ensure stable performance even under system load.
+
 ### 4. Generate Configuration
 
 After registration, generate the runner configuration:
@@ -353,3 +375,4 @@ docker compose up forgejo-runner -d
 - [Codeberg Actions - Running on Docker](https://docs.codeberg.org/ci/actions/#running-on-docker)
 - [CatTheHacker Docker Images](https://github.com/catthehacker/docker_images) - Pre-built Docker images for GitHub Actions
 - [Docker Resource Constraints](https://docs.docker.com/engine/containers/resource_constraints/)
+- [Docker Compose Resource Constraints](https://docs.docker.com/reference/compose-file/deploy/#resources)
