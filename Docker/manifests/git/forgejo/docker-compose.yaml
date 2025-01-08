@@ -1,6 +1,6 @@
-version: "3"
 # https://forgejo.org/docs/latest/admin/installation-docker/
 # https://forgejo.org/docs/next/admin/installation-docker/#postgresql-database
+# https://codeberg.org/forgejo-contrib/delightful-forgejo
 
 services:
   # https://forgejo.org/docs/next/admin/installation-docker/#hosting-repository-data-on-remote-storage-systems
