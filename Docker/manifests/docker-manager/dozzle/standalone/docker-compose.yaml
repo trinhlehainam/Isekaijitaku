@@ -3,7 +3,7 @@
 services:
   dozzle:
     # https://hub.docker.com/r/amir20/dozzle/tags
-    image: amir20/dozzle:v8.10.0
+    image: amir20/dozzle:v8.10.1
     container_name: dozzle
     environment:
       DOZZLE_HOSTNAME: dozzle

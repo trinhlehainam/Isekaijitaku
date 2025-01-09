@@ -278,7 +278,7 @@ sudo chown root:wheel /etc/act_runner/colima.env
 sudo chmod 644 /etc/act_runner/colima.env
 
 # Create start script
-sudo tee /usr/local/scripts/start-act-runner-colima.sh << EOF
+sudo tee /usr/local/scripts/start-act-runner-colima.sh << 'EOF'
 #!/bin/bash
 
 # Source environment variables
@@ -288,13 +288,12 @@ fi
 
 # Function to log messages
 log() {
-    echo "$(date '+%Y-%m-%d %H:%M:%S'): [INFO] $1" >> /var/log/act_runner/colima.log
+    echo "$(date '+%Y-%m-%d %H:%M:%S'): [INFO] $1"
 }
 
 # Function to log errors
 error() {
-    echo "$(date '+%Y-%m-%d %H:%M:%S'): [ERROR] $1" >> /var/log/act_runner/colima.error
-    echo "$(date '+%Y-%m-%d %H:%M:%S'): [ERROR] $1" >> /var/log/act_runner/colima.log
+    echo "$(date '+%Y-%m-%d %H:%M:%S'): [ERROR] $1" >&2
 }
 
 # Function to check if network is available
@@ -308,31 +307,75 @@ check_network() {
     return 1
 }
 
+# Function to check if Colima is running
+is_colima_running() {
+    local status
+    status=$(colima status 2>&1)
+    case "$status" in
+        *"colima is running"*) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+# Function to start Colima with configuration
+start_colima() {
+    local -a cmd=(colima start)
+    cmd+=("--cpu" "${COLIMA_CPU:-4}")
+    cmd+=("--memory" "${COLIMA_MEMORY:-8}")
+    cmd+=("--disk" "${COLIMA_DISK:-100}")
+    cmd+=("--vm-type" "${COLIMA_VM_TYPE:-vz}")
+
+    if [ -n "${COLIMA_MOUNT_TYPE}" ]; then
+        cmd+=("--mount-type" "${COLIMA_MOUNT_TYPE}")
+    fi
+    if [ -n "${COLIMA_RUNTIME}" ]; then
+        cmd+=("--runtime" "${COLIMA_RUNTIME}")
+    fi
+
+    log "Executing: ${cmd[*]}"
+    "${cmd[@]}"
+    return $?
+}
+
+# Stop any running instance
+if is_colima_running; then
+    log "Stopping running Colima instance"
+    colima stop
+    
+    # Wait for Colima to stop with retry
+    max_attempts=6
+    attempt=1
+    while [ $attempt -le $max_attempts ]; do
+        if ! is_colima_running; then
+            log "Colima stopped successfully"
+            break
+        fi
+        log "Waiting for Colima to stop (attempt $attempt/$max_attempts)..."
+        sleep 5
+        attempt=$((attempt + 1))
+    done
+
+    if [ $attempt -gt $max_attempts ]; then
+        error "Failed to stop Colima after $max_attempts attempts"
+        exit 1
+    fi
+fi
+
 # Wait for network
 if ! check_network; then
     error "Network check failed"
     exit 1
 fi
 
-# Build Colima command with resource configurations
+# Start Colima
 log "Starting Colima..."
-cmd="colima start"
-cmd="$cmd --cpu ${COLIMA_CPU:-4}"
-cmd="$cmd --memory ${COLIMA_MEMORY:-8}"
-cmd="$cmd --disk ${COLIMA_DISK:-100}"
-cmd="$cmd --vm-type ${COLIMA_VM_TYPE:-vz}"
-
-# Add optional configurations if specified
-if [ -n "${COLIMA_MOUNT_TYPE}" ]; then
-    cmd="$cmd --mount-type ${COLIMA_MOUNT_TYPE}"
+if ! start_colima; then
+    error "Failed to start Colima"
+    exit 1
 fi
 
-# Start Colima
-log "Executing: $cmd"
-eval "$cmd"
-
 # Check if Colima started successfully
-if ! colima status | grep -q "Running"; then
+if ! is_colima_running; then
     error "Failed to start Colima"
     exit 1
 fi
