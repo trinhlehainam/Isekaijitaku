@@ -515,6 +515,8 @@ arch -arm64 sudo -u _act_runner HOME=/var/lib/act_runner bash -c 'source /etc/ac
 
 ### 6. Create and Configure LaunchDaemon
 
+> **Note about log redirection**: The act_runner daemon writes most of its operational logs to stderr instead of stdout. Without `2>&1` redirection, these logs would only appear in the error log file, making it harder to track the chronological sequence of events. By using `2>&1`, we redirect stderr to stdout, ensuring all logs are written to the same file in the order they occur. This is particularly important for debugging issues and monitoring the runner's behavior, as it keeps all related log entries together in a single, properly ordered log file.
+
 1. Create log directory:
 ```bash
 # Create log directory
@@ -528,12 +530,24 @@ sudo chmod 755 /var/log/act_runner
 sudo tee /usr/local/bin/start_act_runner.sh << 'EOF'
 #!/bin/bash
 
+# Function to log messages
+log() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S'): [INFO] $1"
+}
+
+# Function to log errors
+error() {
+    echo "$(date '+%Y-%m-%d %H:%M:%S'): [ERROR] $1" >&2
+}
+
 # Source nvm and pyenv
+log "Sourcing nvm and pyenv"
 source /etc/act_runner/nvm.sh
 source /etc/act_runner/pyenv.sh
 
 # Start act_runner daemon
-exec /usr/local/bin/act_runner daemon --config /etc/act_runner/config.yaml
+log "Starting act_runner daemon"
+/usr/local/bin/act_runner daemon --config /etc/act_runner/config.yaml 2>&1
 EOF
 
 sudo chown root:wheel /usr/local/bin/start_act_runner.sh
@@ -542,7 +556,7 @@ sudo chmod 755 /usr/local/bin/start_act_runner.sh
 
 3. Create the LaunchDaemon configuration:
 ```bash
-sudo tee /Library/LaunchDaemons/com.gitea.act_runner.plist << EOF
+sudo tee /Library/LaunchDaemons/com.gitea.act_runner.plist << 'EOF'
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
 <plist version="1.0">
@@ -590,8 +604,17 @@ sudo chmod 644 /Library/LaunchDaemons/com.gitea.act_runner.plist
 
 1. Load the LaunchDaemon:
 ```bash
+# Unload the daemon if it's already loaded
 sudo launchctl unload /Library/LaunchDaemons/com.gitea.act_runner.plist
+
+# Load the daemon
 sudo launchctl load /Library/LaunchDaemons/com.gitea.act_runner.plist
+```
+
+2. Monitor logs
+```bash
+tail -f /var/log/act_runner/act_runner.log
+tail -f /var/log/act_runner/act_runner.error
 ```
 
 ## Register Runner with Forgejo Instance
