@@ -394,40 +394,73 @@ sudo launchctl load /Library/LaunchDaemons/com.gitea.act_runner.colima.plist
 
 # Verify Colima is running
 sudo -u _act_runner colima status
+
+# Verify Docker access
+sudo -u _act_runner docker info
 ```
 
-### 4. Install Node.js for Runner
+### 5. Install Python for Runner
 
-The GitHub Actions runner requires Node.js for many common actions. Install it using nvm (Node Version Manager):
+The GitHub Actions runner often requires Python for various tasks. Install it using pyenv (Python Version Manager). For detailed configuration options and advanced settings that can be applied later, check [pyenv on GitHub](https://github.com/pyenv/pyenv).
 
-1. Install nvm and Node.js:
+1. Install pyenv and build dependencies using Homebrew:
 ```bash
-# Create .nvm directory
-sudo mkdir -p /var/lib/act_runner/.nvm
-sudo chown -R _act_runner:_act_runner /var/lib/act_runner/.nvm
+# Install pyenv
+brew update && brew install pyenv
 
-# Install nvm and Node.js LTS
-sudo -u _act_runner HOME=/var/lib/act_runner bash -c "curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash"
+# Install build dependencies
+brew install xz openssl readline sqlite3 zlib tcl-tk
+```
 
-# Create nvm profile script
-sudo tee /etc/act_runner/nvm.sh << 'EOF'
-export NVM_DIR="$HOME/.nvm"
-[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+2. Set up pyenv for _act_runner:
+```bash
+# Create pyenv directory
+sudo mkdir -p /var/lib/act_runner/.pyenv
+sudo chown -R _act_runner:_act_runner /var/lib/act_runner/.pyenv
+
+# Create pyenv profile script
+sudo tee /etc/act_runner/pyenv.sh << 'EOF'
+export PYENV_ROOT="$HOME/.pyenv"
+export PATH="$PYENV_ROOT/bin:$PATH"
+eval "$(pyenv init - bash)"
 EOF
 
-sudo chown root:wheel /etc/act_runner/nvm.sh
-sudo chmod 644 /etc/act_runner/nvm.sh
+sudo chown root:wheel /etc/act_runner/pyenv.sh
+sudo chmod 644 /etc/act_runner/pyenv.sh
 
-# Install Node.js and enable pnpm
-sudo -u _act_runner HOME=/var/lib/act_runner bash -c 'source /etc/act_runner/nvm.sh && nvm install 22 && corepack enable pnpm'
+# List available Python versions
+arch -arm64 sudo -u _act_runner HOME=/var/lib/act_runner bash -c 'source /etc/act_runner/pyenv.sh && pyenv install --list'
 
-# Verify installations
-sudo -u _act_runner HOME=/var/lib/act_runner bash -c 'source /etc/act_runner/nvm.sh && node -v && nvm current && pnpm -v'
+# Install Python 3.12 (using arm64 architecture)
+arch -arm64 sudo -u _act_runner HOME=/var/lib/act_runner bash -c 'source /etc/act_runner/pyenv.sh && pyenv install 3.12'
+
+# Set global Python version
+arch -arm64 sudo -u _act_runner HOME=/var/lib/act_runner bash -c 'source /etc/act_runner/pyenv.sh && pyenv global 3.12'
+
+# Verify installation
+arch -arm64 sudo -u _act_runner HOME=/var/lib/act_runner bash -c 'source /etc/act_runner/pyenv.sh && python --version && pyenv version'
 ```
 
-### 5. Create and Configure LaunchDaemon
+### 6. Create and Configure LaunchDaemon
 
-1. Create the LaunchDaemon configuration:
+1. Create the start script for act_runner:
+```bash
+sudo tee /usr/local/bin/start_act_runner.sh << 'EOF'
+#!/bin/bash
+
+# Source nvm and pyenv
+source /etc/act_runner/nvm.sh
+source /etc/act_runner/pyenv.sh
+
+# Start act_runner daemon
+exec /usr/local/bin/act_runner daemon --config /etc/act_runner/config.yaml
+EOF
+
+sudo chown root:wheel /usr/local/bin/start_act_runner.sh
+sudo chmod 755 /usr/local/bin/start_act_runner.sh
+```
+
+2. Create the LaunchDaemon configuration:
 ```bash
 sudo tee /Library/LaunchDaemons/com.gitea.act_runner.plist << EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -438,10 +471,7 @@ sudo tee /Library/LaunchDaemons/com.gitea.act_runner.plist << EOF
     <string>com.gitea.act_runner</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/usr/local/bin/act_runner</string>
-        <string>daemon</string>
-        <string>--config</string>
-        <string>/etc/act_runner/config.yaml</string>
+        <string>/usr/local/bin/start_act_runner.sh</string>
     </array>
     <key>RunAtLoad</key>
     <true/>
@@ -465,6 +495,8 @@ sudo tee /Library/LaunchDaemons/com.gitea.act_runner.plist << EOF
         <string>/var/lib/act_runner</string>
         <key>NVM_DIR</key>
         <string>/var/lib/act_runner/.nvm</string>
+        <key>PYENV_ROOT</key>
+        <string>/var/lib/act_runner/.pyenv</string>
     </dict>
 </dict>
 </plist>
@@ -474,163 +506,111 @@ sudo chown root:wheel /Library/LaunchDaemons/com.gitea.act_runner.plist
 sudo chmod 644 /Library/LaunchDaemons/com.gitea.act_runner.plist
 ```
 
-### 6. Start the Service
+### 8. Test the Runner Setup
 
-1. Load the LaunchDaemon:
-```bash
-sudo launchctl unload /Library/LaunchDaemons/com.gitea.act_runner.plist
-sudo launchctl load /Library/LaunchDaemons/com.gitea.act_runner.plist
-```
+Create a test workflow in your repository to verify the runner setup:
 
-## Test Runner Setup
-
-Create a test workflow to verify the MacOS runner is working properly. This will test both native commands and Docker functionality.
-
-1. Create a new repository in your Forgejo instance and clone it:
-```bash
-git clone https://forgejo.example.com/username/test-macos-runner.git
-cd test-macos-runner
-```
-
-2. Create the GitHub Actions workflow file:
-```bash
-mkdir -p .forgejo/workflows
-```
-
-Create `.forgejo/workflows/test-macos.yml`:
 ```yaml
-name: Test MacOS Runner
-on: [push]
+name: Test MacOS Runner Setup
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   test-native:
     name: Test Native MacOS Commands
-    runs-on: macos-sonoma-m1:host  # Use your runner label
+    runs-on: macos-sonoma-m1  # Use your runner label
     steps:
       - uses: actions/checkout@v4
       
-      - name: Test System Info
-        run: |
-          echo "MacOS Version:"
-          sw_vers
-          echo "CPU Architecture:"
-          uname -m
-          echo "Available Memory:"
-          sysctl hw.memsize | awk '{print $2/1024/1024/1024 " GB"}'
-          
       - name: Test Basic Commands
         run: |
-          echo "Current Directory:"
-          pwd
-          echo "File Creation:"
-          touch test.txt
-          echo "Hello from MacOS Runner" > test.txt
-          cat test.txt
+          uname -a
+          sw_vers
           
       - name: Test Environment
         run: |
-          echo "PATH:"
-          echo $PATH
-          echo "Shell:"
-          echo $SHELL
-          echo "User:"
-          whoami
+          echo "HOME: $HOME"
+          echo "PATH: $PATH"
+          env
+          
+      - name: Test File Operations
+        run: |
+          touch test.txt
+          echo "Hello from MacOS Runner" > test.txt
+          cat test.txt
+          ls -la
+          
+      - name: Test Network
+        run: |
+          curl --version
+          ping -c 4 8.8.8.8
 
   test-docker:
     name: Test Docker Functionality
-    runs-on: macos-sonoma-m1:host  # Use your runner label
+    runs-on: macos-sonoma-m1  # Use your runner label
     steps:
       - uses: actions/checkout@v4
       
-      - name: Test Docker
+      - name: Test Docker Installation
         run: |
-          echo "Docker Version:"
-          docker version
-          echo "Docker Info:"
+          docker --version
           docker info
           
-      - name: Test Docker Hello World
+      - name: Test Docker Pull
         run: |
-          docker run --rm hello-world
+          docker pull hello-world
+          docker images
           
-      - name: Test Multi-arch Support
+      - name: Test Docker Run
         run: |
-          # Test arm64 image
-          docker run --rm --platform linux/arm64 alpine uname -m
-          # Test amd64 image
-          docker run --rm --platform linux/amd64 alpine uname -m
-          
-      - name: Test Docker Build
-        run: |
-          cat > Dockerfile << 'EOF'
-          FROM alpine:latest
-          RUN apk add --no-cache python3
-          WORKDIR /app
-          COPY . .
-          CMD ["python3", "-c", "print('Hello from Docker container!')"]
-          EOF
-          
-          docker build -t test-image .
-          docker run --rm test-image
+          docker run hello-world
+          docker ps -a
 
   test-complex:
     name: Test Complex Workflow
-    runs-on: macos-sonoma-m1:host  # Use your runner label
+    runs-on: macos-sonoma-m1  # Use your runner label
     steps:
       - uses: actions/checkout@v4
       
       - name: Setup Python
         run: |
-          python3 -V
-          python3 -m pip install --upgrade pip
+          python -V
+          python -m pip install --upgrade pip
           
       - name: Create Python Script
         run: |
           cat > test.py << 'EOF'
-          import platform
           import os
+          import sys
+          import platform
           
-          print("Python Version:", platform.python_version())
-          print("Platform:", platform.platform())
-          print("Working Directory:", os.getcwd())
+          print("Python Version:", sys.version)
+          print("Platform Info:", platform.platform())
+          print("Current Directory:", os.getcwd())
           
           # Create and read a file
           with open('output.txt', 'w') as f:
-              f.write('Test file write from Python')
+              f.write("Test successful!")
           
           with open('output.txt', 'r') as f:
               print("File contents:", f.read())
           EOF
           
       - name: Run Python Script
-        run: python3 test.py
+        run: python test.py
         
       - name: Test File Persistence
         run: |
-          echo "Checking if file exists:"
-          ls -l output.txt
-          echo "File contents:"
+          ls -la
           cat output.txt
 ```
 
-3. Commit and push the workflow:
-```bash
-git add .
-git commit -m "Add test workflow for MacOS runner"
-git push
-```
-
-4. Monitor the workflow:
-- Go to your repository in Forgejo
-- Click on "Actions" tab
-- You should see your workflow running
-- Check each job's output to verify:
-  - Native MacOS commands work
-  - Docker commands work
-  - Complex operations (Python, file operations) work
-  - Both arm64 and x86_64 containers work
-
-If all jobs complete successfully, your MacOS runner is properly configured and ready for use.
+{{ ... }}
 
 ## Troubleshooting
 
