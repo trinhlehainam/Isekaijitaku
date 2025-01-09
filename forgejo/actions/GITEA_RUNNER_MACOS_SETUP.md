@@ -768,70 +768,125 @@ sudo visudo -cf /tmp/act_runner_sudoers && {
 
 ### 3.5. Verify Runner Security Settings
 
-Run these checks to verify the runner's security configuration:
+Before proceeding, verify the `_act_runner` user's security configuration. macOS has specific security policies that we need to verify:
+
+1. Authentication database is separate from Unix-style `/etc/passwd`
+2. Password policies are managed by `pwpolicy`
+3. User attributes are managed through Directory Services
+
+> **References**:
+> - [Understanding macOS sudo behavior and security](https://superuser.com/a/510015)
+> - [macOS user authentication and password policies](https://superuser.com/a/1394494)
 
 ```bash
-# 1. Check Authentication and Password Status
-echo "Verifying service account configuration..."
+# 1. Check Authentication Mechanisms
+echo "Verifying authentication configuration..."
 {
+    # Check authentication authority (should not exist)
     sudo dscl . -read /Users/_act_runner AuthenticationAuthority 2>&1 | grep "No such key" && \
-    sudo dscl . -read /Users/_act_runner Password 2>&1 | grep "No such key" && \
-    echo "✓ Service account properly configured (no authentication mechanism)"
-} || echo "❌ Service account configuration incorrect"
+    echo "✓ No authentication authority (correct for service account)"
 
-# 2. Check Shell and Login Status
-echo "Verifying shell configuration..."
+    # Check password hash (should not exist)
+    sudo dscl . -read /Users/_act_runner Password 2>&1 | grep "No such key" && \
+    echo "✓ No password mechanism (correct for service account)"
+
+    # Verify password policy
+    sudo pwpolicy -u _act_runner -getpolicy 2>&1 | grep "Error" && \
+    echo "✓ No password policy (correct for service account)" || \
+    echo "❌ Unexpected password policy found"
+} || echo "❌ Authentication check failed"
+
+# 2. Check Service Account Configuration
+echo "Verifying service account settings..."
 {
+    # Check shell configuration
     sudo dscl . -read /Users/_act_runner UserShell | grep -E "(/usr/bin/false|/sbin/nologin)" && \
     echo "✓ Non-interactive shell configured"
-} || echo "❌ Interactive shell detected"
 
-# 3. Check Security Groups
-echo "Verifying security groups..."
+    # Check home directory
+    sudo dscl . -read /Users/_act_runner NFSHomeDirectory | grep "/var/lib/act_runner" && \
+    echo "✓ Home directory correctly set"
+
+    # Check user ID (should be < 500 for service account)
+    sudo dscl . -read /Users/_act_runner UniqueID | awk '{if ($2 < 500) print "✓ Service account UID (" $2 ")"}' || \
+    echo "❌ Invalid UID for service account"
+
+    # Verify account type
+    sudo dscl . -read /Users/_act_runner RecordType | grep "Users" && \
+    echo "✓ User record type verified"
+} || echo "❌ Service account configuration check failed"
+
+# 3. Check Security Context
+echo "Verifying security context..."
 {
-    groups _act_runner | grep -vE '(admin|wheel)' > /dev/null && \
-    echo "✓ Not in administrative groups"
-    echo "Groups: $(groups _act_runner)"
-} || echo "❌ Found in administrative groups"
+    # Check primary group
+    sudo dscl . -read /Users/_act_runner PrimaryGroupID | grep -E "^PrimaryGroupID: [1-9][0-9]*$" && \
+    echo "✓ Primary group configured"
 
-# 4. Check Workspace Access
+    # Check admin group membership (should fail)
+    sudo dseditgroup -o checkmember -m _act_runner admin 2>&1 | grep "NOT" && \
+    echo "✓ Not in admin group"
+
+    # Check wheel group membership (should fail)
+    sudo dseditgroup -o checkmember -m _act_runner wheel 2>&1 | grep "NOT" && \
+    echo "✓ Not in wheel group"
+} || echo "❌ Security context check failed"
+
+# 4. Check Workspace Permissions
 echo "Verifying workspace permissions..."
-ls -la /var/lib/act_runner/workspace
-
-# 5. Test Operational Access
-echo "Testing operational access..."
-sudo -u _act_runner bash << 'EOF'
 {
+    # Check workspace directory
+    ls -ld /var/lib/act_runner/workspace | grep "^drwxr-xr-x.*_act_runner.*staff" && \
+    echo "✓ Workspace permissions correct"
+
     # Test workspace access
+    sudo -u _act_runner bash << 'EOF'
     cd /var/lib/act_runner/workspace && \
     touch test.txt && \
     rm test.txt && \
     echo "✓ Workspace access verified"
-} || echo "❌ Workspace access failed"
-
-# Show effective context
-echo "Current security context:"
-id
-groups
 EOF
+} || echo "❌ Workspace permission check failed"
+
+# 5. Verify Service Restrictions
+echo "Verifying service restrictions..."
+{
+    # Check login capability
+    sudo defaults read /Library/Preferences/com.apple.loginwindow | grep _act_runner && \
+    echo "❌ Warning: User appears in login window" || \
+    echo "✓ User hidden from login window"
+
+    # Check remote login
+    sudo dscl . -read /Users/_act_runner ServiceAccountInfo 2>&1 | grep "No such key" && \
+    echo "✓ No remote access configured"
+} || echo "❌ Service restriction check failed"
 ```
 
 Expected Results:
-1. **Service Account Status**:
-   - No authentication mechanisms
-   - Non-interactive shell
-   - No administrative group memberships
+1. **Authentication Status**:
+   - No AuthenticationAuthority key
+   - No Password key
+   - No password policy
+   - No login shell
 
-2. **Access Verification**:
-   - Workspace access: read/write
-   - No sudo privileges
+2. **Service Account Properties**:
+   - UID < 500
+   - Home directory in `/var/lib/act_runner`
+   - Primary group configured
+   - No admin/wheel group membership
+
+3. **Access Controls**:
+   - Workspace permissions: 755
+   - Owner: _act_runner:staff
+   - No login window access
+   - No remote access
 
 > **Security Best Practices**:
-> - Never use sudo in runner actions
-> - Configure permissions through ownership
-> - Regularly audit access rights
-> - Monitor system logs for security events
-> - Keep runner user isolated from system administration
+> - Regularly verify service account status with `dscl` and `pwpolicy`
+> - Monitor system logs for authentication attempts
+> - Keep service account isolated from user-accessible areas
+> - Maintain restricted workspace permissions
+> - Regularly audit group memberships
 
 ## Test Runner Setup
 
