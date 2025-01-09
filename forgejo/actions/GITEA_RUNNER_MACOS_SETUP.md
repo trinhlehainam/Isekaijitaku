@@ -716,98 +716,128 @@ sudo -u _act_runner act_runner register \
 
 ## Test Runner Setup
 
-Create a test workflow to verify the MacOS runner is working properly. This will test both native commands and Docker functionality.
+Create a test workflow in your repository to verify the runner setup:
 
-1. Create a new repository in your Forgejo instance and clone it:
-```bash
-git clone https://forgejo.example.com/username/test-macos-runner.git
-cd test-macos-runner
-```
-
-2. Create the GitHub Actions workflow file:
-```bash
-mkdir -p .forgejo/workflows
-```
-
-Create `.forgejo/workflows/test-macos.yml`:
 ```yaml
-name: Test MacOS Runner
-on: [push]
+name: Test MacOS Runner Setup
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
   test-native:
     name: Test Native MacOS Commands
-    runs-on: macos-sonoma-m1  # Use your runner label
+    runs-on: macos-sonoma-m1
     steps:
       - uses: actions/checkout@v4
       
-      - name: Test System Info
-        run: |
-          echo "MacOS Version:"
-          sw_vers
-          echo "CPU Architecture:"
-          uname -m
-          echo "Available Memory:"
-          sysctl hw.memsize | awk '{print $2/1024/1024/1024 " GB"}'
-          
       - name: Test Basic Commands
         run: |
-          echo "Current Directory:"
-          pwd
-          echo "File Creation:"
-          touch test.txt
-          echo "Hello from MacOS Runner" > test.txt
-          cat test.txt
+          uname -a
+          sw_vers
           
       - name: Test Environment
         run: |
-          echo "PATH:"
-          echo $PATH
-          echo "Shell:"
-          echo $SHELL
-          echo "User:"
-          whoami
+          echo "HOME: $HOME"
+          echo "PATH: $PATH"
+          env
+          
+      - name: Test File Operations
+        run: |
+          touch test.txt
+          echo "Hello from MacOS Runner" > test.txt
+          cat test.txt
+          ls -la
 
   test-docker:
     name: Test Docker Functionality
-    runs-on: macos-sonoma-m1  # Use your runner label
+    runs-on: macos-sonoma-m1
     steps:
       - uses: actions/checkout@v4
       
-      - name: Test Docker
+      - name: Test Docker Installation
         run: |
-          echo "Docker Version:"
-          docker version
-          echo "Docker Info:"
+          docker --version
           docker info
           
-      - name: Test Docker Hello World
+      - name: Test Docker Pull and Run
         run: |
-          docker run --rm hello-world
+          # Pull test image
+          docker pull hello-world
+          docker images
           
-      - name: Test Multi-arch Support
+          # Run test container
+          docker run hello-world
+          docker ps -a
+          
+      - name: Test Multi-architecture Support
         run: |
-          # Test arm64 image
+          echo "Testing ARM64 container:"
           docker run --rm --platform linux/arm64 alpine uname -m
-          # Test amd64 image
+          docker run --rm --platform linux/arm64 alpine arch
+          
+          echo "Testing x86_64 container:"
           docker run --rm --platform linux/amd64 alpine uname -m
+          docker run --rm --platform linux/amd64 alpine arch
+          
+          echo "Testing native platform container:"
+          docker run --rm alpine uname -m
+          docker run --rm alpine arch
           
       - name: Test Docker Build
         run: |
+          # Create multi-arch test Dockerfile
           cat > Dockerfile << 'EOF'
           FROM alpine:latest
-          RUN apk add --no-cache python3
-          WORKDIR /app
-          COPY . .
-          CMD ["python3", "-c", "print('Hello from Docker container!')"]
+          RUN uname -m > /platform.txt && \
+              echo "Architecture: $(arch)" >> /platform.txt
+          CMD ["cat", "/platform.txt"]
           EOF
           
-          docker build -t test-image .
-          docker run --rm test-image
+          # Build and test image for both architectures
+          echo "Building and testing ARM64 image:"
+          docker build --platform linux/arm64 -t test-image:arm64 .
+          docker run --rm --platform linux/arm64 test-image:arm64
+          
+          echo "Building and testing AMD64 image:"
+          docker build --platform linux/amd64 -t test-image:amd64 .
+          docker run --rm --platform linux/amd64 test-image:amd64
+          
+          echo "Building and testing native image:"
+          docker build -t test-image:native .
+          docker run --rm test-image:native
+          
+      - name: Cleanup Docker Resources
+        if: always()
+        run: |
+          echo "Cleaning up test containers..."
+          # Only remove containers with our test images
+          docker ps -a --filter "ancestor=test-image:arm64" -q | xargs docker rm -f 2>/dev/null || true
+          docker ps -a --filter "ancestor=test-image:amd64" -q | xargs docker rm -f 2>/dev/null || true
+          docker ps -a --filter "ancestor=test-image:native" -q | xargs docker rm -f 2>/dev/null || true
+          
+          echo "Cleaning up test images..."
+          # Only remove our test images
+          docker rmi -f test-image:arm64 || true
+          docker rmi -f test-image:amd64 || true
+          docker rmi -f test-image:native || true
+          docker rmi -f hello-world || true
+          docker rmi -f alpine:latest || true
+          
+          echo "Cleaning up dangling images..."
+          docker image prune -f
+          
+          echo "Verifying cleanup..."
+          docker ps -a
+          docker images
 
   test-complex:
     name: Test Complex Workflow
-    runs-on: macos-sonoma-m1  # Use your runner label
+    runs-on: macos-sonoma-m1
     steps:
       - uses: actions/checkout@v4
       
@@ -819,16 +849,17 @@ jobs:
       - name: Create Python Script
         run: |
           cat > test.py << 'EOF'
-          import platform
           import os
+          import sys
+          import platform
           
-          print("Python Version:", platform.python_version())
-          print("Platform:", platform.platform())
-          print("Working Directory:", os.getcwd())
+          print("Python Version:", sys.version)
+          print("Platform Info:", platform.platform())
+          print("Current Directory:", os.getcwd())
           
           # Create and read a file
           with open('output.txt', 'w') as f:
-              f.write('Test file write from Python')
+              f.write("Test successful!")
           
           with open('output.txt', 'r') as f:
               print("File contents:", f.read())
@@ -839,28 +870,22 @@ jobs:
         
       - name: Test File Persistence
         run: |
-          echo "Checking if file exists:"
-          ls -l output.txt
-          echo "File contents:"
+          ls -la
           cat output.txt
-```
-
-3. Commit and push the workflow:
-```bash
-git add .
-git commit -m "Add test workflow for MacOS runner"
-git push
 ```
 
 4. Monitor the workflow:
 - Go to your repository in Forgejo
 - Click on "Actions" tab
-- You should see your workflow running
-- Check each job's output to verify:
-  - Native MacOS commands work
-  - Docker commands work
-  - Complex operations (Python, file operations) work
-  - Both arm64 and x86_64 containers work
+- Monitor the progress of each job:
+  - **test-native**: Verifies basic system commands and file operations
+  - **test-docker**: Validates Docker installation, image building, and cleanup
+  - **test-complex**: Tests Python environment and file operations
+
+The workflow tests three key aspects:
+1. Native system functionality
+2. Docker container operations with proper cleanup
+3. Python environment and file operations
 
 If all jobs complete successfully, your MacOS runner is properly configured and ready for use.
 
