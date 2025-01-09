@@ -714,9 +714,128 @@ sudo -u _act_runner act_runner register \
   --no-interactive
 ```
 
+### 3.4. Configure Runner Permissions
+
+> **Important**: macOS has specific security policies that affect sudo behavior:
+> 1. macOS maintains its own security database separate from `/etc/sudoers`
+> 2. The security system requires authentication even when NOPASSWD is set
+> 3. Sudo access should be avoided in runner actions to prevent hanging
+
+There are two approaches to handle runner permissions:
+
+#### Option A: Direct Permissions (Recommended)
+
+This approach avoids sudo usage by setting up proper permissions:
+
+```bash
+# Set up workspace with proper permissions
+echo "Setting up workspace permissions..."
+sudo mkdir -p /var/lib/act_runner/workspace
+sudo chown -R _act_runner:staff /var/lib/act_runner
+sudo chmod -R 755 /var/lib/act_runner
+```
+
+#### Option B: Limited Sudo Access (Use with Caution)
+
+If certain commands absolutely require sudo:
+
+```bash
+# Create a secure sudoers file for act_runner
+echo "Configuring minimal sudo access..."
+
+# First, create a temporary file with strict permissions
+sudo touch /tmp/act_runner_sudoers
+sudo chmod 440 /tmp/act_runner_sudoers
+
+sudo tee /tmp/act_runner_sudoers << 'EOF'
+# Minimal sudo access for _act_runner
+# Essential workspace operations
+_act_runner ALL=(ALL) NOPASSWD: /bin/mkdir -p /var/lib/act_runner/workspace/*
+_act_runner ALL=(ALL) NOPASSWD: /bin/chmod -R 755 /var/lib/act_runner/workspace/*
+_act_runner ALL=(ALL) NOPASSWD: /usr/sbin/chown -R _act_runner\:staff /var/lib/act_runner/workspace/*
+EOF
+
+# Verify syntax before installing
+sudo visudo -cf /tmp/act_runner_sudoers && {
+    sudo mv /tmp/act_runner_sudoers /etc/sudoers.d/act_runner
+    echo "✓ Sudo configuration installed successfully"
+} || {
+    echo "❌ Sudo configuration syntax check failed"
+    sudo rm /tmp/act_runner_sudoers
+    exit 1
+}
+```
+
+### 3.5. Verify Runner Security Settings
+
+Run these checks to verify the runner's security configuration:
+
+```bash
+# 1. Check Authentication and Password Status
+echo "Verifying service account configuration..."
+{
+    sudo dscl . -read /Users/_act_runner AuthenticationAuthority 2>&1 | grep "No such key" && \
+    sudo dscl . -read /Users/_act_runner Password 2>&1 | grep "No such key" && \
+    echo "✓ Service account properly configured (no authentication mechanism)"
+} || echo "❌ Service account configuration incorrect"
+
+# 2. Check Shell and Login Status
+echo "Verifying shell configuration..."
+{
+    sudo dscl . -read /Users/_act_runner UserShell | grep -E "(/usr/bin/false|/sbin/nologin)" && \
+    echo "✓ Non-interactive shell configured"
+} || echo "❌ Interactive shell detected"
+
+# 3. Check Security Groups
+echo "Verifying security groups..."
+{
+    groups _act_runner | grep -vE '(admin|wheel)' > /dev/null && \
+    echo "✓ Not in administrative groups"
+    echo "Groups: $(groups _act_runner)"
+} || echo "❌ Found in administrative groups"
+
+# 4. Check Workspace Access
+echo "Verifying workspace permissions..."
+ls -la /var/lib/act_runner/workspace
+
+# 5. Test Operational Access
+echo "Testing operational access..."
+sudo -u _act_runner bash << 'EOF'
+{
+    # Test workspace access
+    cd /var/lib/act_runner/workspace && \
+    touch test.txt && \
+    rm test.txt && \
+    echo "✓ Workspace access verified"
+} || echo "❌ Workspace access failed"
+
+# Show effective context
+echo "Current security context:"
+id
+groups
+EOF
+```
+
+Expected Results:
+1. **Service Account Status**:
+   - No authentication mechanisms
+   - Non-interactive shell
+   - No administrative group memberships
+
+2. **Access Verification**:
+   - Workspace access: read/write
+   - No sudo privileges
+
+> **Security Best Practices**:
+> - Never use sudo in runner actions
+> - Configure permissions through ownership
+> - Regularly audit access rights
+> - Monitor system logs for security events
+> - Keep runner user isolated from system administration
+
 ## Test Runner Setup
 
-Create a test workflow in your repository to verify the runner setup:
+Create a test workflow in your repository to verify the runner setup. This workflow will test basic functionality, Docker support, and security restrictions:
 
 ```yaml
 name: Test MacOS Runner Setup
@@ -899,7 +1018,7 @@ sudo launchctl list | grep act_runner
 2. View logs:
 ```bash
 tail -f /var/log/act_runner/act_runner.log
-tail -f /var/log/act_runner/act_runner.err
+tail -f /var/log/act_runner/act_runner.error
 ```
 
 3. Restart the daemon:
