@@ -99,7 +99,7 @@ sudo dscl . -create /Groups/_act_runner PrimaryGroupID 385
 
 # Create _act_runner user with home directory
 sudo dscl . -create /Users/_act_runner
-sudo dscl . -create /Users/_act_runner UserShell /bin/bash
+sudo dscl . -create /Users/_act_runner UserShell /usr/bin/false
 sudo dscl . -create /Users/_act_runner RealName "Gitea Action Runner"
 sudo dscl . -create /Users/_act_runner UniqueID 385
 sudo dscl . -create /Users/_act_runner PrimaryGroupID 385
@@ -346,7 +346,163 @@ sudo -u _act_runner act_runner register \
   --no-interactive
 ```
 
-#### 3.4. Create LaunchDaemon
+#### 3.4. Configure Colima for act_runner
+
+Configure Colima for the _act_runner user (reference: [Set up MacOS as private server with Tailscale and Docker](../00%20Inbox/202501061959%20Set%20up%20MacOS%20as%20private%20server%20with%20Tailscale%20and%20Docker.md)):
+
+1. Add _act_runner user to _colima group:
+```bash
+# Add _act_runner to _colima group
+sudo dscl . -append /Groups/_colima GroupMembership _act_runner
+
+# Verify group membership
+dscl . -read /Groups/_colima GroupMembership
+```
+
+2. Create Colima configuration for _act_runner:
+```bash
+# Create configuration directory
+sudo mkdir -p /var/lib/act_runner/.colima
+sudo mkdir -p /var/lib/act_runner/.lima
+sudo chown -R _act_runner:_act_runner /var/lib/act_runner/.colima
+sudo chown -R _act_runner:_act_runner /var/lib/act_runner/.lima
+
+# Create Colima environment file
+sudo tee /etc/act_runner/colima.env << EOF
+# Colima resource configuration
+COLIMA_CPU=4
+COLIMA_MEMORY=8
+COLIMA_DISK=100
+COLIMA_VM_TYPE=vz
+
+# Optional configurations
+#
+# For better performance on macOS 13+
+# COLIMA_MOUNT_TYPE=virtiofs  
+#
+# Specify container runtime (docker/containerd)
+# COLIMA_RUNTIME=docker   
+EOF
+
+sudo chown root:wheel /etc/act_runner/colima.env
+sudo chmod 644 /etc/act_runner/colima.env
+
+# Create start script
+sudo tee /usr/local/scripts/start-act-runner-colima.sh << EOF
+#!/bin/bash
+
+# Source environment variables
+if [ -f /etc/act_runner/colima.env ]; then
+    source /etc/act_runner/colima.env
+fi
+
+# Function to log messages
+log() {
+    echo "\$(date '+%Y-%m-%d %H:%M:%S'): [INFO] \$1" >> /var/lib/act_runner/colima.log
+}
+
+# Function to log errors
+error() {
+    echo "\$(date '+%Y-%m-%d %H:%M:%S'): [ERROR] \$1" >> /var/lib/act_runner/colima.error
+    echo "\$(date '+%Y-%m-%d %H:%M:%S'): [ERROR] \$1" >> /var/lib/act_runner/colima.log
+}
+
+# Function to check if network is available
+check_network() {
+    for i in \$(seq 1 30); do
+        if ping -c 1 1.1.1.1 >/dev/null 2>&1; then
+            return 0
+        fi
+        sleep 2
+    done
+    return 1
+}
+
+# Wait for network
+if ! check_network; then
+    error "Network check failed"
+    exit 1
+fi
+
+# Build Colima command with resource configurations
+log "Starting Colima..."
+cmd="colima start"
+cmd="\$cmd --cpu \${COLIMA_CPU:-4}"
+cmd="\$cmd --memory \${COLIMA_MEMORY:-8}"
+cmd="\$cmd --disk \${COLIMA_DISK:-100}"
+cmd="\$cmd --vm-type \${COLIMA_VM_TYPE:-vz}"
+
+# Add optional configurations if specified
+if [ -n "\$COLIMA_MOUNT_TYPE" ]; then
+    cmd="\$cmd --mount-type \$COLIMA_MOUNT_TYPE"
+fi
+
+# Start Colima
+log "Executing: \$cmd"
+eval "\$cmd"
+
+# Check if Colima started successfully
+if ! colima status | grep -q "Running"; then
+    error "Failed to start Colima"
+    exit 1
+fi
+
+log "Colima started successfully"
+EOF
+
+sudo chmod 755 /usr/local/scripts/start-act-runner-colima.sh
+```
+
+3. Create LaunchDaemon for act_runner's Colima:
+```bash
+sudo tee /Library/LaunchDaemons/com.gitea.act_runner.colima.plist << EOF
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.gitea.act_runner.colima</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/local/scripts/start-act-runner-colima.sh</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <false/>
+    <key>UserName</key>
+    <string>_act_runner</string>
+    <key>GroupName</key>
+    <string>_act_runner</string>
+    <key>StandardOutPath</key>
+    <string>/var/lib/act_runner/colima.log</string>
+    <key>StandardErrorPath</key>
+    <string>/var/lib/act_runner/colima.error</string>
+    <key>WorkingDirectory</key>
+    <string>/var/lib/act_runner</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <key>HOME</key>
+        <string>/var/lib/act_runner</string>
+    </dict>
+</dict>
+</plist>
+EOF
+
+# Set proper permissions
+sudo chown root:wheel /Library/LaunchDaemons/com.gitea.act_runner.colima.plist
+sudo chmod 644 /Library/LaunchDaemons/com.gitea.act_runner.colima.plist
+
+# Load the daemon
+sudo launchctl load /Library/LaunchDaemons/com.gitea.act_runner.colima.plist
+
+# Verify Colima is running
+sudo -u _act_runner colima status
+```
+
+#### 3.5. Create LaunchDaemon
 
 Create the LaunchDaemon configuration:
 ```bash
