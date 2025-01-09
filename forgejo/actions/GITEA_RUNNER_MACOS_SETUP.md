@@ -35,7 +35,7 @@ dscacheutil -q group | grep gid | awk '{print $2}' | sort -n | tail -n 1
 
 ### 1. Download and Install Runner
 
-**Important**: Before downloading, check your CPU architecture and select the appropriate binary:
+> **Important**: Before downloading, check your CPU architecture and select the appropriate binary:
 ```bash
 # Check CPU and architecture
 sysctl -n machdep.cpu.brand_string   # Check if Apple M-series or Intel
@@ -111,7 +111,7 @@ sudo dscl . -create /Users/_act_runner NFSHomeDirectory /var/lib/act_runner
 # Create config directory
 sudo mkdir -p /etc/act_runner
 
-# Set ownership and permissions
+# Set ownership
 sudo chown -R _act_runner:_act_runner /etc/act_runner
 ```
 
@@ -167,7 +167,6 @@ sudo chown _act_runner:_act_runner /etc/act_runner
 
 # Create environment file
 sudo -u _act_runner tee /etc/act_runner/environment << EOF
-DOCKER_HOST="unix:///Users/COLIMA_USER/.colima/default/docker.sock"
 EOF
 # Replace COLIMA_USER with the username running Colima
 ```
@@ -204,14 +203,11 @@ Setup steps:
 
 1. Configure Colima for _act_runner:
 ```bash
-# Switch to _act_runner user
-sudo -u _act_runner bash
-
 # Set up Colima configuration directory
-mkdir -p /var/lib/act_runner/.colima
+sudo -u _act_runner mkdir -p /var/lib/act_runner/.colima
 
 # Create Colima configuration
-cat > /var/lib/act_runner/.colima/default/colima.yaml << EOF
+sudo -u _act_runner cat > /var/lib/act_runner/.colima/default/colima.yaml << EOF
 cpu: 4
 memory: 8
 disk: 100
@@ -226,12 +222,12 @@ exit
 
 2. Start Colima as _act_runner:
 ```bash
-sudo -u _act_runner colima start
+sudo -u _act_runner HOME=/var/lib/act_runner colima start
 ```
 
 3. Verify Docker access:
 ```bash
-sudo -u _act_runner docker ps
+sudo -u _act_runner DOCKER_HOST="unix:///var/lib/act_runner/.colima/default/docker.sock" docker ps
 ```
 
 Note: 
@@ -292,18 +288,18 @@ fi
 
 # Function to log messages
 log() {
-    echo "\$(date '+%Y-%m-%d %H:%M:%S'): [INFO] \$1" >> /var/lib/act_runner/colima.log
+    echo "$(date '+%Y-%m-%d %H:%M:%S'): [INFO] $1" >> /var/log/act_runner/colima.log
 }
 
 # Function to log errors
 error() {
-    echo "\$(date '+%Y-%m-%d %H:%M:%S'): [ERROR] \$1" >> /var/lib/act_runner/colima.error
-    echo "\$(date '+%Y-%m-%d %H:%M:%S'): [ERROR] \$1" >> /var/lib/act_runner/colima.log
+    echo "$(date '+%Y-%m-%d %H:%M:%S'): [ERROR] $1" >> /var/log/act_runner/colima.error
+    echo "$(date '+%Y-%m-%d %H:%M:%S'): [ERROR] $1" >> /var/log/act_runner/colima.log
 }
 
 # Function to check if network is available
 check_network() {
-    for i in \$(seq 1 30); do
+    for i in $(seq 1 30); do
         if ping -c 1 1.1.1.1 >/dev/null 2>&1; then
             return 0
         fi
@@ -321,19 +317,19 @@ fi
 # Build Colima command with resource configurations
 log "Starting Colima..."
 cmd="colima start"
-cmd="\$cmd --cpu \${COLIMA_CPU:-4}"
-cmd="\$cmd --memory \${COLIMA_MEMORY:-8}"
-cmd="\$cmd --disk \${COLIMA_DISK:-100}"
-cmd="\$cmd --vm-type \${COLIMA_VM_TYPE:-vz}"
+cmd="$cmd --cpu ${COLIMA_CPU:-4}"
+cmd="$cmd --memory ${COLIMA_MEMORY:-8}"
+cmd="$cmd --disk ${COLIMA_DISK:-100}"
+cmd="$cmd --vm-type ${COLIMA_VM_TYPE:-vz}"
 
 # Add optional configurations if specified
-if [ -n "\$COLIMA_MOUNT_TYPE" ]; then
-    cmd="\$cmd --mount-type \$COLIMA_MOUNT_TYPE"
+if [ -n "${COLIMA_MOUNT_TYPE}" ]; then
+    cmd="$cmd --mount-type ${COLIMA_MOUNT_TYPE}"
 fi
 
 # Start Colima
-log "Executing: \$cmd"
-eval "\$cmd"
+log "Executing: $cmd"
+eval "$cmd"
 
 # Check if Colima started successfully
 if ! colima status | grep -q "Running"; then
@@ -369,9 +365,9 @@ sudo tee /Library/LaunchDaemons/com.gitea.act_runner.colima.plist << EOF
     <key>GroupName</key>
     <string>_act_runner</string>
     <key>StandardOutPath</key>
-    <string>/var/lib/act_runner/colima.log</string>
+    <string>/var/log/act_runner/colima.log</string>
     <key>StandardErrorPath</key>
-    <string>/var/lib/act_runner/colima.error</string>
+    <string>/var/log/act_runner/colima.error</string>
     <key>WorkingDirectory</key>
     <string>/var/lib/act_runner</string>
     <key>EnvironmentVariables</key>
@@ -393,10 +389,43 @@ sudo chmod 644 /Library/LaunchDaemons/com.gitea.act_runner.colima.plist
 sudo launchctl load /Library/LaunchDaemons/com.gitea.act_runner.colima.plist
 
 # Verify Colima is running
-sudo -u _act_runner colima status
+sudo -u _act_runner HOME=/var/lib/act_runner colima status
 
 # Verify Docker access
-sudo -u _act_runner docker info
+sudo -u _act_runner DOCKER_HOST="unix:///var/lib/act_runner/.colima/default/docker.sock" docker info
+
+# Restart the daemon
+sudo launchctl unload /Library/LaunchDaemons/com.gitea.act_runner.colima.plist
+sudo launchctl load /Library/LaunchDaemons/com.gitea.act_runner.colima.plist
+```
+
+### 4. Install Node.js for Runner
+
+The GitHub Actions runner requires Node.js for many common actions. Install it using nvm (Node Version Manager). For Node.js version information, check [Node.js Downloads](https://nodejs.org/en/download).
+
+1. Install nvm and Node.js:
+```bash
+# Create .nvm directory
+sudo mkdir -p /var/lib/act_runner/.nvm
+sudo chown -R _act_runner:_act_runner /var/lib/act_runner/.nvm
+
+# Install nvm and Node.js LTS
+sudo -u _act_runner HOME=/var/lib/act_runner bash -c "curl -o- https://raw.githubusercontent.com/nvm-sh/nvm/v0.40.1/install.sh | bash"
+
+# Create nvm profile script
+sudo tee /etc/act_runner/nvm.sh << 'EOF'
+export NVM_DIR="$HOME/.nvm"
+[ -s "$NVM_DIR/nvm.sh" ] && \. "$NVM_DIR/nvm.sh"  # This loads nvm
+EOF
+
+sudo chown root:wheel /etc/act_runner/nvm.sh
+sudo chmod 644 /etc/act_runner/nvm.sh
+
+# Install Node.js and enable pnpm
+sudo -u _act_runner HOME=/var/lib/act_runner bash -c 'source /etc/act_runner/nvm.sh && nvm install 22 && corepack enable pnpm'
+
+# Verify installations
+sudo -u _act_runner HOME=/var/lib/act_runner bash -c 'source /etc/act_runner/nvm.sh && node -v && nvm current && pnpm -v'
 ```
 
 ### 5. Install Python for Runner
@@ -418,7 +447,7 @@ brew install xz openssl readline sqlite3 zlib tcl-tk
 sudo mkdir -p /var/lib/act_runner/.pyenv
 sudo chown -R _act_runner:_act_runner /var/lib/act_runner/.pyenv
 
-# Create pyenv profile script
+# Create pyenv profile script with build environment variables
 sudo tee /etc/act_runner/pyenv.sh << 'EOF'
 export PYENV_ROOT="$HOME/.pyenv"
 export PATH="$PYENV_ROOT/bin:$PATH"
@@ -437,13 +466,21 @@ arch -arm64 sudo -u _act_runner HOME=/var/lib/act_runner bash -c 'source /etc/ac
 # Set global Python version
 arch -arm64 sudo -u _act_runner HOME=/var/lib/act_runner bash -c 'source /etc/act_runner/pyenv.sh && pyenv global 3.12'
 
-# Verify installation
+# Verify installation and lzma support
 arch -arm64 sudo -u _act_runner HOME=/var/lib/act_runner bash -c 'source /etc/act_runner/pyenv.sh && python --version && pyenv version'
 ```
 
 ### 6. Create and Configure LaunchDaemon
 
-1. Create the start script for act_runner:
+1. Create log directory:
+```bash
+# Create log directory
+sudo mkdir -p /var/log/act_runner
+sudo chown _act_runner:_act_runner /var/log/act_runner
+sudo chmod 755 /var/log/act_runner
+```
+
+2. Create the start script for act_runner:
 ```bash
 sudo tee /usr/local/bin/start_act_runner.sh << 'EOF'
 #!/bin/bash
@@ -460,7 +497,7 @@ sudo chown root:wheel /usr/local/bin/start_act_runner.sh
 sudo chmod 755 /usr/local/bin/start_act_runner.sh
 ```
 
-2. Create the LaunchDaemon configuration:
+3. Create the LaunchDaemon configuration:
 ```bash
 sudo tee /Library/LaunchDaemons/com.gitea.act_runner.plist << EOF
 <?xml version="1.0" encoding="UTF-8"?>
@@ -482,9 +519,9 @@ sudo tee /Library/LaunchDaemons/com.gitea.act_runner.plist << EOF
     <key>GroupName</key>
     <string>_act_runner</string>
     <key>StandardOutPath</key>
-    <string>/var/lib/act_runner/act_runner.log</string>
+    <string>/var/log/act_runner/act_runner.log</string>
     <key>StandardErrorPath</key>
-    <string>/var/lib/act_runner/act_runner.error</string>
+    <string>/var/log/act_runner/act_runner.error</string>
     <key>WorkingDirectory</key>
     <string>/var/lib/act_runner</string>
     <key>EnvironmentVariables</key>
@@ -506,19 +543,130 @@ sudo chown root:wheel /Library/LaunchDaemons/com.gitea.act_runner.plist
 sudo chmod 644 /Library/LaunchDaemons/com.gitea.act_runner.plist
 ```
 
-### 8. Test the Runner Setup
+### 7. Start the Service
 
-Create a test workflow in your repository to verify the runner setup:
+1. Load the LaunchDaemon:
+```bash
+sudo launchctl unload /Library/LaunchDaemons/com.gitea.act_runner.plist
+sudo launchctl load /Library/LaunchDaemons/com.gitea.act_runner.plist
+```
 
+## Register Runner with Forgejo Instance
+
+The runner must be registered with your Forgejo instance before it can accept jobs. For CI/CD automation, we'll use the non-interactive registration method.
+
+### 3.2. Configure Runner
+
+> **Important**: First, check your CPU type:
+```bash
+# Check if you have M-series or Intel CPU
+sysctl -n machdep.cpu.brand_string
+```
+> For M-series Macs only, you can switch between architectures:
+```bash
+# Check current architecture
+arch
+
+# Switch to ARM (native, recommended for better performance)
+arch -arm64 /bin/bash --login
+
+# Switch to x86_64 (Rosetta, for compatibility)
+arch -x86_64 /bin/bash --login
+```
+> Note: The runner will run in the same architecture as the terminal used to install it.
+> For Intel Macs, you can only use x86_64 architecture.
+
+1. Generate default configuration:
+```bash
+# Generate default config
+act_runner generate-config > /tmp/config.yaml
+
+# Move to final location with correct permissions
+sudo mv /tmp/config.yaml /etc/act_runner/config.yaml
+sudo chown _act_runner:_act_runner /etc/act_runner/config.yaml
+
+# Set runner file path
+sudo yq -i '.runner.file = "/var/lib/act_runner/.runner"' /etc/act_runner/config.yaml
+```
+
+Get macOS version name and set up name mapping:
+```bash
+MACOS_VERSION=$(sw_vers -productVersion | cut -d. -f1)
+
+# Create a function to map macOS version to name
+get_macos_name() {
+    case "$1" in
+        14) echo "sonoma" ;;
+        13) echo "ventura" ;;
+        12) echo "monterey" ;;
+        11) echo "bigsur" ;;
+        10) echo "catalina" ;;
+        *) echo "unknown" ;;
+    esac
+}
+
+# Get the macOS name
+MACOS_NAME=$(get_macos_name "$MACOS_VERSION")
+
+# Get CPU type and current architecture
+CHIP_INFO=$(sysctl -n machdep.cpu.brand_string)
+CURRENT_ARCH=$(arch)
+
+# Install yq if not already installed
+brew install yq
+
+# Set label based on CPU type
+if echo "${CHIP_INFO}" | grep -q "Apple M"; then
+    RUNNER_LABEL="macos-${MACOS_NAME}-m1:host"
+else
+    RUNNER_LABEL="macos-${MACOS_NAME}-x86_64:host"
+fi
+
+# Update only the labels in config file
+sudo yq -i '.runner.labels = ["'"${RUNNER_LABEL}"'"]' /etc/act_runner/config.yaml
+```
+
+Note: The runner will automatically use subdirectories in `/var/lib/act_runner` for logs and cache.
+Labels are set based on the Mac's processor:
+- M-series Mac: `macos-sonoma-m1:host` (can run both arm64 and x86_64)
+- Intel Mac: `macos-sonoma-x86_64:host`
+
+### 3.3. Register Runner (Non-Interactive)
+
+1. Set environment variables:
+```bash
+FORGEJO_INSTANCE_URL="https://forgejo.example.com"
+RUNNER_TOKEN="your_runner_token"
+```
+
+2. Register the runner:
+```bash
+sudo -u _act_runner act_runner register \
+  --instance ${FORGEJO_INSTANCE_URL} \
+  --token ${RUNNER_TOKEN} \
+  --name $(cat /etc/act_runner/config.yaml | yq e '.runner.name' -) \
+  --no-interactive
+```
+
+## Test Runner Setup
+
+Create a test workflow to verify the MacOS runner is working properly. This will test both native commands and Docker functionality.
+
+1. Create a new repository in your Forgejo instance and clone it:
+```bash
+git clone https://forgejo.example.com/username/test-macos-runner.git
+cd test-macos-runner
+```
+
+2. Create the GitHub Actions workflow file:
+```bash
+mkdir -p .forgejo/workflows
+```
+
+Create `.forgejo/workflows/test-macos.yml`:
 ```yaml
-name: Test MacOS Runner Setup
-
-on:
-  push:
-    branches: [ main ]
-  pull_request:
-    branches: [ main ]
-  workflow_dispatch:
+name: Test MacOS Runner
+on: [push]
 
 jobs:
   test-native:
@@ -527,28 +675,32 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
+      - name: Test System Info
+        run: |
+          echo "MacOS Version:"
+          sw_vers
+          echo "CPU Architecture:"
+          uname -m
+          echo "Available Memory:"
+          sysctl hw.memsize | awk '{print $2/1024/1024/1024 " GB"}'
+          
       - name: Test Basic Commands
         run: |
-          uname -a
-          sw_vers
-          
-      - name: Test Environment
-        run: |
-          echo "HOME: $HOME"
-          echo "PATH: $PATH"
-          env
-          
-      - name: Test File Operations
-        run: |
+          echo "Current Directory:"
+          pwd
+          echo "File Creation:"
           touch test.txt
           echo "Hello from MacOS Runner" > test.txt
           cat test.txt
-          ls -la
           
-      - name: Test Network
+      - name: Test Environment
         run: |
-          curl --version
-          ping -c 4 8.8.8.8
+          echo "PATH:"
+          echo $PATH
+          echo "Shell:"
+          echo $SHELL
+          echo "User:"
+          whoami
 
   test-docker:
     name: Test Docker Functionality
@@ -556,20 +708,36 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       
-      - name: Test Docker Installation
+      - name: Test Docker
         run: |
-          docker --version
+          echo "Docker Version:"
+          docker version
+          echo "Docker Info:"
           docker info
           
-      - name: Test Docker Pull
+      - name: Test Docker Hello World
         run: |
-          docker pull hello-world
-          docker images
+          docker run --rm hello-world
           
-      - name: Test Docker Run
+      - name: Test Multi-arch Support
         run: |
-          docker run hello-world
-          docker ps -a
+          # Test arm64 image
+          docker run --rm --platform linux/arm64 alpine uname -m
+          # Test amd64 image
+          docker run --rm --platform linux/amd64 alpine uname -m
+          
+      - name: Test Docker Build
+        run: |
+          cat > Dockerfile << 'EOF'
+          FROM alpine:latest
+          RUN apk add --no-cache python3
+          WORKDIR /app
+          COPY . .
+          CMD ["python3", "-c", "print('Hello from Docker container!')"]
+          EOF
+          
+          docker build -t test-image .
+          docker run --rm test-image
 
   test-complex:
     name: Test Complex Workflow
@@ -585,17 +753,16 @@ jobs:
       - name: Create Python Script
         run: |
           cat > test.py << 'EOF'
-          import os
-          import sys
           import platform
+          import os
           
-          print("Python Version:", sys.version)
-          print("Platform Info:", platform.platform())
-          print("Current Directory:", os.getcwd())
+          print("Python Version:", platform.python_version())
+          print("Platform:", platform.platform())
+          print("Working Directory:", os.getcwd())
           
           # Create and read a file
           with open('output.txt', 'w') as f:
-              f.write("Test successful!")
+              f.write('Test file write from Python')
           
           with open('output.txt', 'r') as f:
               print("File contents:", f.read())
@@ -606,11 +773,30 @@ jobs:
         
       - name: Test File Persistence
         run: |
-          ls -la
+          echo "Checking if file exists:"
+          ls -l output.txt
+          echo "File contents:"
           cat output.txt
 ```
 
-{{ ... }}
+3. Commit and push the workflow:
+```bash
+git add .
+git commit -m "Add test workflow for MacOS runner"
+git push
+```
+
+4. Monitor the workflow:
+- Go to your repository in Forgejo
+- Click on "Actions" tab
+- You should see your workflow running
+- Check each job's output to verify:
+  - Native MacOS commands work
+  - Docker commands work
+  - Complex operations (Python, file operations) work
+  - Both arm64 and x86_64 containers work
+
+If all jobs complete successfully, your MacOS runner is properly configured and ready for use.
 
 ## Troubleshooting
 
@@ -621,8 +807,8 @@ sudo launchctl list | grep act_runner
 
 2. View logs:
 ```bash
-tail -f /var/lib/act_runner/act_runner.log
-tail -f /var/lib/act_runner/act_runner.err
+tail -f /var/log/act_runner/act_runner.log
+tail -f /var/log/act_runner/act_runner.err
 ```
 
 3. Restart the daemon:
@@ -632,10 +818,10 @@ sudo launchctl load /Library/LaunchDaemons/com.gitea.act_runner.plist
 ```
 
 ## References
+- [[202501061959 Set up MacOS as private server with Tailscale and Docker]]
 - [Gitea Actions Documentation](https://docs.gitea.com/usage/actions/act-runner)
 - [Forgejo Actions Documentation](https://forgejo.org/docs/latest/admin/actions/)
 - [Forgejo Runner Installation Guide](https://forgejo.org/docs/latest/admin/runner-installation/)
 - [MacOS Daemons and Agents](https://wiki.lazarus.freepascal.org/macOS_daemons_and_agents)
 - [Creating MacOS Daemon Users](https://stackoverflow.com/questions/32810960/create-user-for-running-a-daemon-on-macos-x)
-- [Running uname -m gives x86_64 on M1 Mac Mini](https://apple.stackexchange.com/questions/420452/running-uname-m-gives-x86-64-on-m1-mac-mini)
 - [M1 Mac — How to switch the Terminal between x86_64 and arm64](https://vineethbharadwaj.medium.com/m1-mac-switching-terminal-between-x86-64-and-arm64-e45f324184d9)
