@@ -337,6 +337,48 @@ start_colima() {
     return $?
 }
 
+# Function to attempt starting Colima with retries
+start_colima_with_retry() {
+    local max_attempts=3
+    local attempt=1
+    local wait_time=10
+
+    while [ $attempt -le $max_attempts ]; do
+        log "Attempting to start Colima (attempt $attempt/$max_attempts)"
+        
+        if start_colima; then
+            # Wait for Colima to fully initialize
+            local init_attempts=12
+            local init_attempt=1
+            while [ $init_attempt -le $init_attempts ]; do
+                if is_colima_running; then
+                    log "Colima started successfully"
+                    # Clean up temporary files if using virtiofs to allow other users to start their instances
+                    if [ "${COLIMA_MOUNT_TYPE:-}" = "virtiofs" ]; then
+                        log "Cleaning up temporary files for virtiofs"
+                        rm -rf /tmp/colima
+                        rm -f /tmp/colima.yaml
+                    fi
+                    return 0
+                fi
+                log "Waiting for Colima to initialize (attempt $init_attempt/$init_attempts)..."
+                sleep 5
+                init_attempt=$((init_attempt + 1))
+            done
+        fi
+
+        if [ $attempt -lt $max_attempts ]; then
+            log "Start attempt failed. Waiting $wait_time seconds before retry..."
+            sleep $wait_time
+            wait_time=$((wait_time * 2))  # Exponential backoff
+        fi
+        attempt=$((attempt + 1))
+    done
+
+    error "Failed to start Colima after $max_attempts attempts"
+    return 1
+}
+
 # Stop any running instance
 if is_colima_running; then
     log "Stopping running Colima instance"
@@ -367,16 +409,8 @@ if ! check_network; then
     exit 1
 fi
 
-# Start Colima
-log "Starting Colima..."
-if ! start_colima; then
-    error "Failed to start Colima"
-    exit 1
-fi
-
-# Check if Colima started successfully
-if ! is_colima_running; then
-    error "Failed to start Colima"
+# Start Colima with retry
+if ! start_colima_with_retry; then
     exit 1
 fi
 
@@ -439,6 +473,7 @@ sudo -u _act_runner DOCKER_HOST="unix:///var/lib/act_runner/.colima/default/dock
 
 # Restart the daemon
 sudo launchctl unload /Library/LaunchDaemons/com.gitea.act_runner.colima.plist
+sudo -u _act_runner HOME=/var/lib/act_runner colima stop
 sudo launchctl load /Library/LaunchDaemons/com.gitea.act_runner.colima.plist
 ```
 
