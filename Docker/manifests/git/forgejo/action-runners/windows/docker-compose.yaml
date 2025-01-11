@@ -1,0 +1,43 @@
+# References:
+# - Gitea Runner: https://gitea.com/gitea/act_runner
+# - Docker Compose Example: https://gitea.com/gitea/act_runner/src/branch/main/examples/docker-compose
+
+version: "3.8"
+
+services:
+  runner:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    environment:
+      - GITEA_INSTANCE_URL=http://your-forgejo-instance:3000
+      - GITEA_RUNNER_REGISTRATION_TOKEN=your-runner-token
+      # OR use token file (e.g., Docker Secret)
+      # - GITEA_RUNNER_REGISTRATION_TOKEN_FILE=/run/secrets/runner-token
+      - GITEA_RUNNER_NAME=windows-container-runner
+      - GITEA_RUNNER_LABELS=windows:host
+      # Optional: Override default paths
+      # - CONFIG_FILE=C:\custom\path\config.yaml
+      # - RUNNER_STATE_FILE=C:\custom\path\.runner
+      # Optional: Configure registration attempts
+      # - GITEA_MAX_REG_ATTEMPTS=10
+    volumes:
+      # Optional: Mount Visual Studio tools if needed
+      # - "C:\\Program Files (x86)\\Windows Kits:C:\\Program Files (x86)\\Windows Kits"
+      # - "C:\\Program Files (x86)\\Microsoft Visual Studio:C:\\Program Files (x86)\\Microsoft Visual Studio"
+      # - "C:\\Program Files\\Microsoft Visual Studio:C:\\Program Files\\Microsoft Visual Studio"
+      # - "C:\\ProgramData\\Microsoft\\VisualStudio:C:\\ProgramData\\Microsoft\\VisualStudio"
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+        reservations:
+          cpus: '0.5'
+          memory: 1G
+    restart: unless-stopped
+
+networks:
+  default:
+    name: runner
+    external: true
