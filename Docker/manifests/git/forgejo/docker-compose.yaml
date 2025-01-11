@@ -40,7 +40,7 @@ services:
     restart: always
     networks:
       - forgejo
-      - runner
+      # - runner
       - proxy
     labels:
       - "traefik.enable=true"
@@ -70,57 +70,6 @@ services:
       - "traefik.tcp.routers.forgejo-ssh.service=forgejo-ssh"
       - "traefik.tcp.routers.forgejo-ssh.entrypoints=forgejo-ssh"
       
-  forgejo-docker-dind:
-    # https://hub.docker.com/_/docker/tags?name=dind
-    image: docker:27.4.1-dind-alpine3.21
-    container_name: 'docker_dind'
-    hostname: docker  # Must set hostname as TLS certificates are only valid for docker or localhost
-    privileged: 'true'
-    environment:
-      DOCKER_TLS_CERTDIR: /certs
-    deploy:
-      resources:
-        limits:
-          cpus: '2'
-          memory: 2G
-        reservations:
-          cpus: '0.5'
-          memory: 512M
-    volumes:
-      - docker_certs:/certs
-      - docker_certs_client:/certs/client
-      # https://hub.docker.com/_/docker
-      - ./docker:/var/lib/docker
-      # NOTE: mount data need to use for runner container need to exist on bind_mount
-      # because docker_dind actual create and bind mount data for runner containers
-      - /path/to/step-ca/certs/root_ca.crt:/usr/local/share/ca-certificates/root_ca.crt:ro
-    networks:
-      - runner
-    restart: always
-
-  forgejo-runner:
-    # https://code.forgejo.org/forgejo/-/packages/container/runner/versions
-    image: 'code.forgejo.org/forgejo/runner:5.0.4'
-    container_name: 'forgejo-runner'
-    depends_on:
-      forgejo-docker-dind:
-        condition: service_started
-        restart: true
-    environment:
-      DOCKER_HOST: tcp://docker:2376
-      DOCKER_CERT_PATH: /certs/client
-      DOCKER_TLS_VERIFY: 1
-    # User without root privileges, but with access to `./data`.
-    # NOTE: labels "docker:docker://node:20-bullseye,ubuntu-22.04:docker://node:20-bullseye,ubuntu-20.04:docker://node:20-bookworm,ubuntu-18.04:docker://node:20-bookworm"
-    user: 1000:1000
-    volumes:
-      - docker_certs_client:/certs/client:ro
-      - ./runner:/data
-    networks:
-      - runner
-    restart: always
-    # NOTE: use command instead of entrypoint to avoid docker execute command when using `docker compose run`
-    command: 'bash -c "while : ; do test -w .runner && forgejo-runner --config config.yml daemon ; sleep 1 ; done"'
 
   # https://hub.docker.com/_/postgres
   forgejo-db:
@@ -173,8 +122,8 @@ services:
 networks:
   forgejo:
     driver: bridge
-  runner:
-    driver: bridge
+  # runner:
+  #   external: true
   proxy:
     external: true
 

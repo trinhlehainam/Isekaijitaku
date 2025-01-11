@@ -6,6 +6,48 @@ This guide explains how to set up and register a Forgejo runner for your CI/CD w
 - Docker and Docker Compose installed
 - Access to Forgejo dashboard with admin privileges
 - The Forgejo instance running via docker-compose
+- Docker network bridge for runner actions (named 'runner')
+
+> Note: The runner network bridge is required for communication between Forgejo and its action runners. This network should be created and shared between the Forgejo instance and runners.
+
+### Network Setup
+
+Since Forgejo and its runners are defined in separate docker-compose files, you need to:
+
+1. Create the runner network bridge manually using Docker:
+```bash
+docker network create runner
+```
+
+2. In your Forgejo's docker-compose.yaml, declare the runner network as external:
+```yaml
+services:
+  forgejo:
+    # ... other configurations ...
+    networks:
+      - runner
+      # ... other networks ...
+
+networks:
+  runner:
+    external: true
+  # ... other networks ...
+```
+
+3. In your runner's docker-compose.yaml, also declare the runner network as external:
+```yaml
+services:
+  forgejo-runner:
+    # ... other configurations ...
+    networks:
+      - runner
+
+networks:
+  runner:
+    external: true
+```
+
+> Note: The external network must be created before starting either docker-compose service. If the network doesn't exist, docker-compose will fail to start the services.
 
 ## Steps to Register Runner
 
@@ -137,6 +179,7 @@ These limits ensure that:
 - The total resource usage of all runner containers is controlled
 - The service has guaranteed minimum resources for stability
 - System resources are protected from potential overuse
+- Maintain stable system performance
 
 > Note: Resource reservations are optional. If not specified, Docker will not guarantee any minimum resources (defaults to 0). However, for CI/CD runners, it's recommended to set reservations to ensure stable performance even under system load.
 
