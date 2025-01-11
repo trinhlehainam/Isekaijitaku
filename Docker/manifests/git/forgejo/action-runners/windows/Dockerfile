@@ -8,38 +8,43 @@
 # Use Windows Server Core as base
 FROM mcr.microsoft.com/windows/servercore:ltsc2022
 
+# Define gitea_runner_version build argument with default value
+ARG gitea_runner_version=0.2.11
+
 # $ProgressPreference: https://github.com/PowerShell/PowerShell/issues/2138#issuecomment-251261324
 SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
 
+# Install Gitea Runner and dependencies
 RUN \
-    # Create directories and update PATH
-    New-Item -ItemType Directory -Force -Path C:\ProgramData\Gitea-Act-Runner; \
+    # Create installation directory
     New-Item -ItemType Directory -Force -Path C:\ProgramData\Gitea-Act-Runner\bin; \
     # Update PATH for Gitea Runner
     \
-    $newPath = ('{0}\Gitea-Act-Runner\bin;{1}' -f $env:ProgramData, $env:PATH); \
-    Write-Host ('Updating PATH: {0}' -f $newPath); \
+    $gitea_runner_exec_path = ('{0}\Gitea-Act-Runner\bin' -f $env:ProgramData); \
+    Write-Host ('Updating PATH: {0}' -f $gitea_runner_exec_path); \
+    $newPath = ('{0};{1}' -f $gitea_runner_exec_path, $env:PATH); \
     [Environment]::SetEnvironmentVariable('PATH', $newPath, [EnvironmentVariableTarget]::Machine); \
     # Install Chocolatey and required tools
     \
     Set-ExecutionPolicy Bypass -Scope Process -Force; \
     [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; \
     iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1')); \
-    choco install -y git 7zip.install; \
+    choco install -y git 7zip.install --no-progress -y; \
     # Optional: Install Visual Studio Build Tools
     # choco install visualstudio2022-workload-vctools --no-progress -y \
     \
-    # Install Gitea Runner
-    $Version = '0.2.11'; \
-    $RunnerPath = 'C:\\ProgramData\\Gitea-Act-Runner\\bin'; \
-    New-Item -ItemType Directory -Force -Path $RunnerPath; \
+    # Download and install act_runner
+    $arch = 'amd64'; \
+    Write-Host ('Downloading Gitea Runner v{0} for windows-{1}...' -f $env:gitea_runner_version, $arch); \
+    $gitea_runner_download_url = 'https://dl.gitea.com/act_runner/{0}/act_runner-{0}-windows-{1}.exe' -f $env:gitea_runner_version, $arch; \
+    Write-Host ('Download URL: {0}' -f $gitea_runner_download_url); \
     Invoke-WebRequest \
-        -Uri "https://dl.gitea.com/act_runner/$Version/act_runner-$Version-windows-amd64.exe" \
-        -OutFile "$RunnerPath\\act_runner.exe"; \
-    if (-not (Test-Path "$RunnerPath\\act_runner.exe")) { throw 'Failed to download runner' }
+        -Uri $gitea_runner_download_url \
+        -OutFile (Join-Path -Path $gitea_runner_exec_path -ChildPath 'act_runner.exe'); \
+    if (-not (Test-Path (Join-Path -Path $gitea_runner_exec_path -ChildPath 'act_runner.exe'))) { throw 'Failed to download runner binary' }
 
 # Copy scripts
-COPY scripts/start.ps1 C:/ProgramData/Gitea-Act-Runner/bin/
+COPY scripts/start.ps1 C:\\ProgramData\\Gitea-Act-Runner\\bin
 
 # Set working directory for runner
 WORKDIR C:\\ProgramData\\Gitea-Act-Runner

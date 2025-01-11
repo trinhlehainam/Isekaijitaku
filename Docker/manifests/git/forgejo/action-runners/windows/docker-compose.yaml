@@ -8,8 +8,11 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
+      args:
+        gitea_runner_version: 0.2.11
+    image: gitea-runner-windows:${GITEA_RUNNER_VERSION:-0.2.11}
     environment:
-      - GITEA_INSTANCE_URL=http://your-forgejo-instance:3000
+      - GITEA_INSTANCE_URL=https://your-forgejo-instance-url
       # When using Docker Secrets, it's also possible to use
       # GITEA_RUNNER_REGISTRATION_TOKEN_FILE to pass the location.
       # The env var takes precedence.
@@ -18,7 +21,7 @@ services:
       # OR use token file (e.g., Docker Secret)
       # - GITEA_RUNNER_REGISTRATION_TOKEN_FILE=/run/secrets/runner-token
       - GITEA_RUNNER_NAME=windows-container-gitea-runner
-      - GITEA_RUNNER_LABELS=windows:host,windows-latest:host,windows-server-2022:host
+      - GITEA_RUNNER_LABELS=windows:host
     volumes:
       # Mount runner data directory for persistence
       - ./runner:/data

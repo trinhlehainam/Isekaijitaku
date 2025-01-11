@@ -1,61 +1,61 @@
 # Windows Gitea Action Runner
 
-A Windows-based Docker container for running Gitea Actions.
+A Windows container-based runner for Gitea Actions.
 
-## References
+## Prerequisites
 
-- [Gitea Runner](https://gitea.com/gitea/act_runner)
-- [Runner Configuration](https://gitea.com/gitea/act_runner/src/branch/main/docs/configuration.md)
-- [Run Script](https://gitea.com/gitea/act_runner/raw/branch/main/scripts/run.sh)
+- Windows 10/11 or Windows Server with Docker support
+- Docker Desktop set to Windows containers
+- PowerShell 5.1 or later
 
-## Features
+## Quick Start
 
-- Windows Server Core base image
-- Persistent application installation
-- Automatic runner registration with retry logic
-- Support for Visual Studio tools
-- Graceful shutdown handling
-- Secure token management
-- Color-coded logging (INFO: white, ERROR: red)
-- Comprehensive error handling
-- Resource limits and reservations
+1. Create `.env` file:
+```env
+GITEA_INSTANCE_URL=http://gitea:3000
+GITEA_RUNNER_REGISTRATION_TOKEN=your_token_here
+```
+
+2. Build and run:
+```powershell
+# Build with specific Gitea runner version
+docker compose build --build-arg gitea_runner_version=0.2.11
+
+# Start the runner
+docker compose up -d
+```
 
 ## Configuration
 
-### Required Environment Variables
+### Environment Variables
 
+Required:
 - `GITEA_INSTANCE_URL`: URL of your Gitea instance
 - `GITEA_RUNNER_REGISTRATION_TOKEN`: Runner registration token
-  - Alternatively, use `GITEA_RUNNER_REGISTRATION_TOKEN_FILE` to read token from a file (e.g., Docker Secret)
 
-### Optional Environment Variables
-
-- `GITEA_RUNNER_NAME`: Name of the runner (default: hostname)
-- `GITEA_RUNNER_LABELS`: Runner labels (default: windows:host)
+Optional:
+- `GITEA_RUNNER_NAME`: Name for the runner (default: hostname)
+- `GITEA_RUNNER_LABELS`: Labels for the runner (default: windows:host)
 - `CONFIG_FILE`: Custom config file path
-- `RUNNER_STATE_FILE`: Custom path for runner state file (default: .runner)
 - `GITEA_MAX_REG_ATTEMPTS`: Maximum registration attempts (default: 10)
 
-### Security Notes
+### Build Arguments
 
+- `gitea_runner_version`: Version of Gitea runner to install (e.g., "0.2.11")
+
+### Security Notes
 - Registration token is automatically removed from environment after successful registration
 - Token file remains accessible for container restarts
 - Environment variables are validated before use
 - TLS certificate verification enabled by default
 
 ### Default Paths
-
 - Runner state file: `.runner` in runner's working directory (can be overridden with `RUNNER_STATE_FILE`)
 - Cache directory: `$HOME/.cache/actcache` if not specified in config
 - Work directory: `$HOME/.cache/act` if not specified in config
 - Config file: `config.yaml` in runner's working directory
 
-Note: In Windows Server Core container, `$HOME` is `C:\Users\ContainerAdministrator`
-
-### Logging Levels
-
-- `INFO` (White): Normal operational messages
-- `ERROR` (Red): Error messages that may affect operation
+> Note: In Windows Server Core container, `$HOME` is `C:\Users\ContainerAdministrator`
 
 ### Runner Configuration
 
@@ -76,8 +76,6 @@ runner:
   report_interval: 1s  # Status report interval
   labels:  # Runner capabilities
     - "windows:host"
-    - "windows-latest:host"
-    - "windows-server-2022:host"
 
 cache:
   enabled: true
@@ -86,13 +84,30 @@ cache:
   port: 0
 ```
 
-### Container Health Check
+### Example Configuration
 
-The container includes a health check that verifies runner registration:
-- Interval: 30s
-- Timeout: 10s
-- Retries: 3
-- Start period: 30s
+#### docker-compose.yaml
+```yaml
+services:
+  gitea-runner:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        gitea_runner_version: 0.2.11
+    image: gitea-runner-windows:0.2.11
+    environment:
+      - GITEA_INSTANCE_URL=http://gitea:3000
+      - GITEA_RUNNER_REGISTRATION_TOKEN=your_token_here
+      - GITEA_RUNNER_NAME=windows-container-gitea-runner
+      - GITEA_RUNNER_LABELS=windows:host
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+    restart: unless-stopped
+```
 
 ### Resource Management
 
@@ -110,93 +125,73 @@ deploy:
       memory: 4G
 ```
 
-## Usage
+## Commands
 
-1. Create a `docker-compose.yaml` file:
-   ```yaml
-   services:
-     gitea-runner:
-       build:
-         context: .
-         dockerfile: Dockerfile
-       environment:
-         - GITEA_INSTANCE_URL=http://your-forgejo-instance:3000
-         - GITEA_RUNNER_REGISTRATION_TOKEN=your-runner-token
-         - GITEA_RUNNER_NAME=windows-container-gitea-runner
-       volumes:
-         - ./runner:/data
-       deploy:
-         resources:
-           limits:
-             cpus: '2'
-             memory: 4G
-       restart: unless-stopped
-   ```
+### Build and Run
 
-2. Start the runner:
-   ```powershell
-   docker-compose up -d
-   ```
-   
-3. Check the logs:
-   ```powershell
-   docker-compose logs -f
-   ```
+```powershell
+# Build with specific version
+docker compose build --build-arg gitea_runner_version=0.2.11
 
-## Visual Studio Tools
+# Build with specific version and tag
+docker compose build --build-arg gitea_runner_version=0.2.11 gitea-runner
 
-To use Visual Studio tools, uncomment the relevant volume mounts in `docker-compose.yaml`:
-```yaml
-volumes:
-  - "C:\\Program Files (x86)\\Windows Kits:C:\\Program Files (x86)\\Windows Kits"
-  - "C:\\Program Files (x86)\\Microsoft Visual Studio:C:\\Program Files (x86)\\Microsoft Visual Studio"
-  - "C:\\Program Files\\Microsoft Visual Studio:C:\\Program Files\\Microsoft Visual Studio"
-  - "C:\\ProgramData\\Microsoft\\VisualStudio:C:\\ProgramData\\Microsoft\\VisualStudio"
+# Start runner
+docker compose up -d
+
+# View logs
+docker compose logs -f
+
+# Stop runner
+docker compose down
 ```
 
-And uncomment the Visual Studio installation in `Dockerfile`:
-```dockerfile
-# choco install visualstudio2022-workload-vctools --no-progress -y
+### Maintenance
+
+```powershell
+# View runner status
+docker compose ps
+
+# View detailed logs
+docker compose logs -f --tail=100
+
+# Restart runner
+docker compose restart
+
+# Update to latest version
+docker compose pull
+docker compose up -d
 ```
-
-## Customization
-
-### Custom Paths
-You can override default paths using environment variables:
-```yaml
-environment:
-  - CONFIG_FILE=C:\custom\path\config.yaml
-  - RUNNER_STATE_FILE=C:\custom\path\.runner
-```
-
-### Resource Limits
-Adjust container resources in `docker-compose.yaml`:
-```yaml
-deploy:
-  resources:
-    limits:
-      cpus: '2'
-      memory: 4G
-```
-
-## Container Lifecycle
-
-- Container starts with the act_runner process
-- Automatic registration on first run with retry logic
-- Container stops when act_runner process exits
-- Automatic restart with `restart: unless-stopped` policy
-- Registration state persists across restarts
 
 ## Troubleshooting
 
-1. If registration fails:
-   - Check the instance URL is accessible
-   - Verify the registration token is valid
-   - Check network connectivity
-   - Review logs for specific error messages
+### Common Issues
 
-2. If jobs fail:
-   - Check resource limits
-   - Verify required tools are installed
-   - Check network access to required resources
-   - Review job logs for error messages
+1. Build fails:
+   - Ensure Docker Desktop is set to Windows containers
+   - Try rebuilding without cache: `docker compose build --no-cache`
+   - Check build logs for specific errors
+
+2. Runner fails to start:
+   - Verify environment variables in `.env` or `docker-compose.yaml`
+   - Check Gitea instance URL is accessible
+   - Ensure registration token is valid
+   - View logs: `docker compose logs -f`
+
+3. Runner registration fails:
+   - Check network connectivity to Gitea instance
+   - Verify registration token hasn't expired
+   - Check for any proxy or firewall issues
+
+### Logs
+
+View runner logs:
+```powershell
+# Follow logs
+docker compose logs -f
+
+# View last N lines
+docker compose logs --tail=100
+
+# View logs for specific time
+docker compose logs --since 30m
