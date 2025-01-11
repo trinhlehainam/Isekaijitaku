@@ -8,42 +8,41 @@
 # Use Windows Server Core as base
 FROM mcr.microsoft.com/windows/servercore:ltsc2022
 
-# Set working directory
-WORKDIR C:\\Gitea-Act-Runner
-
-# Switch to CMD for PATH updates
-SHELL ["cmd", "/S", "/C"]
-
-# Update PATH and create persistent directories
-RUN setx path "C:\ProgramData\GitRunner\apps\bin;%path%" && \
-    mkdir C:\ProgramData\GitRunner && \
-    mkdir C:\ProgramData\GitRunner\apps
-
-# Switch to PowerShell for installations and setup
+# $ProgressPreference: https://github.com/PowerShell/PowerShell/issues/2138#issuecomment-251261324
 SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
 
-# Install Chocolatey, tools, and runner
-RUN Set-ExecutionPolicy Bypass -Scope Process -Force; \
+RUN \
+    # Create directories and update PATH
+    New-Item -ItemType Directory -Force -Path C:\ProgramData\Gitea-Act-Runner; \
+    New-Item -ItemType Directory -Force -Path C:\ProgramData\Gitea-Act-Runner\bin; \
+    # Update PATH for Gitea Runner
+    \
+    $newPath = ('{0}\Gitea-Act-Runner\bin;{1}' -f $env:ProgramData, $env:PATH); \
+    Write-Host ('Updating PATH: {0}' -f $newPath); \
+    [Environment]::SetEnvironmentVariable('PATH', $newPath, [EnvironmentVariableTarget]::Machine); \
+    # Install Chocolatey and required tools
+    \
+    Set-ExecutionPolicy Bypass -Scope Process -Force; \
     [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; \
     iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1')); \
-    refreshenv; \
-    $env:ChocolateyInstall = 'C:\ProgramData\GitRunner\apps\chocolatey'; \
-    choco install -y git 7zip.install --install-directory='C:\ProgramData\GitRunner\apps'; \
+    choco install -y git 7zip.install; \
     # Optional: Install Visual Studio Build Tools
     # choco install visualstudio2022-workload-vctools --no-progress -y \
+    \
+    # Install Gitea Runner
     $Version = '0.2.11'; \
-    $RunnerPath = 'C:\ProgramData\GitRunner\apps\bin'; \
+    $RunnerPath = 'C:\\ProgramData\\Gitea-Act-Runner\\bin'; \
     New-Item -ItemType Directory -Force -Path $RunnerPath; \
     Invoke-WebRequest \
         -Uri "https://dl.gitea.com/act_runner/$Version/act_runner-$Version-windows-amd64.exe" \
-        -OutFile "$RunnerPath\act_runner.exe"; \
-    if (-not (Test-Path "$RunnerPath\act_runner.exe")) { throw 'Failed to download runner' }
+        -OutFile "$RunnerPath\\act_runner.exe"; \
+    if (-not (Test-Path "$RunnerPath\\act_runner.exe")) { throw 'Failed to download runner' }
 
 # Copy scripts
-COPY scripts/start.ps1 C:/ProgramData/GitRunner/apps/bin/
+COPY scripts/start.ps1 C:/ProgramData/Gitea-Act-Runner/bin/
 
 # Set working directory for runner
-WORKDIR C:\ProgramData\GitRunner\apps\bin
+WORKDIR C:\\ProgramData\\Gitea-Act-Runner
 
 # Set entrypoint
-ENTRYPOINT ["powershell", ".\\start.ps1"]
+ENTRYPOINT ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "C:\\ProgramData\\Gitea-Act-Runner\\bin\\start.ps1"]

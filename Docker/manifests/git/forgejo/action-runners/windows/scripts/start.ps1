@@ -74,6 +74,12 @@ function Test-Environment {
     }
 }
 
+# Verify act_runner exists before proceeding
+$act_runner_cmd = Join-Path $env:ProgramData "Gitea-Act-Runner\bin\act_runner.exe"
+if (-not (Test-Path $act_runner_cmd)) {
+    Write-Error-And-Throw "Gitea Runner not found at $act_runner_cmd"
+}
+
 function Register-Runner {
     $max_registration_attempts = if ($env:GITEA_MAX_REG_ATTEMPTS) { [int]$env:GITEA_MAX_REG_ATTEMPTS } else { 10 }
     Write-Log "Maximum registration attempts: $max_registration_attempts"
@@ -107,13 +113,13 @@ function Register-Runner {
         while (-not $success -and $attempt -le $max_registration_attempts) {
             Write-Log "Registration attempt $attempt of $max_registration_attempts..."
             
-            $output = & ./act_runner.exe register $params 2>&1 | Out-String
-            
-            if ($output -match "Runner registered successfully") {
-                Write-Log "SUCCESS"
-                $success = $true
-            }
-            else {
+            $output = & $act_runner_cmd register $params | Out-String
+                
+                if ($output -match "Runner registered successfully") {
+                    Write-Log "SUCCESS"
+                    $success = $true
+                }
+                else {
                 Write-Log "Waiting to retry..."
                 Start-Sleep -Seconds 5
                 $attempt++
@@ -136,7 +142,7 @@ function Register-Runner {
 
 function Start-Runner {
     Write-Log "Starting runner daemon..."
-    & ./act_runner.exe daemon --config $env:CONFIG_FILE
+    & $act_runner_cmd daemon --config $env:CONFIG_FILE
 }
 
 try {
