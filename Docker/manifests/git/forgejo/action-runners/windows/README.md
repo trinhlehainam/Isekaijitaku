@@ -195,3 +195,21 @@ docker compose logs --tail=100
 
 # View logs for specific time
 docker compose logs --since 30m
+```
+
+## References
+
+### Gitea/Forgejo Documentation
+- [Gitea Actions Documentation](https://docs.gitea.io/en-us/actions/overview/) - Official Gitea Actions documentation
+- [Gitea Runner Repository](https://gitea.com/gitea/act_runner) - Official Gitea Runner source code
+- [Gitea Runner Examples](https://gitea.com/gitea/act_runner/src/branch/main/examples) - Official examples for runner configuration
+
+### PowerShell and Windows Development
+- [PowerShell Scripting Guide](https://learn.microsoft.com/en-us/powershell/scripting/overview) - Microsoft's PowerShell documentation
+- [PowerShell Best Practices](https://learn.microsoft.com/en-us/powershell/scripting/developer/cmdlet/strongly-encouraged-development-guidelines) - Microsoft's PowerShell development guidelines
+- [GitHub Actions Runner Scripts](https://github.com/actions/runner-images/tree/main/images/windows/scripts) - Reference implementation for Windows runner scripts
+
+### Related Issues and Discussions
+- [Windows Container Issues](https://github.com/docker-library/docker/issues/49) - Common Windows container challenges and solutions
+- [Runner Architecture Support](https://gitea.com/gitea/act_runner/issues) - Discussions about runner architecture compatibility
+- [Windows Container Limitations](https://learn.microsoft.com/en-us/virtualization/windowscontainers/deploy-containers/system-requirements#windows-server-container-requirements) - Understanding Windows container limitations
