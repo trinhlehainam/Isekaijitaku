@@ -29,25 +29,46 @@ RUN \
     Set-ExecutionPolicy Bypass -Scope Process -Force; \
     [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072; \
     iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1')); \
-    choco install -y git 7zip.install --no-progress -y; \
     # Optional: Install Visual Studio Build Tools
     # choco install visualstudio2022-workload-vctools --no-progress -y \
     \
+    # Detect CPU architecture
+    $osArch = (Get-WmiObject Win32_OperatingSystem).OSArchitecture; \
+    $arch = switch -Wildcard ($osArch) { \
+        '64-bit*' { 'amd64' } \
+        'ARM64*' { 'arm64' } \
+        default { throw ('Unsupported architecture: {0}' -f $osArch) } \
+    }; \
+    Write-Host ('Detected OS architecture: {0} (mapped to: {1})' -f $osArch, $arch); \
+    \
     # Download and install act_runner
-    $arch = 'amd64'; \
     Write-Host ('Downloading Gitea Runner v{0} for windows-{1}...' -f $env:gitea_runner_version, $arch); \
     $gitea_runner_download_url = 'https://dl.gitea.com/act_runner/{0}/act_runner-{0}-windows-{1}.exe' -f $env:gitea_runner_version, $arch; \
     Write-Host ('Download URL: {0}' -f $gitea_runner_download_url); \
-    Invoke-WebRequest \
-        -Uri $gitea_runner_download_url \
-        -OutFile (Join-Path -Path $gitea_runner_exec_path -ChildPath 'act_runner.exe'); \
-    if (-not (Test-Path (Join-Path -Path $gitea_runner_exec_path -ChildPath 'act_runner.exe'))) { throw 'Failed to download runner binary' }
+    \
+    try { \
+        Invoke-WebRequest \
+            -Uri $gitea_runner_download_url \
+            -OutFile (Join-Path -Path $gitea_runner_exec_path -ChildPath 'act_runner.exe'); \
+        \
+        $runner_exec_cmd = Join-Path -Path $gitea_runner_exec_path -ChildPath 'act_runner.exe'; \
+        if (-not (Test-Path $runner_exec_cmd)) { \
+            throw 'Runner executable not found after download' \
+        } \
+        \
+        # Verify the executable
+        $runner_version = & $runner_exec_cmd --version; \
+        Write-Host ('Runner version: {0}' -f $runner_version); \
+    } catch { \
+        Write-Error ('Failed to download or verify runner: {0}' -f $_.Exception.Message); \
+        throw \
+    }
 
 # Copy scripts
-COPY scripts/start.ps1 C:\\ProgramData\\Gitea-Act-Runner\\bin
+COPY scripts/Run.ps1 C:\\ProgramData\\Gitea-Act-Runner\\bin
 
 # Set working directory for runner
 WORKDIR C:\\ProgramData\\Gitea-Act-Runner
 
 # Set entrypoint
-ENTRYPOINT ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "C:\\ProgramData\\Gitea-Act-Runner\\bin\\start.ps1"]
+ENTRYPOINT ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "C:\\ProgramData\\Gitea-Act-Runner\\bin\\Run.ps1"]
