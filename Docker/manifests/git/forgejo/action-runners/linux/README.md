@@ -237,6 +237,139 @@ container:
 >   - Memory Reservation: Soft limit of 1.5GB using --memory-reservation
 >   - These limits apply to each runner container
 
+## Local Root CA Configuration
+
+When running Forgejo actions in environments with custom/self-signed certificates, you have several approaches to configure root CA certificates. Choose the most appropriate method based on your needs:
+
+### 1. System-wide CA Certificates (Recommended)
+
+Mount the host's entire CA certificates directory into the Docker-in-Docker container:
+
+1. Update docker-compose.yaml:
+```yaml
+services:
+  forgejo-docker-dind:
+    volumes:
+      - /etc/ssl/certs:/etc/ssl/certs:ro
+```
+
+2. Update runner/config.yml:
+```yaml
+container:
+  network: "host"
+  options: >-
+    -v /certs/client:/certs/client
+    -v /etc/ssl/certs:/etc/ssl/certs:ro
+  valid_volumes:
+    - /certs/client
+    - /etc/ssl/certs
+```
+
+**Advantages**:
+- Works system-wide for all tools and commands
+- No need for additional configuration in workflows
+- Automatically includes all trusted CA certificates from the host
+- Most comprehensive solution for production environments
+
+### 2. Custom CA in certificates directory
+
+This approach allows you to install specific CA certificates:
+
+1. Mount your root CA certificate in docker-compose.yaml:
+```yaml
+services:
+  forgejo-docker-dind:
+    volumes:
+      - /path/to/your/custom.crt:/usr/local/share/ca-certificates/custom.crt:ro
+```
+
+2. Configure runner/config.yml:
+```yaml
+container:
+  network: "host"
+  options: >-
+    -v /certs/client:/certs/client
+    -v /usr/local/share/ca-certificates/custom.crt:/usr/local/share/ca-certificates/custom.crt:ro
+  valid_volumes:
+    - /certs/client
+    - /usr/local/share/ca-certificates/custom.crt
+```
+
+3. Add this step in your workflow files:
+```yaml
+- name: Install local root CA
+  run: |
+    sudo update-ca-certificates
+```
+
+### 3. Node.js Specific Configuration (Limited)
+
+For Node.js-based actions (like actions/checkout), you can use the NODE_EXTRA_CA_CERTS environment variable:
+
+1. Update docker-compose.yaml:
+```yaml
+services:
+  forgejo-docker-dind:
+    volumes:
+      - /path/to/your/custom.crt:/custom.crt:ro
+```
+
+2. Update runner/config.yml:
+```yaml
+container:
+  network: "host"
+  options: >-
+    -v /certs/client:/certs/client
+    -v /custom.crt:/custom.crt:ro
+  valid_volumes:
+    - /certs/client
+    - /custom.crt
+  
+runner:
+  envs:
+    DOCKER_HOST: tcp://docker:2376
+    DOCKER_CERT_PATH: /certs/client
+    DOCKER_TLS_VERIFY: 1
+    NODE_EXTRA_CA_CERTS: /custom.crt
+```
+
+**Limitation**: This only works for Node.js-based actions and won't affect other commands or tools.
+
+### Important Considerations
+
+1. Volume Paths:
+   - Paths in `runner/config.yml` must match exactly with paths in the Docker-in-Docker container
+   - All volumes must exist in the Docker-in-Docker container before being used in runner containers
+   - Always verify volume paths and permissions
+   - Make sure to add all mounted volumes to the `valid_volumes` list in config.yml
+
+2. Operating System Considerations:
+   - Ubuntu/Debian: Uses `update-ca-certificates`
+   - Alpine: Needs `ca-certificates` package and `update-ca-certificates`
+   - Windows/macOS: Different certificate management systems
+
+3. Network Configuration:
+   - `network: "host"` is required for Docker operations in containers
+   - Essential for CI/CD workflows that build or manage containers
+   - Enables access to Docker daemon's Unix socket
+
+4. Environment Variables:
+   - Default Docker TLS configuration is included in runner.envs:
+     ```yaml
+     runner:
+       envs:
+         DOCKER_HOST: tcp://docker:2376
+         DOCKER_CERT_PATH: /certs/client
+         DOCKER_TLS_VERIFY: 1
+     ```
+   - Additional environment variables can be added as needed
+
+This configuration is necessary when:
+- Accessing internal HTTPS services
+- Using a private certificate authority
+- Cloning repositories over HTTPS from local Git servers
+- Running actions that require HTTPS connections
+
 ## Resource Constraints
 
 The runner can be configured with resource constraints using Docker options in the `config.yml`. These options are passed directly to the `docker run` command:
@@ -337,78 +470,6 @@ This test workflow will verify that:
 - Node.js is available and functioning
 - The runner can handle multi-step jobs
 
-
-## Local Root CA Configuration
-To enable HTTPS connections using local root CA certificates:
-
-1. In `docker-compose.yaml`, mount your root CA certificate to the Docker-in-Docker container:
-```yaml
-services:
-  forgejo-docker-dind:
-    volumes:
-      - /path/to/step-ca/certs/step_root_ca.crt:/usr/local/share/ca-certificates/step_root_ca.crt:ro
-```
-
-2. Configure volume bindings in `runner/config.yml`:
-```yaml
-container:
-  network: "host"
-  # These volumes must exist in the docker-dind container as it manages runner containers
-  options: >- 
-    -v /certs/client:/certs/client
-    -v /usr/local/share/ca-certificates/step_root_ca.crt:/usr/local/share/ca-certificates/step_root_ca.crt
-  valid_volumes:
-    - /certs/client
-    - /usr/local/share/ca-certificates/step_root_ca.crt
-```
-
-> **Important**: The volumes specified in `runner/config.yml` must exist inside the Docker-in-Docker container because:
-> - The Docker-in-Docker (dind) container is responsible for creating and managing runner containers
-> - Any volumes you want to mount in runner containers must first exist in the dind container
-> - The path in the dind container must match exactly with the path specified in the runner config
-> - Always ensure the volumes are properly mounted in docker-compose.yaml before referencing them in runner config
-
-3. In your workflow files, add this step before any HTTPS connections:
-```yaml
-- name: Install local root CA
-  run: |
-    sudo update-ca-certificates
-```
-
-> **Note**: The `update-ca-certificates` command is specific to Linux-based systems (Ubuntu, Debian, etc.). For other operating systems:
-> - Windows: Uses a different certificate management system
-> - macOS: Uses the Keychain for certificate management
-> - Alpine Linux: Uses `update-ca-certificates` but might need to install `ca-certificates` package first
->
-> If you need to support multiple operating systems, you'll need to handle certificate installation differently for each platform.
-
-This configuration is necessary when:
-- Your runner needs to access internal HTTPS services
-- You're using a private certificate authority
-- You need to clone repositories over HTTPS from local Git servers
-
-> Note: Make sure to replace `/path/to/step-ca/certs/step_root_ca.crt` with the actual path to your root CA certificate.
-
-> **Important Network Configuration:**
-> Setting `network: "host"` is crucial when containers need to access the Docker daemon. Here's why:
-> - When using Docker-in-Docker (dind), containers created by the runner need to communicate with the Docker daemon
-> - Some images (like catthehacker's) include Docker client and need to access Docker socket
-> - Host network mode allows these containers to access the Docker daemon's Unix socket
-> - Without host network mode, containers might fail to perform Docker operations
-> - This is especially important for CI/CD workflows that build or manage containers
-
-### 5. Start the Services
-
-1. Start the Docker-in-Docker service:
-```bash
-docker compose up forgejo-docker-dind -d
-```
-
-2. Start the runner service:
-```bash
-docker compose up forgejo-runner -d
-```
-
 ## References
 - [Forgejo Runner Docker Installation Guide](https://forgejo.org/docs/latest/admin/runner-installation/#oci-image-installation)
 - [Forgejo Runner Installation Guide for CI/CD](https://forgejo.org/docs/latest/admin/runner-installation/#offline-registration)
@@ -419,3 +480,4 @@ docker compose up forgejo-runner -d
 - [CatTheHacker Docker Images](https://github.com/catthehacker/docker_images) - Pre-built Docker images for GitHub Actions
 - [Docker Resource Constraints](https://docs.docker.com/engine/containers/resource_constraints/)
 - [Docker Compose Resource Constraints](https://docs.docker.com/reference/compose-file/deploy/#resources)
+- [Gitea - Cannot checkout a repository hosted on a Gitea instance using self-signed certificate - Server certificate verification failed](https://forum.gitea.com/t/cannot-checkout-a-repository-hosted-on-a-gitea-instance-using-self-signed-certificate-server-certificate-verification-failed/7903/7)
