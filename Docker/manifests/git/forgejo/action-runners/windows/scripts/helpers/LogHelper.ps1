@@ -22,5 +22,3 @@ function Write-Error-Log-And-Throw {
     Write-Error-Log $Message
     throw $Message
 }
-
-Export-ModuleMember -Function @('Write-Log', 'Write-Error-Log', 'Write-Error-Log-And-Throw')

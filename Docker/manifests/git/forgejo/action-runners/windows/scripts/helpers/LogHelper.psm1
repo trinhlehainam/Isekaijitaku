@@ -1,29 +1,5 @@
-function Write-Log {
-    param(
-        [string]$Message,
-        [ValidateSet('INFO', 'WARN', 'ERROR')]
-        [string]$Level = 'INFO'
-    )
-    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $color = switch ($Level) {
-        'ERROR' { 'Red' }
-        'WARN'  { 'Yellow' }
-        default { 'White' }
-    }
-    Write-Host "[$timestamp] [$Level] $Message" -ForegroundColor $color
-}
+# Import functions from LogHelper.ps1
+. $PSScriptRoot\LogHelper.ps1
 
-function Write-Error-Log {
-    param(
-        [string]$Message
-    )
-    Write-Log -Message $Message -Level ERROR
-}
-
-function Write-Error-Log-And-Throw {
-    param(
-        [string]$Message
-    )
-    Write-Error-Log $Message
-    throw $Message
-}
+# Export functions
+Export-ModuleMember -Function Write-Log, Write-Error-Log, Write-Error-Log-And-Throw

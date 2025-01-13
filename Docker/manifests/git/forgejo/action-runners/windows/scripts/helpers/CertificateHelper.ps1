@@ -1,6 +1,5 @@
 # Import LogHelper module
-$helpersPath = Split-Path $PSScriptRoot -Parent
-Import-Module (Join-Path $helpersPath "helpers\LogHelper.ps1")
+Import-Module (Join-Path $PSScriptRoot "LogHelper.psm1")
 
 function Get-CertificatePaths {
     param (
@@ -110,9 +109,3 @@ function Install-Certificates {
 
     return $success
 }
-
-Export-ModuleMember -Function @(
-    'Get-CertificatePaths',
-    'Install-Certificate',
-    'Install-Certificates'
-)
