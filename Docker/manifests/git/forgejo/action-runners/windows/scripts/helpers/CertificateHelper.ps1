@@ -57,30 +57,9 @@ function Install-Certificate {
     
     try {
         Write-Log "Installing certificate: $CertPath"
-        
-        # Read certificate content
-        $cert = New-Object System.Security.Cryptography.X509Certificates.X509Certificate2($CertPath)
-        
-        # Determine certificate store based on certificate type
-        $store = "CA"  # Default to CA store
-        if ($cert.HasPrivateKey) {
-            $store = "My"  # Personal store for certificates with private keys
-        }
-        
-        Write-Log "Installing to LocalMachine\$store store"
-        
-        # Import certificate to LocalMachine store
-        $certStore = New-Object System.Security.Cryptography.X509Certificates.X509Store($store, "LocalMachine")
-        $certStore.Open([System.Security.Cryptography.X509Certificates.OpenFlags]::ReadWrite)
-        
-        try {
-            $certStore.Add($cert)
-            Write-Log "Successfully installed certificate: $($cert.Subject)"
-            return $true
-        }
-        finally {
-            $certStore.Close()
-        }
+        Import-Certificate -FilePath $CertPath -CertStoreLocation "Cert:\LocalMachine\Root"
+        Write-Log "Successfully installed certificate: $(Get-ChildItem -Path $CertPath)"
+        return $true
     }
     catch {
         Write-Error-Log "Failed to install certificate ${CertPath}: $_"
