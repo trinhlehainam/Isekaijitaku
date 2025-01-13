@@ -1,6 +1,8 @@
 # References:
 # - Gitea Runner: https://gitea.com/gitea/act_runner
 # - Run Script: https://gitea.com/gitea/act_runner/raw/branch/main/scripts/run.sh
+# - GitHub Actions Runner Scripts: https://github.com/actions/runner-images/tree/main/images/windows/scripts
+
 
 # Enable strict error handling
 $ErrorActionPreference = 'Stop'

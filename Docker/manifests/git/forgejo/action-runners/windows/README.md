@@ -1,12 +1,13 @@
 # Windows Gitea Action Runner
 
-A Windows container-based runner for Gitea Actions.
+This repository contains the Dockerfile and configuration for running Gitea Action Runner on Windows containers. The runner image is built on top of our base Windows image that includes common development tools.
 
-## Prerequisites
+## Base Image
 
-- Windows 10/11 or Windows Server with Docker support
-- Docker Desktop set to Windows containers
-- PowerShell 5.1 or later
+The runner uses our custom Windows base image (`Manifests/Docker/manifests/windows/Dockerfile`) which provides:
+- Windows Server Core LTSC 2022
+- Common development tools and utilities
+- Pre-configured environment for Windows containers
 
 ## Quick Start
 
@@ -39,10 +40,6 @@ Optional:
 - `CONFIG_FILE`: Custom config file path
 - `GITEA_MAX_REG_ATTEMPTS`: Maximum registration attempts (default: 10)
 
-### Build Arguments
-
-- `gitea_runner_version`: Version of Gitea runner to install (e.g., "0.2.11")
-
 ### Security Notes
 - Registration token is automatically removed from environment after successful registration
 - Token file remains accessible for container restarts
@@ -55,7 +52,9 @@ Optional:
 - Work directory: `$HOME/.cache/act` if not specified in config
 - Config file: `config.yaml` in runner's working directory
 
-> Note: In Windows Server Core container, `$HOME` is `C:\Users\ContainerAdministrator`
+```ad-note
+In Windows Server Core container, `$HOME` is `C:\Users\ContainerAdministrator`
+```
 
 ### Runner Configuration
 
@@ -84,9 +83,14 @@ cache:
   port: 0
 ```
 
-### Example Configuration
+#### Build Arguments
 
-#### docker-compose.yaml
+- `GITEA_RUNNER_VERSION`: Version of Gitea runner to install (e.g., "0.2.11")
+- `WINDOWS_IMAGE`: Base Windows image to use (default: "mcr.microsoft.com/windows/servercore:ltsc2022")
+  - Use your custom Windows image: `your-registry/your-custom-windows-image:tag`
+  - Or use official Microsoft image: `mcr.microsoft.com/windows/servercore:ltsc2022`
+
+#### Example docker-compose.yaml
 ```yaml
 services:
   gitea-runner:
@@ -94,7 +98,8 @@ services:
       context: .
       dockerfile: Dockerfile
       args:
-        gitea_runner_version: 0.2.11
+        GITEA_RUNNER_VERSION: 0.2.11
+        WINDOWS_IMAGE: your-registry/your-custom-windows-image:latest
     image: gitea-runner-windows:0.2.11
     environment:
       - GITEA_INSTANCE_URL=http://gitea:3000
@@ -108,6 +113,23 @@ services:
           memory: 4G
     restart: unless-stopped
 ```
+
+### Build Examples
+
+```powershell
+# Build with default Windows image
+docker compose build --build-arg GITEA_RUNNER_VERSION=0.2.11
+
+# Build with custom Windows base image
+docker compose build \
+    --build-arg GITEA_RUNNER_VERSION=0.2.11 \
+    --build-arg WINDOWS_IMAGE=your-registry/your-custom-windows-image:latest
+
+# Build with specific version and tag
+docker compose build \
+    --build-arg GITEA_RUNNER_VERSION=0.2.11 \
+    --build-arg WINDOWS_IMAGE=your-registry/your-custom-windows-image:1.0.0 \
+    gitea-runner
 
 ### Resource Management
 
@@ -131,10 +153,13 @@ deploy:
 
 ```powershell
 # Build with specific version
-docker compose build --build-arg gitea_runner_version=0.2.11
+docker compose build --build-arg GITEA_RUNNER_VERSION=0.2.11
 
 # Build with specific version and tag
-docker compose build --build-arg gitea_runner_version=0.2.11 gitea-runner
+docker compose build \
+    --build-arg GITEA_RUNNER_VERSION=0.2.11 \
+    --build-arg WINDOWS_IMAGE=your-registry/your-custom-windows-image:1.0.0 \
+    gitea-runner
 
 # Start runner
 docker compose up -d
@@ -196,20 +221,3 @@ docker compose logs --tail=100
 # View logs for specific time
 docker compose logs --since 30m
 ```
-
-## References
-
-### Gitea/Forgejo Documentation
-- [Gitea Actions Documentation](https://docs.gitea.io/en-us/actions/overview/) - Official Gitea Actions documentation
-- [Gitea Runner Repository](https://gitea.com/gitea/act_runner) - Official Gitea Runner source code
-- [Gitea Runner Examples](https://gitea.com/gitea/act_runner/src/branch/main/examples) - Official examples for runner configuration
-
-### PowerShell and Windows Development
-- [PowerShell Scripting Guide](https://learn.microsoft.com/en-us/powershell/scripting/overview) - Microsoft's PowerShell documentation
-- [PowerShell Best Practices](https://learn.microsoft.com/en-us/powershell/scripting/developer/cmdlet/strongly-encouraged-development-guidelines) - Microsoft's PowerShell development guidelines
-- [GitHub Actions Runner Scripts](https://github.com/actions/runner-images/tree/main/images/windows/scripts) - Reference implementation for Windows runner scripts
-
-### Related Issues and Discussions
-- [Windows Container Issues](https://github.com/docker-library/docker/issues/49) - Common Windows container challenges and solutions
-- [Runner Architecture Support](https://gitea.com/gitea/act_runner/issues) - Discussions about runner architecture compatibility
-- [Windows Container Limitations](https://learn.microsoft.com/en-us/virtualization/windowscontainers/deploy-containers/system-requirements#windows-server-container-requirements) - Understanding Windows container limitations
