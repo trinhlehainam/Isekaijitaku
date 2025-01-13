@@ -71,6 +71,7 @@ function Register-Runner {
         Write-Log "Runner not registered, starting registration..."
         
         $params = @(
+            "register",
             "--instance", $env:GITEA_INSTANCE_URL,
             "--token", $env:GITEA_RUNNER_REGISTRATION_TOKEN,
             "--name", $env:GITEA_RUNNER_NAME,
@@ -87,6 +88,9 @@ function Register-Runner {
         $attempt = 1
         $success = $false
 
+        $temp_stdout_file = New-TemporaryFile
+        $temp_stderr_file = New-TemporaryFile
+        
         # The point of this loop is to make it simple, when running both act_runner and gitea in docker,
         # for the act_runner to wait a moment for gitea to become available before erroring out.  Within
         # the context of a single docker-compose, something similar could be done via healthchecks, but
@@ -94,13 +98,14 @@ function Register-Runner {
         while (-not $success -and $attempt -le $max_registration_attempts) {
             Write-Log "Registration attempt $attempt of $max_registration_attempts..."
             
-            $output = & act_runner register $params | Out-String
-                
-                if ($output -match "Runner registered successfully") {
-                    Write-Log "SUCCESS"
-                    $success = $true
-                }
-                else {
+            Start-Process -FilePath "act_runner" -ArgumentList $params -PassThru -Wait -NoNewWindow -RedirectStandardOutput $temp_stdout_file.FullName -RedirectStandardError $temp_stderr_file.FullName
+            $stdout = Get-Content $temp_stdout_file.FullName
+            $stderr = Get-Content $temp_stderr_file.FullName
+            if ($stdout -match "Runner registered successfully" -or $stderr -match "Runner registered successfully") {
+                Write-Log "SUCCESS"
+                $success = $true
+            }
+            else {
                 Write-Log "Waiting to retry..."
                 Start-Sleep -Seconds 5
                 $attempt++
@@ -123,7 +128,14 @@ function Register-Runner {
 
 function Start-Runner {
     Write-Log "Starting runner daemon..."
-    & act_runner daemon --config $env:CONFIG_FILE
+    
+    $params = @("daemon")
+    if ($env:CONFIG_FILE) {
+        Write-Log "Using custom config file: $env:CONFIG_FILE"
+        $params += @("--config", $env:CONFIG_FILE)
+    }
+
+    & act_runner @params
 }
 
 try {

@@ -141,7 +141,7 @@ You can configure the runner using either the token or secret method:
 #### Using Runner Token
 ```bash
 # Using environment variables
-docker compose run --rm forgejo-runner register --no-interactive \
+docker compose run --rm forgejo-runner forgejo-runner register --no-interactive \
   --token "${RUNNER_TOKEN}" \
   --name "${RUNNER_NAME}" \
   --instance "${FORGEJO_INSTANCE_URL}" \
@@ -152,7 +152,7 @@ docker compose run --rm forgejo-runner register --no-interactive \
 ```bash
 # Using environment variables
 # This command configures the runner to connect using the previously registered secret
-docker compose run --rm forgejo-runner create-runner-file \
+docker compose run --rm forgejo-runner forgejo-runner create-runner-file \
   --instance "${FORGEJO_INSTANCE_URL}" \
   --secret "${RUNNER_SECRET}" \
   --connect
@@ -187,7 +187,7 @@ These limits ensure that:
 
 After registration, generate the runner configuration:
 ```bash
-docker compose run --rm forgejo-runner generate-config > runner/config.yml
+docker compose run --rm forgejo-runner forgejo-runner generate-config > runner/config.yml
 ```
 
 > Note: These labels use catthehacker's Docker images which are specifically designed for GitHub Actions compatibility. They include:
