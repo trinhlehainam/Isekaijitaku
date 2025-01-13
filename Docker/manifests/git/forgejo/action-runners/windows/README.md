@@ -114,6 +114,62 @@ services:
     restart: unless-stopped
 ```
 
+### Custom CA Certificates
+
+The runner supports installing custom CA certificates during startup using the `EXTRA_CERT_FILES` environment variable. You can specify:
+
+- Individual certificate files
+- Directories containing certificates
+- A combination of both
+
+Use commas to separate multiple paths:
+```
+EXTRA_CERT_FILES=C:\certs\root-ca.crt,C:\certs\intermediate-ca.crt,C:\all-certs
+```
+
+Example docker-compose.yaml:
+```yaml
+services:
+  gitea-runner:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        GITEA_RUNNER_VERSION: 0.2.11
+        WINDOWS_IMAGE: your-registry/your-custom-windows-image:latest
+    image: gitea-runner-windows:0.2.11
+    environment:
+      - GITEA_INSTANCE_URL=http://gitea:3000
+      - GITEA_RUNNER_REGISTRATION_TOKEN=your_token_here
+      - GITEA_RUNNER_NAME=windows-container-gitea-runner
+      - GITEA_RUNNER_LABELS=windows:host
+      # Multiple certificate paths (files and directories)
+      - EXTRA_CERT_FILES=C:\certs\root-ca.crt,C:\certs\intermediate-ca.crt,C:\all-certs
+    volumes:
+      - ./certs/root-ca.crt:C:\certs\root-ca.crt:ro
+      - ./certs/intermediate-ca.crt:C:\certs\intermediate-ca.crt:ro
+      - ./all-certs:C:\all-certs:ro
+    deploy:
+      resources:
+        limits:
+          cpus: '2'
+          memory: 4G
+    restart: unless-stopped
+```
+
+The certificate installation process:
+1. Processes each path in the comma-separated list
+2. For each path:
+   - If it's a file: installs the certificate directly
+   - If it's a directory: installs all certificates in the directory and subdirectories
+3. Supports multiple certificate formats (.cer, .crt, .pem)
+4. Automatically selects appropriate certificate store:
+   - CA store for CA certificates
+   - Personal store for certificates with private keys
+5. Provides detailed logging for each certificate installation
+6. Continues processing remaining paths if one fails
+7. Returns non-zero exit code if any certificate fails to install
+
 ### Build Examples
 
 ```powershell
@@ -220,4 +276,3 @@ docker compose logs --tail=100
 
 # View logs for specific time
 docker compose logs --since 30m
-```

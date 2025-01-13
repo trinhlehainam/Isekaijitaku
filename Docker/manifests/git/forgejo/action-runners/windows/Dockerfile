@@ -55,7 +55,7 @@ RUN \
     }
 
 # Copy scripts
-COPY scripts/Run.ps1 C:\\ProgramData\\Gitea-Act-Runner\\bin
+COPY scripts/Run.ps1 scripts/Install-CustomCerts.ps1 C:\\ProgramData\\Gitea-Act-Runner\\bin/
 
 # Set working directory for runner
 WORKDIR C:\\ProgramData\\Gitea-Act-Runner
