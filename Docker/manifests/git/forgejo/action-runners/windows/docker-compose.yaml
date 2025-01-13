@@ -8,9 +8,9 @@ services:
     build:
       context: .
       dockerfile: Dockerfile
-      args:
-        gitea_runner_version: 0.2.11
-    image: gitea-runner-windows:${GITEA_RUNNER_VERSION:-0.2.11}
+      # args:
+      #   GITEA_RUNNER_VERSION: 0.2.11
+      #   WINDOWS_IMAGE: your-registry/your-custom-windows-image:latest
     environment:
       - GITEA_INSTANCE_URL=https://your-forgejo-instance-url
       # When using Docker Secrets, it's also possible to use
@@ -22,6 +22,7 @@ services:
       # - GITEA_RUNNER_REGISTRATION_TOKEN_FILE=/run/secrets/runner-token
       - GITEA_RUNNER_NAME=windows-container-gitea-runner
       - GITEA_RUNNER_LABELS=windows:host
+      - EXTRA_CERT_FILES=C:\certs\root.crt,C:\certs\intermediate.crt,C:\all-certs
     volumes:
       # Mount runner data directory for persistence
       - ./runner:/data
@@ -30,9 +31,18 @@ services:
       # - "C:\\Program Files (x86)\\Microsoft Visual Studio:C:\\Program Files (x86)\\Microsoft Visual Studio"
       # - "C:\\Program Files\\Microsoft Visual Studio:C:\\Program Files\\Microsoft Visual Studio"
       # - "C:\\ProgramData\\Microsoft\\VisualStudio:C:\\ProgramData\\Microsoft\\VisualStudio"
+      - ./certs/root.crt:C:\certs\root.crt:ro
+      - ./certs/intermediate.crt:C:\certs\intermediate.crt:ro
+      - ./all-certs:C:\all-certs:ro
     deploy:
       resources:
         limits:
           cpus: '2'
           memory: 4G
+    networks:
+      - gitea_network
     restart: unless-stopped
+
+networks:
+  gitea_network:
+    external: true

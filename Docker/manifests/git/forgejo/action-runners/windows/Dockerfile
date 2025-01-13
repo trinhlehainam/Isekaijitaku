@@ -3,13 +3,14 @@
 # - Gitea Runner Dockerfile: https://gitea.com/gitea/act_runner/src/branch/main/Dockerfile
 # - Base Windows Image: https://hub.docker.com/_/microsoft-windows-servercore
 
-ARG GITEA_RUNNER_VERSION=0.2.11
 ARG WINDOWS_IMAGE="mcr.microsoft.com/windows/servercore:ltsc2022"
 
 FROM ${WINDOWS_IMAGE}
 
 # $ProgressPreference: https://github.com/PowerShell/PowerShell/issues/2138#issuecomment-251261324
 SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
+
+ARG GITEA_RUNNER_VERSION=0.2.11
 
 # Install Gitea Runner
 RUN \
@@ -55,10 +56,10 @@ RUN \
     }
 
 # Copy scripts
-COPY scripts/Run.ps1 scripts/Install-CustomCerts.ps1 C:\\ProgramData\\Gitea-Act-Runner\\bin/
+COPY scripts/ C:\\ProgramData\\Gitea-Act-Runner\\scripts/
 
 # Set working directory for runner
 WORKDIR C:\\ProgramData\\Gitea-Act-Runner
 
 # Set entrypoint
-ENTRYPOINT ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "C:\\ProgramData\\Gitea-Act-Runner\\bin\\Run.ps1"]
+ENTRYPOINT ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "C:\\ProgramData\\Gitea-Act-Runner\\scripts\\Run.ps1"]

@@ -3,13 +3,13 @@
 # - Run Script: https://gitea.com/gitea/act_runner/raw/branch/main/scripts/run.sh
 # - GitHub Actions Runner Scripts: https://github.com/actions/runner-images/tree/main/images/windows/scripts
 
-
 # Enable strict error handling
 $ErrorActionPreference = 'Stop'
 
 # Import helper modules
 $helpersPath = Join-Path $PSScriptRoot "helpers"
-Import-Module (Join-Path $helpersPath "LogHelper.ps1")
+Import-Module (Join-Path $helpersPath "LogHelper.psm1")
+Import-Module (Join-Path $helpersPath "CertificateHelper.psm1")
 
 function Test-Environment {
     Write-Log "Checking environment variables..."
@@ -130,9 +130,8 @@ try {
     # Install custom certificates if specified
     if ($env:EXTRA_CERT_FILES) {
         Write-Log "Installing custom certificates from paths: $env:EXTRA_CERT_FILES"
-        & "$PSScriptRoot\Install-CustomCerts.ps1"
-        if ($LASTEXITCODE -ne 0) {
-            Write-Error-Log "Failed to install custom certificates"
+        if (-not (Install-Certificates -CertFiles $env:EXTRA_CERT_FILES)) {
+            Write-Error-Log-And-Throw "Failed to install one or more custom certificates"
         }
     }
     
