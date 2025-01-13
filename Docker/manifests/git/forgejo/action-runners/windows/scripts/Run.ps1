@@ -16,7 +16,7 @@ function Test-Environment {
     
     # Check GITEA_INSTANCE_URL
     if (-not $env:GITEA_INSTANCE_URL) {
-        Write-Error-Log "GITEA_INSTANCE_URL environment variable is required"
+        Write-Error-Log-And-Throw "GITEA_INSTANCE_URL environment variable is required"
     }
 
     # Check token from environment or file
@@ -27,16 +27,16 @@ function Test-Environment {
                 Write-Log "Successfully read token from file"
             }
             catch {
-                Write-Error-Log "Failed to read token from file: $_"
+                Write-Error-Log-And-Throw "Failed to read token from file: $_"
             }
         }
         else {
-            Write-Error-Log "Token file not found"
+            Write-Error-Log-And-Throw "Token file not found"
         }
     }
 
     if (-not $env:GITEA_RUNNER_REGISTRATION_TOKEN) {
-        Write-Error-Log "GITEA_RUNNER_REGISTRATION_TOKEN environment variable or GITEA_RUNNER_REGISTRATION_TOKEN_FILE must be provided"
+        Write-Error-Log-And-Throw "GITEA_RUNNER_REGISTRATION_TOKEN environment variable or GITEA_RUNNER_REGISTRATION_TOKEN_FILE must be provided"
     }
 
     # Set default values for optional parameters
@@ -57,7 +57,7 @@ function Test-Environment {
 
     # Validate config file if specified
     if ($env:CONFIG_FILE -and -not (Test-Path $env:CONFIG_FILE)) {
-        Write-Error-Log "Specified CONFIG_FILE does not exist: $env:CONFIG_FILE"
+        Write-Error-Log-And-Throw "Specified CONFIG_FILE does not exist: $env:CONFIG_FILE"
     }
 }
 
@@ -88,38 +88,60 @@ function Register-Runner {
         $attempt = 1
         $success = $false
 
-        $temp_stdout_file = New-TemporaryFile
-        $temp_stderr_file = New-TemporaryFile
+        $temp_stdout = New-TemporaryFile
+        $temp_stderr = New-TemporaryFile
         
-        # The point of this loop is to make it simple, when running both act_runner and gitea in docker,
-        # for the act_runner to wait a moment for gitea to become available before erroring out.  Within
-        # the context of a single docker-compose, something similar could be done via healthchecks, but
-        # this is more flexible.
-        while (-not $success -and $attempt -le $max_registration_attempts) {
-            Write-Log "Registration attempt $attempt of $max_registration_attempts..."
-            
-            Start-Process -FilePath "act_runner" -ArgumentList $params -PassThru -Wait -NoNewWindow -RedirectStandardOutput $temp_stdout_file.FullName -RedirectStandardError $temp_stderr_file.FullName
-            $stdout = Get-Content $temp_stdout_file.FullName
-            $stderr = Get-Content $temp_stderr_file.FullName
-            if ($stdout -match "Runner registered successfully" -or $stderr -match "Runner registered successfully") {
-                Write-Log "SUCCESS"
-                $success = $true
+        try {
+            while (-not $success -and $attempt -le $max_registration_attempts) {
+                Write-Log "Registration attempt $attempt of $max_registration_attempts..."
+                
+                $process_params = @{
+                    FilePath = "act_runner"
+                    ArgumentList = $params
+                    NoNewWindow = $true
+                    Wait = $true
+                    RedirectStandardOutput = $temp_stdout.FullName
+                    RedirectStandardError = $temp_stderr.FullName
+                    PassThru = $true
+                }
+                
+                $process = Start-Process @process_params
+                
+                # Get combined output
+                $stdout = Get-Content -Path $temp_stdout.FullName -Raw
+                $stderr = Get-Content -Path $temp_stderr.FullName -Raw
+                $output = "$stdout`n$stderr"
+                
+                # Clear files for next attempt
+                Clear-Content -Path $temp_stdout.FullName
+                Clear-Content -Path $temp_stderr.FullName
+                
+                if ($process.ExitCode -eq 0 -and $output -match "Runner registered successfully") {
+                    Write-Log "SUCCESS"
+                    $success = $true
+                }
+                else {
+                    Write-Log "Registration output: $output"
+                    Write-Log "Waiting to retry..."
+                    Start-Sleep -Seconds 5
+                    $attempt++
+                }
             }
-            else {
-                Write-Log "Waiting to retry..."
-                Start-Sleep -Seconds 5
-                $attempt++
+
+            if (-not $success) {
+                Write-Error-Log-And-Throw "Runner registration failed after $max_registration_attempts attempts"
             }
-        }
 
-        if (-not $success) {
-            Write-Error-Log "Runner registration failed after $max_registration_attempts attempts"
+            # Remove registration token variables after successful registration
+            Write-Log "Removing registration token from environment"
+            Remove-Item Env:\GITEA_RUNNER_REGISTRATION_TOKEN -ErrorAction SilentlyContinue
+            Remove-Item Env:\GITEA_RUNNER_REGISTRATION_TOKEN_FILE -ErrorAction SilentlyContinue
         }
-
-        # Remove registration token variables after successful registration
-        Write-Log "Removing registration token from environment"
-        Remove-Item Env:\GITEA_RUNNER_REGISTRATION_TOKEN -ErrorAction SilentlyContinue
-        Remove-Item Env:\GITEA_RUNNER_REGISTRATION_TOKEN_FILE -ErrorAction SilentlyContinue
+        finally {
+            # Clean up temp files
+            Remove-Item -Path $temp_stdout.FullName -Force -ErrorAction SilentlyContinue
+            Remove-Item -Path $temp_stderr.FullName -Force -ErrorAction SilentlyContinue
+        }
     }
     else {
         Write-Log "Runner already registered"
@@ -127,8 +149,6 @@ function Register-Runner {
 }
 
 function Start-Runner {
-    Write-Log "Starting runner daemon..."
-    
     $params = @("daemon")
     if ($env:CONFIG_FILE) {
         Write-Log "Using custom config file: $env:CONFIG_FILE"
@@ -138,21 +158,17 @@ function Start-Runner {
     & act_runner @params
 }
 
-try {
-    # Install custom certificates if specified
-    if ($env:EXTRA_CERT_FILES) {
-        Write-Log "Installing custom certificates from paths: $env:EXTRA_CERT_FILES"
+# Install custom certificates if specified
+if ($env:EXTRA_CERT_FILES) {
+    Write-Log "Installing custom certificates from paths: $env:EXTRA_CERT_FILES"
         if (-not (Install-Certificates -CertFiles $env:EXTRA_CERT_FILES)) {
             Write-Error-Log-And-Throw "Failed to install one or more custom certificates"
         }
-    }
-    
-    Write-Log "Starting Gitea Runner initialization..."
-    Test-Environment
-    Register-Runner
-    Start-Runner
 }
-catch {
-    Write-Log "Error: $_" -Level ERROR
-    throw
-}
+
+Write-Log "Starting Gitea Runner initialization..."
+Test-Environment
+Register-Runner
+
+Write-Log "Starting runner daemon..."
+Start-Runner
