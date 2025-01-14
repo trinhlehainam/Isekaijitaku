@@ -1,5 +1,5 @@
 # Gitea Runner Installation Script
-# This script downloads and installs the Gitea Runner binary and sets up the Windows service
+# This script downloads and installs the Gitea Runner binary and sets up the Windows task scheduler
 
 # Import logging module
 $ScriptPath = Split-Path -Parent $MyInvocation.MyCommand.Path
@@ -20,11 +20,10 @@ $ProgressPreference = 'SilentlyContinue'
 $GITEA_RUNNER_VERSION = "0.2.11"  # Update this as needed
 $INSTALL_DIR = "$env:USERPROFILE\GiteaActionRunner"
 $BIN_DIR = "$INSTALL_DIR\bin"
-$CONFIG_DIR = "$INSTALL_DIR\config"
+$SCRIPTS_DIR = "$INSTALL_DIR\scripts"
 $LOGS_DIR = "$INSTALL_DIR\logs"
-$SCRIPTS_DIR = "$BIN_DIR\scripts"
-$CONFIG_FILE = "$CONFIG_DIR\config.yaml"
-$RUNNER_STATE_FILE = "$CONFIG_DIR\.runner"
+$CONFIG_FILE = "$INSTALL_DIR\config.yaml"
+$RUNNER_STATE_FILE = "$INSTALL_DIR\.runner"
 $CACHE_DIR = "$env:USERPROFILE\.cache\actcache"
 $WORK_DIR = "$env:USERPROFILE\.cache\act"
 
@@ -33,7 +32,7 @@ Set-LogFile -Path "$LOGS_DIR\install.log"
 
 # Create necessary directories
 Write-Log "Creating installation directories..."
-$directories = @($INSTALL_DIR, $BIN_DIR, $CONFIG_DIR, $LOGS_DIR, $SCRIPTS_DIR, $CACHE_DIR, $WORK_DIR)
+$directories = @($INSTALL_DIR, $BIN_DIR, $SCRIPTS_DIR, $LOGS_DIR, $CACHE_DIR, $WORK_DIR)
 foreach ($dir in $directories) {
     if (-not (Test-Path $dir)) {
         New-Item -ItemType Directory -Force -Path $dir | Out-Null
@@ -74,11 +73,9 @@ try {
 }
 
 # Generate default config.yaml
+# Reference: https://gitea.com/gitea/act_runner/src/branch/main/internal/pkg/config/config.example.yaml
 Write-Log "Generating default configuration..."
 @"
-# References:
-# https://gitea.com/gitea/act_runner/src/branch/main/internal/pkg/config/config.example.yaml
-
 # Example configuration file, it's safe to copy this as the default config file without any modification.
 
 # You don't have to copy this file to your instance,
@@ -180,10 +177,8 @@ host:
 Write-Log "Created config file at: $CONFIG_FILE"
 
 # Copy Run script to scripts directory
-$scriptSource = Join-Path $PSScriptRoot "scripts\Run.ps1"
-$scriptDest = Join-Path $SCRIPTS_DIR "Run.ps1"
-Copy-Item -Path $scriptSource -Destination $scriptDest -Force
-Write-Log "Copied Run.ps1 to $scriptDest"
+Copy-Item -Path "$ScriptPath\scripts\Run.ps1" -Destination "$SCRIPTS_DIR\Run.ps1" -Force
+Write-Log "Copied Run.ps1 to $SCRIPTS_DIR"
 
 # Add to PATH if not already present
 $currentPath = [Environment]::GetEnvironmentVariable("Path", "User")
@@ -196,53 +191,70 @@ if (-not $currentPath.Contains($BIN_DIR)) {
     Write-Log "Added runner directory to PATH"
 }
 
-# Remove existing service if it exists
-if (Get-Service $SERVICE_NAME -ErrorAction SilentlyContinue) {
-    Write-Log "Removing existing service..."
-    Stop-Service $SERVICE_NAME -Force
-    $existingService = Get-WmiObject -Class Win32_Service -Filter "Name='$SERVICE_NAME'"
-    $existingService.Delete()
-    Start-Sleep -Seconds 2
+# Remove existing task if it exists
+Write-Log "Checking for existing scheduled task..."
+$existingTask = Get-ScheduledTask -TaskName "GiteaActionRunner" -ErrorAction SilentlyContinue
+if ($existingTask) {
+    Write-Log "Removing existing task..."
+    Unregister-ScheduledTask -TaskName "GiteaActionRunner" -Confirm:$false
 }
 
-$SERVICE_NAME = "GiteaActionRunner"
-$DISPLAY_NAME = "Gitea Action Runner"
-$DESCRIPTION = "Runs Gitea Actions for CI/CD workflows"
-# Create service
-Write-Log "Creating Windows Service..."
+$TASK_NAME = "GiteaActionRunner"
+$TASK_DESCRIPTION = "Runs Gitea Actions for CI/CD workflows"
+
+# Create scheduled task
+Write-Log "Creating scheduled task..."
 try {
-    $binPath = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"$scriptDest`" -ConfigFile `"$CONFIG_FILE`""
-    $service = New-Service -Name $SERVICE_NAME `
-        -DisplayName $DISPLAY_NAME `
-        -Description $DESCRIPTION `
-        -BinaryPathName $binPath `
-        -StartupType Automatic
-    
-    # Configure service recovery options using WMI
-    $wmiService = Get-WmiObject -Class Win32_Service -Filter "Name='$SERVICE_NAME'"
-    
-    # First failure: Restart after 1 minute
-    # Second failure: Restart after 1 minute
-    # Third failure: Restart after 1 minute
-    # Reset failure count after 1 day (86400 seconds)
-    $wmiService.Change($null, $null, $null, $null, $null, $null, $null, $null, $null, $null, $null,
-        "1/60000/1/60000/1/60000/86400")
-    
-    Write-SuccessLog "Service created successfully"
-    Write-Log "NOTE: You need to configure the service with your Gitea instance URL and registration token"
-    Write-Log "To configure and start the service, run:"
-    Write-Log "1. Edit $scriptDest and set your Gitea instance URL and registration token"
-    Write-Log "2. Start-Service $SERVICE_NAME"
+    # Create action to run the script
+    $action = New-ScheduledTaskAction `
+        -Execute "powershell.exe" `
+        -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$SCRIPTS_DIR\Run.ps1`" -ConfigFile `"$CONFIG_FILE`"" `
+        -WorkingDirectory $INSTALL_DIR
+
+    # Create trigger for automatic start
+    $trigger = New-ScheduledTaskTrigger -AtStartup
+
+    # Create principal (run with highest privileges)
+    $principal = New-ScheduledTaskPrincipal `
+        -UserId "SYSTEM" `
+        -LogonType ServiceAccount `
+        -RunLevel Highest
+
+    # Create settings
+    $settings = New-ScheduledTaskSettingsSet `
+        -MultipleInstances IgnoreNew `
+        -RestartCount 3 `
+        -RestartInterval (New-TimeSpan -Minutes 1) `
+        -ExecutionTimeLimit (New-TimeSpan -Hours 0) `  # No time limit
+        -AllowStartIfOnBatteries `
+        -DontStopIfGoingOnBatteries `
+        -StartWhenAvailable `
+        -RunOnlyIfNetworkAvailable
+
+    # Register the task
+    Register-ScheduledTask `
+        -TaskName $TASK_NAME `
+        -Description $TASK_DESCRIPTION `
+        -Action $action `
+        -Trigger $trigger `
+        -Principal $principal `
+        -Settings $settings
+
+    Write-SuccessLog "Scheduled task created successfully"
+    Write-Log "NOTE: You need to configure the runner with your Gitea instance URL and registration token"
+    Write-Log "To configure and start the runner, run:"
+    Write-Log "1. Edit $SCRIPTS_DIR\Run.ps1 and set your Gitea instance URL and registration token"
+    Write-Log "2. Start-ScheduledTask -TaskName $TASK_NAME"
     
 } catch {
-    Write-ErrorLog "Failed to create service: $_"
+    Write-ErrorLog "Failed to create scheduled task: $_"
     exit 1
 }
 
 Write-SuccessLog "`nInstallation completed successfully!"
 Write-Log "Binary location: $outputFile"
 Write-Log "Config location: $CONFIG_FILE"
-Write-Log "Script location: $scriptDest"
-Write-Log "Service name: $SERVICE_NAME"
+Write-Log "Script location: $SCRIPTS_DIR\Run.ps1"
+Write-Log "Task name: $TASK_NAME"
 Write-Log "Cache directory: $CACHE_DIR"
 Write-Log "Work directory: $WORK_DIR"

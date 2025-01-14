@@ -22,67 +22,75 @@ This script will:
 - Download and install the Gitea Runner binary
 - Add the binary directory to PATH
 - Install the Run script
-- Create and configure the Windows Service
+- Create and configure the scheduled task
 
 2. Configure the runner:
-   - Edit `$HOME\GiteaActionRunner\bin\scripts\Run.ps1`
+   - Edit `%USERPROFILE%\GiteaActionRunner\scripts\Run.ps1`
    - Set your Gitea instance URL and registration token
 
-3. Start the service:
+3. Start the runner:
 ```powershell
-Start-Service GiteaActionRunner
+Start-ScheduledTask -TaskName "GiteaActionRunner"
 ```
 
 ## File Structure
 
 ```
-$HOME/GiteaActionRunner/
-├── bin/
-│   ├── act_runner.exe
-│   └── scripts/
-│       └── Run.ps1
-├── config/
-│   └── config.yaml
-└── logs/
-    └── runner.log
+%USERPROFILE%/
+├── .cache/
+│   ├── actcache/     # Cache directory for actions/cache
+│   └── act/          # Work directory for job execution
+└── GiteaActionRunner/
+    ├── bin/
+    │   └── act_runner.exe
+    ├── scripts/
+    │   └── Run.ps1
+    ├── config.yaml   # Runner configuration
+    ├── .runner       # Runner registration state
+    └── logs/
+        ├── install.log
+        └── runner.log
 ```
 
-## Service Management
+## Task Management
 
-The service is installed as "GiteaActionRunner" and configured to:
+The runner is installed as a scheduled task "GiteaActionRunner" and configured to:
 - Start automatically on system boot
-- Restart automatically on failure
+- Restart automatically on failure (up to 3 times)
 - Run with SYSTEM privileges
+- Start when system becomes available
+- Run only when network is available
 
-Manage the service using standard Windows commands:
+Manage the task using standard PowerShell commands:
 ```powershell
-# Start the service
-Start-Service GiteaActionRunner
+# Start the runner
+Start-ScheduledTask -TaskName "GiteaActionRunner"
 
-# Stop the service
-Stop-Service GiteaActionRunner
+# Stop the runner
+Stop-ScheduledTask -TaskName "GiteaActionRunner"
 
-# Check service status
-Get-Service GiteaActionRunner
+# Get status
+Get-ScheduledTask -TaskName "GiteaActionRunner"
 ```
 
 ## Logging
 
 Logs can be found in:
-- Runner logs: `$HOME/GiteaActionRunner/logs/runner.log`
-- Windows Event Viewer under Application logs
+- Runner logs: `%USERPROFILE%\GiteaActionRunner\logs\runner.log`
+- Installation logs: `%USERPROFILE%\GiteaActionRunner\logs\install.log`
+- Windows Event Viewer under Task Scheduler logs
 
 ## Security Considerations
 
-- The service runs with SYSTEM privileges
+- The task runs with SYSTEM privileges
 - Configuration files are protected with appropriate ACLs
 - Registration tokens are removed from memory after successful registration
 - All operations are logged for auditing purposes
 
 ## Troubleshooting
 
-1. If the service fails to start:
-   - Check the logs in `$HOME/GiteaActionRunner/logs/runner.log`
+1. If the task fails to start:
+   - Check the logs in `%USERPROFILE%\GiteaActionRunner\logs\runner.log`
    - Verify the Gitea instance URL and registration token
    - Ensure the runner is not already registered
 
@@ -93,5 +101,5 @@ Logs can be found in:
 
 3. If the runner is not detected by Gitea:
    - Check if the runner is properly registered
-   - Verify the runner service is running
+   - Verify the runner task is running
    - Check network connectivity
