@@ -44,13 +44,16 @@ $RUNNER_STATE = "$DATA_DIR\.runner"
 $CONFIG_FILE = if ($ConfigFile) { $ConfigFile } else { $DEFAULT_CONFIG }
 
 # Initialize logging
+if (-not (Test-Path $LOGS_DIR)) {
+    New-Item -ItemType Directory -Force -Path $LOGS_DIR | Out-Null
+}
 Set-LogFile -Path "$LOGS_DIR\runner.log"
 
 # Ensure runner exists
 $runnerExe = "$BIN_DIR\act_runner.exe"
 if (-not (Test-Path $runnerExe)) {
     Write-ErrorLog "Runner not found at: $runnerExe"
-    Write-ErrorLog "Please run Install.ps1 first"
+    Write-ErrorLog "Please run Setup.ps1 first"
     exit 1
 }
 

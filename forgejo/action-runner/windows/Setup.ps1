@@ -4,9 +4,9 @@ param(
     [ValidateSet(
         'install',
         'register-task',
-        'get-status',
+        'status',
         'remove-task',
-        'update-runner',
+        'update',
         'uninstall',
         'help'
     )]
@@ -29,21 +29,14 @@ param(
     [switch]$Force
 )
 
-# Import logging module
-Import-Module "$PSScriptRoot\scripts\LogHelpers.psm1" -Force
-
-# Ensure we stop on errors
-$ErrorActionPreference = 'Stop'
-$ProgressPreference = 'SilentlyContinue'
-
 # Configuration based on installation space
 if ($InstallSpace -eq 'system') {
-    # System-wide installation (Program Files)
+    # System-wide installation
     $PROGRAM_DIR = "$env:ProgramFiles\GiteaActRunner"
     $DATA_DIR = "$env:ProgramData\GiteaActRunner"
 } else {
     # User space installation
-    $PROGRAM_DIR = "$env:USERPROFILE\.gitea\act_runner\bin"
+    $PROGRAM_DIR = "$env:USERPROFILE\.gitea\act_runner"
     $DATA_DIR = "$env:USERPROFILE\.gitea\act_runner\data"
 }
 
@@ -56,8 +49,15 @@ $RUNNER_STATE_FILE = "$DATA_DIR\.runner"
 $CACHE_DIR = "$DATA_DIR\cache\actcache"
 $WORK_DIR = "$DATA_DIR\work"
 
-# Initialize logging
-Set-LogFile -Path "$LOGS_DIR\install.log"
+# Import logging module
+Import-Module "$PSScriptRoot\scripts\LogHelpers.psm1" -Force
+
+# Initialize logging in script directory for persistence
+Set-LogFile -Path "$PSScriptRoot\install.log"
+
+# Ensure we stop on errors
+$ErrorActionPreference = 'Stop'
+$ProgressPreference = 'SilentlyContinue'
 
 function Show-Help {
     @"
@@ -169,13 +169,23 @@ function Install-Runner {
     }
 
     # Copy scripts
-    Write-Log "Copying scripts..."
+    Write-Log "Copying scripts to: $SCRIPTS_DIR"
     Copy-Item "$PSScriptRoot\scripts\*" $SCRIPTS_DIR -Force
     
+    # Add runner directory to PATH
+    Write-Log "Updating PATH: $BIN_DIR"
+    $newPath = ('{0};{1}' -f $BIN_DIR, $env:PATH)
+    if ($InstallSpace -eq 'system') {
+        [Environment]::SetEnvironmentVariable('PATH', $newPath, [EnvironmentVariableTarget]::Machine)
+    }
+    if ($InstallSpace -eq 'user') {
+        [Environment]::SetEnvironmentVariable('PATH', $newPath, [EnvironmentVariableTarget]::User)
+    }
+
     # Create default config if it doesn't exist
     # Reference: https://gitea.com/gitea/act_runner/src/branch/main/internal/pkg/config/config.example.yaml
     if (-not (Test-Path $CONFIG_FILE) -or $Force) {
-        Write-Log "Creating default config..."
+        Write-Log "Creating default config file: $CONFIG_FILE"
         @"
 # Example configuration file, it's safe to copy this as the default config file without any modification.
 
@@ -383,6 +393,10 @@ function Update-Runner {
     # Stop the task if it exists and is running
     $task = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
     if ($task -and $task.State -eq 'Running') {
+        if (-not (Test-AdminPrivileges)) {
+            Write-ErrorLog "Runner task is running. Please stop the task and try again."
+            exit 1
+        }
         Write-Log "Stopping runner task..."
         Stop-ScheduledTask -TaskName $TaskName
     }
@@ -392,6 +406,10 @@ function Update-Runner {
     
     # Restart the task if it exists
     if ($task) {
+        if (-not (Test-AdminPrivileges)) {
+            Write-ErrorLog "Restarting runner task requires administrative privileges. Please run as Administrator."
+            exit 1
+        }
         Write-Log "Restarting runner task..."
         Start-ScheduledTask -TaskName $TaskName
     }
@@ -436,8 +454,6 @@ function Uninstall-Runner {
         }
     }
 
-    # Clear log file before final message since the log directory will be gone
-    Set-LogFile -Path $null
     Write-SuccessLog "Uninstallation completed successfully!"
 }
 
@@ -462,7 +478,7 @@ switch ($Action.ToLower()) {
         }
         Register-RunnerTask
     }
-    'get-status' {
+    'status' {
         Get-RunnerTaskStatus
     }
     'remove-task' {
@@ -471,10 +487,7 @@ switch ($Action.ToLower()) {
         }
         Remove-RunnerTask
     }
-    'update-runner' {
-        if (-not (Test-InstallPermissions)) {
-            exit 1
-        }
+    'update' {
         Update-Runner
     }
     'uninstall' {

@@ -1,7 +1,4 @@
-# LogHelpers.psm1
-# Shared logging functions for Gitea Runner scripts
-
-# Default log file path and settings
+# Log Helper Functions
 $script:logFile = $null
 
 function Set-LogFile {
@@ -11,14 +8,19 @@ function Set-LogFile {
     )
 
     $script:logFile = $Path
+}
 
-    if ($Path) {
-        # Create log directory if it doesn't exist
-        $logDir = Split-Path -Parent $Path
-        if (-not (Test-Path $logDir)) {
-            New-Item -ItemType Directory -Force -Path $logDir | Out-Null
-        }
-    }
+function Format-LogMessage {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$Level,
+        
+        [Parameter(Mandatory=$true)]
+        [string]$Message
+    )
+    
+    $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
+    return "[$timestamp] $Level $Message"
 }
 
 function Write-Log {
@@ -27,11 +29,9 @@ function Write-Log {
         [string]$Message
     )
 
-    $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
-    $logMessage = "[$timestamp] $Message"
-    
+    $logMessage = Format-LogMessage -Level '[INFO]' -Message $Message
     Write-Host $logMessage
-
+    
     if ($script:logFile) {
         Add-Content -Path $script:logFile -Value $logMessage
     }
@@ -43,27 +43,9 @@ function Write-SuccessLog {
         [string]$Message
     )
 
-    $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
-    $logMessage = "[$timestamp] $Message"
-    
+    $logMessage = Format-LogMessage -Level '[INFO]' -Message $Message
     Write-Host $logMessage -ForegroundColor Green
-
-    if ($script:logFile) {
-        Add-Content -Path $script:logFile -Value $logMessage
-    }
-}
-
-function Write-WarningLog {
-    param(
-        [Parameter(Mandatory=$true)]
-        [string]$Message
-    )
-
-    $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
-    $logMessage = "[$timestamp] WARNING: $Message"
     
-    Write-Host $logMessage -ForegroundColor Yellow
-
     if ($script:logFile) {
         Add-Content -Path $script:logFile -Value $logMessage
     }
@@ -72,17 +54,33 @@ function Write-WarningLog {
 function Write-ErrorLog {
     param(
         [Parameter(Mandatory=$true)]
-        [string]$Message
+        [string]$Message,
+        
+        [Parameter(Mandatory=$false)]
+        [System.Management.Automation.ErrorRecord]$ErrorRecord
     )
 
-    $timestamp = Get-Date -Format 'yyyy-MM-dd HH:mm:ss'
-    $logMessage = "[$timestamp] ERROR: $Message"
-    
+    $logMessage = Format-LogMessage -Level '[ERROR]' -Message $Message
     Write-Host $logMessage -ForegroundColor Red
-
+    
+    if ($ErrorRecord) {
+        $errorDetails = Format-LogMessage -Level '[ERROR]' -Message "Details: $($ErrorRecord.Exception.Message)"
+        Write-Host $errorDetails -ForegroundColor Red
+        
+        if ($script:logFile) {
+            Add-Content -Path $script:logFile -Value $errorDetails
+        }
+    }
+    
     if ($script:logFile) {
         Add-Content -Path $script:logFile -Value $logMessage
     }
 }
 
-Export-ModuleMember -Function Set-LogFile, Write-Log, Write-SuccessLog, Write-WarningLog, Write-ErrorLog
+# Export functions
+Export-ModuleMember -Function @(
+    'Set-LogFile',
+    'Write-Log',
+    'Write-SuccessLog',
+    'Write-ErrorLog'
+)

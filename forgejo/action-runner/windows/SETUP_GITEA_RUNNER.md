@@ -21,9 +21,9 @@ Actions:
   help           Show help message (default)
   install        Install the runner and register task scheduler
   register-task  Register the task in Task Scheduler
-  get-status     Get task scheduler status
+  status         Get task scheduler status
   remove-task    Remove the task scheduler entry
-  update-runner  Update the runner binary
+  update         Update the runner binary
   uninstall      Remove runner files and task scheduler entry
 ```
 
@@ -33,9 +33,9 @@ Actions:
   - `help`: Show help message (default)
   - `install`: Performs a full installation
   - `register-task`: Only registers the task scheduler
-  - `get-status`: Shows current task status
+  - `status`: Shows current task status
   - `remove-task`: Removes the task scheduler entry
-  - `update-runner`: Updates the runner binary
+  - `update`: Updates the runner binary
   - `uninstall`: Removes all runner files and task scheduler entry
 - `-TaskName`: Custom task name (default: "GiteaActionRunner")
 - `-TaskDescription`: Custom task description
@@ -69,14 +69,15 @@ The script supports two installation spaces:
 - System-wide Installation (`-InstallSpace system`):
   - `install`: Requires admin
   - `register-task`: Requires admin
-  - `get-status`: No admin required
+  - `status`: No admin required
   - `remove-task`: Requires admin
-  - `update-runner`: Requires admin
+  - `update`: Requires admin when task exists and is running
   - `uninstall`: Requires admin (only when removing system-wide installation or task exists)
 
 - User Space Installation (`-InstallSpace user`):
   - No admin privileges required for any action except:
     - When task scheduler entry exists (for uninstall)
+    - When updating with task running (for update)
   - All other operations within user's home directory
 
 ### Examples
@@ -99,13 +100,13 @@ The script supports two installation spaces:
 .\Setup.ps1 -Action register-task
 
 # Check task status (no admin required)
-.\Setup.ps1 -Action get-status
+.\Setup.ps1 -Action status
 
 # Remove task
 .\Setup.ps1 -Action remove-task
 
 # Update runner
-.\Setup.ps1 -Action update-runner -RunnerVersion "0.2.12"
+.\Setup.ps1 -Action update -RunnerVersion "0.2.12"
 
 # Uninstall runner
 .\Setup.ps1 -Action uninstall                           # No admin if user space and no task
@@ -193,7 +194,7 @@ The runner can be managed through Task Scheduler with these features:
 
 ```powershell
 # Check task status (no admin required)
-.\Setup.ps1 -Action get-status
+.\Setup.ps1 -Action status
 
 # View detailed status
 Get-ScheduledTask -TaskName "GiteaActionRunner" | Select-Object *
@@ -210,17 +211,61 @@ Stop-ScheduledTask -TaskName "GiteaActionRunner"
 
 ## Logging
 
-### Log Files
-- Runner logs: `%ProgramData%\GiteaActRunner\logs\runner.log`
-- Installation logs: `%ProgramData%\GiteaActRunner\logs\install.log`
-- Windows Event Viewer under Task Scheduler logs
+The script provides simple and clear logging with two levels:
+
+### Log Levels
+
+- `INFO`: Normal operational messages (green for success)
+- `ERROR`: Error messages with optional details
+
+### Log Format
+
+```
+[TIMESTAMP] LEVEL MESSAGE
+```
+
+Example:
+```
+[2025-01-14 21:59:00] INFO Starting installation...
+[2025-01-14 21:59:01] ERROR Failed to create directory: Access denied
+```
+
+### Log File Locations
+
+- Installation logs: `<script_directory>\install.log`
+  - Persists between installations and uninstallations
+  - Contains complete setup history
+
+- Runner logs (based on installation space):
+  - System-wide: `%ProgramData%\GiteaActRunner\logs\runner.log`
+  - User space: `%USERPROFILE%\.gitea\act_runner\data\logs\runner.log`
 
 ### Log Features
-- Automatic log rotation (10MB per file)
-- Keeps last 5 log files
-- Color-coded console output
-- Detailed error logging with stack traces
-- Debug logging (enable with `$env:GITEA_RUNNER_DEBUG="true"`)
+
+- Consistent timestamp format (yyyy-MM-dd HH:mm:ss)
+- Color-coded console output:
+  - INFO in white (green for success)
+  - ERROR in red
+- Error logging with optional details
+- Installation history preserved in script directory
+
+### Viewing Logs
+
+```powershell
+# View installation logs (always in script directory)
+Get-Content ".\install.log"
+
+# View runner logs
+# For system-wide installation
+Get-Content "$env:ProgramData\GiteaActRunner\logs\runner.log"
+
+# For user space installation
+Get-Content "$env:USERPROFILE\.gitea\act_runner\data\logs\runner.log"
+
+# Filter by log level
+Get-Content ".\install.log" | Select-String "INFO"
+Get-Content ".\install.log" | Select-String "ERROR"
+```
 
 ## Security Features
 
@@ -239,13 +284,13 @@ Stop-ScheduledTask -TaskName "GiteaActionRunner"
    .\Setup.ps1 -Force
    
    # Check installation logs
-   Get-Content "$env:ProgramData\GiteaActRunner\logs\install.log"
+   Get-Content ".\install.log"
    ```
 
 2. Task Scheduler Issues:
    ```powershell
    # Check task status
-   .\Setup.ps1 -Action get-status
+   .\Setup.ps1 -Action status
    
    # Recreate task (run as administrator)
    .\Setup.ps1 -Action remove-task
