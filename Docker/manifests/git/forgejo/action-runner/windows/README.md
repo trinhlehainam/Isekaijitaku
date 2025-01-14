@@ -1,6 +1,25 @@
 # Windows Gitea Action Runner
 
-This repository contains the Dockerfile and configuration for running Gitea Action Runner on Windows containers. The runner image is built on top of our base Windows image that includes common development tools.
+## Important Notice About Windows Container Support
+
+> **Note**: As of January 2024, Gitea Action Runner has limited support for running actions in Windows Containers. 
+> For tracking this limitation, see:
+> - [act_runner issue #467: Support running actions in Windows containers](https://gitea.com/gitea/act_runner/issues/467)
+> - [actions/runner issue #904: Windows Container Support](https://github.com/actions/runner/issues/904)
+
+Due to these limitations, we recommend two approaches:
+
+1. **Custom Windows Container Base Image**:
+   - Build a custom Windows container with all required tools pre-installed
+   - Use this as base image for running actions
+   - Note: Limited functionality due to current container support issues
+
+2. **VM-based Installation (Recommended)**:
+   - Run Gitea Action Runner directly on a dedicated Windows VM
+   - Provides better isolation and security
+   - Full Windows environment support
+
+This repository contains the Dockerfile and configuration for running Gitea Action Runner on Windows containers, which will be fully functional once container support is improved.
 
 ## Base Image
 
@@ -41,6 +60,12 @@ Optional:
 - `GITEA_MAX_REG_ATTEMPTS`: Maximum registration attempts (default: 10)
 
 ### Security Notes
+- Running the runner directly on host gives it full system access
+- For production environments:
+  - Use dedicated VMs (current recommended approach)
+  - Or custom Windows containers (when container support improves)
+- Never run untrusted actions on production systems
+- Regularly update runner and base images/VMs
 - Registration token is automatically removed from environment after successful registration
 - Token file remains accessible for container restarts
 - Environment variables are validated before use
