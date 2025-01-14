@@ -1,10 +1,8 @@
 # Gitea Runner Installation Script
-# This script provides various options for installing and managing Gitea Runner
-
 param(
     [Parameter(Mandatory=$false)]
     [ValidateSet(
-        'install-runner',
+        'install',
         'register-task',
         'get-status',
         'remove-task',
@@ -64,7 +62,7 @@ Set-LogFile -Path "$LOGS_DIR\install.log"
 function Show-Help {
     @"
 Gitea Runner Installation Script
-Usage: .\Install.ps1 [-Action <action>] [-TaskName <name>] [-InstallSpace <space>] [-RunnerVersion <version>] [-Force]
+Usage: .\Setup.ps1 [-Action <action>] [-TaskName <name>] [-InstallSpace <space>] [-RunnerVersion <version>] [-Force]
 
 Actions:
   help           Show this help message (default)
@@ -87,26 +85,26 @@ Parameters:
 
 Examples:
   # Show help
-  .\Install.ps1
-  .\Install.ps1 -Action help
+  .\Setup.ps1
+  .\Setup.ps1 -Action help
 
   # System-wide installation (requires admin)
-  .\Install.ps1 -Action install-runner -InstallSpace system
+  .\Setup.ps1 -Action install-runner -InstallSpace system
 
   # User space installation (no admin required)
-  .\Install.ps1 -Action install-runner -InstallSpace user
+  .\Setup.ps1 -Action install-runner -InstallSpace user
 
   # Register task with custom name
-  .\Install.ps1 -Action register-task -TaskName "MyRunner"
+  .\Setup.ps1 -Action register-task -TaskName "MyRunner"
 
   # Check status
-  .\Install.ps1 -Action get-status
+  .\Setup.ps1 -Action get-status
 
   # Update runner
-  .\Install.ps1 -Action update-runner -RunnerVersion "0.2.12"
+  .\Setup.ps1 -Action update-runner -RunnerVersion "0.2.12"
 
   # Uninstall runner
-  .\Install.ps1 -Action uninstall
+  .\Setup.ps1 -Action uninstall
 
 Note: System-wide installation (-InstallSpace system) requires administrative privileges
 "@ | Write-Host
@@ -448,17 +446,11 @@ switch ($Action.ToLower()) {
     'help' {
         Show-Help
     }
-    'install-runner' {
+    'install' {
         if (-not (Test-InstallPermissions)) {
             exit 1
         }
         Install-Runner
-        if (Test-AdminPrivileges -or $InstallSpace -eq 'user') {
-            Register-RunnerTask
-            Write-Log "`nTo configure and start the runner:"
-            Write-Log "1. Edit $SCRIPTS_DIR\Run.ps1 and set your Gitea instance URL and registration token"
-            Write-Log "2. Start-ScheduledTask -TaskName $TaskName"
-        }
     }
     'register-task' {
         if (-not (Test-InstallPermissions)) {

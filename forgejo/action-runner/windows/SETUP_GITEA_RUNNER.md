@@ -10,16 +10,16 @@ This guide explains how to set up and manage Gitea Action Runner on Windows usin
 - A running Forgejo/Gitea instance
 - Access to Forgejo/Gitea dashboard with admin privileges
 
-## Installation Options
+## Setup Options
 
-The installation script (`Install.ps1`) provides several actions:
+The setup script (`Setup.ps1`) provides several actions:
 
 ```powershell
-.\Install.ps1 [-Action <action>] [-TaskName <name>] [-InstallSpace <space>] [-RunnerVersion <version>] [-Force]
+.\Setup.ps1 [-Action <action>] [-TaskName <name>] [-InstallSpace <space>] [-RunnerVersion <version>] [-Force]
 
 Actions:
   help           Show help message (default)
-  install-runner Install the runner and register task scheduler
+  install        Install the runner and register task scheduler
   register-task  Register the task in Task Scheduler
   get-status     Get task scheduler status
   remove-task    Remove the task scheduler entry
@@ -31,7 +31,7 @@ Actions:
 
 - `-Action`: Installation action to perform
   - `help`: Show help message (default)
-  - `install-runner`: Performs a full installation
+  - `install`: Performs a full installation
   - `register-task`: Only registers the task scheduler
   - `get-status`: Shows current task status
   - `remove-task`: Removes the task scheduler entry
@@ -67,7 +67,7 @@ The script supports two installation spaces:
 ### Administrative Requirements
 
 - System-wide Installation (`-InstallSpace system`):
-  - `install-runner`: Requires admin
+  - `install`: Requires admin
   - `register-task`: Requires admin
   - `get-status`: No admin required
   - `remove-task`: Requires admin
@@ -83,33 +83,33 @@ The script supports two installation spaces:
 
 ```powershell
 # Show help
-.\Install.ps1
-.\Install.ps1 -Action help
+.\Setup.ps1
+.\Setup.ps1 -Action help
 
 # System-wide installation (requires admin)
-.\Install.ps1 -Action install-runner -InstallSpace system
+.\Setup.ps1 -Action install -InstallSpace system
 
 # User space installation (no admin required)
-.\Install.ps1 -Action install-runner -InstallSpace user
+.\Setup.ps1 -Action install -InstallSpace user
 
 # Install with custom task name and version
-.\Install.ps1 -TaskName "MyRunner" -RunnerVersion "0.2.12"
+.\Setup.ps1 -TaskName "MyRunner" -RunnerVersion "0.2.12"
 
 # Only register task scheduler
-.\Install.ps1 -Action register-task
+.\Setup.ps1 -Action register-task
 
 # Check task status (no admin required)
-.\Install.ps1 -Action get-status
+.\Setup.ps1 -Action get-status
 
 # Remove task
-.\Install.ps1 -Action remove-task
+.\Setup.ps1 -Action remove-task
 
 # Update runner
-.\Install.ps1 -Action update-runner -RunnerVersion "0.2.12"
+.\Setup.ps1 -Action update-runner -RunnerVersion "0.2.12"
 
 # Uninstall runner
-.\Install.ps1 -Action uninstall                           # No admin if user space and no task
-.\Install.ps1 -Action uninstall -InstallSpace system      # Requires admin
+.\Setup.ps1 -Action uninstall                           # No admin if user space and no task
+.\Setup.ps1 -Action uninstall -InstallSpace system      # Requires admin
 ```
 
 ## Directory Structure
@@ -193,7 +193,7 @@ The runner can be managed through Task Scheduler with these features:
 
 ```powershell
 # Check task status (no admin required)
-.\Install.ps1 -Action get-status
+.\Setup.ps1 -Action get-status
 
 # View detailed status
 Get-ScheduledTask -TaskName "GiteaActionRunner" | Select-Object *
@@ -205,7 +205,7 @@ Start-ScheduledTask -TaskName "GiteaActionRunner"
 Stop-ScheduledTask -TaskName "GiteaActionRunner"
 
 # Remove the task (requires admin)
-.\Install.ps1 -Action remove-task
+.\Setup.ps1 -Action remove-task
 ```
 
 ## Logging
@@ -236,7 +236,7 @@ Stop-ScheduledTask -TaskName "GiteaActionRunner"
 1. Installation Issues:
    ```powershell
    # Force reinstall (run as administrator)
-   .\Install.ps1 -Force
+   .\Setup.ps1 -Force
    
    # Check installation logs
    Get-Content "$env:ProgramData\GiteaActRunner\logs\install.log"
@@ -245,11 +245,11 @@ Stop-ScheduledTask -TaskName "GiteaActionRunner"
 2. Task Scheduler Issues:
    ```powershell
    # Check task status
-   .\Install.ps1 -Action get-status
+   .\Setup.ps1 -Action get-status
    
    # Recreate task (run as administrator)
-   .\Install.ps1 -Action remove-task
-   .\Install.ps1 -Action register-task -Force
+   .\Setup.ps1 -Action remove-task
+   .\Setup.ps1 -Action register-task -Force
    ```
 
 3. Runner Issues:
