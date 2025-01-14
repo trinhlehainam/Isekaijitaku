@@ -24,6 +24,7 @@ Actions:
   get-status     Get task scheduler status
   remove-task    Remove the task scheduler entry
   update-runner  Update the runner binary
+  uninstall      Remove runner files and task scheduler entry
 ```
 
 ### Parameters
@@ -35,10 +36,11 @@ Actions:
   - `get-status`: Shows current task status
   - `remove-task`: Removes the task scheduler entry
   - `update-runner`: Updates the runner binary
+  - `uninstall`: Removes all runner files and task scheduler entry
 - `-TaskName`: Custom task name (default: "GiteaActionRunner")
 - `-TaskDescription`: Custom task description
 - `-RunnerVersion`: Specify runner version (default: "0.2.11")
-- `-InstallSpace`: Installation space (default: "system")
+- `-InstallSpace`: Installation space (default: "user")
   - `system`: System-wide installation (requires admin)
   - `user`: User space installation (no admin required)
 - `-Force`: Force operation even if components already exist
@@ -70,10 +72,12 @@ The script supports two installation spaces:
   - `get-status`: No admin required
   - `remove-task`: Requires admin
   - `update-runner`: Requires admin
+  - `uninstall`: Requires admin (only when removing system-wide installation or task exists)
 
 - User Space Installation (`-InstallSpace user`):
-  - No admin privileges required for any action
-  - All operations within user's home directory
+  - No admin privileges required for any action except:
+    - When task scheduler entry exists (for uninstall)
+  - All other operations within user's home directory
 
 ### Examples
 
@@ -102,6 +106,10 @@ The script supports two installation spaces:
 
 # Update runner
 .\Install.ps1 -Action update-runner -RunnerVersion "0.2.12"
+
+# Uninstall runner
+.\Install.ps1 -Action uninstall                           # No admin if user space and no task
+.\Install.ps1 -Action uninstall -InstallSpace system      # Requires admin
 ```
 
 ## Directory Structure

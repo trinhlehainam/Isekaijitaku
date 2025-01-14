@@ -9,6 +9,7 @@ param(
         'get-status',
         'remove-task',
         'update-runner',
+        'uninstall',
         'help'
     )]
     [string]$Action = 'help',
@@ -72,13 +73,14 @@ Actions:
   get-status     Get task scheduler status
   remove-task    Remove the task scheduler entry
   update-runner  Update the runner binary
+  uninstall      Remove runner files and task scheduler entry
 
 Parameters:
   -Action <action>         The action to perform (default: help)
   -TaskName <name>        Task scheduler name (default: GiteaActionRunner)
   -TaskDescription <desc> Task scheduler description
   -RunnerVersion <ver>    Runner version to install (default: 0.2.11)
-  -InstallSpace <space>   Installation space: 'system' or 'user' (default: system)
+  -InstallSpace <space>   Installation space: 'system' or 'user' (default: user)
                          'system' requires admin rights and installs to Program Files
                          'user' installs to user's home directory
   -Force                  Force operation even if components exist
@@ -102,6 +104,9 @@ Examples:
 
   # Update runner
   .\Install.ps1 -Action update-runner -RunnerVersion "0.2.12"
+
+  # Uninstall runner
+  .\Install.ps1 -Action uninstall
 
 Note: System-wide installation (-InstallSpace system) requires administrative privileges
 "@ | Write-Host
@@ -143,20 +148,25 @@ function Install-Runner {
         }
     }
 
+    $osArch = (Get-WmiObject Win32_OperatingSystem).OSArchitecture
+    $arch = switch -Wildcard ($osArch) { 
+        '64-bit*' { 'amd64' } 
+        'ARM64*' { 'arm64' } 
+        default { 
+            Write-ErrorLog "Unsupported architecture: $osArch"
+            exit 1
+        } 
+    }
+
     # Download and extract runner
-    $runnerUrl = "https://dl.gitea.com/act_runner/$RunnerVersion/act_runner-$RunnerVersion-windows-amd64.zip"
-    $zipFile = "$env:TEMP\act_runner.zip"
+    $runnerUrl = "https://dl.gitea.com/act_runner/$RunnerVersion/act_runner-$RunnerVersion-windows-$arch.exe"
+    $exeFile = "$BIN_DIR\act_runner.exe"
     
     try {
         Write-Log "Downloading runner from: $runnerUrl"
-        Invoke-WebRequest -Uri $runnerUrl -OutFile $zipFile
-        
-        Write-Log "Extracting runner to: $BIN_DIR"
-        Expand-Archive -Path $zipFile -DestinationPath $BIN_DIR -Force
-        
-        Remove-Item $zipFile -Force
+        Invoke-WebRequest -Uri $runnerUrl -OutFile $exeFile
     } catch {
-        Write-ErrorLog "Failed to download or extract runner: $_"
+        Write-ErrorLog "Failed to download runner: $_"
         exit 1
     }
 
@@ -389,6 +399,50 @@ function Update-Runner {
     }
 }
 
+function Uninstall-Runner {
+    Write-Log "Uninstalling Gitea Runner..."
+
+    # Check if task exists
+    $taskExists = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+    
+    # If task exists and we need admin rights
+    if ($taskExists) {
+        if (-not (Test-AdminPrivileges)) {
+            Write-ErrorLog "Removing task scheduler entry requires administrative privileges. Please run as Administrator."
+            exit 1
+        }
+        
+        Write-Log "Stopping task: $TaskName"
+        Stop-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+        Write-Log "Removing task: $TaskName"
+        Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
+    }
+
+    # Remove directories based on install space
+    if ($InstallSpace -eq 'system' -and -not (Test-AdminPrivileges)) {
+        Write-ErrorLog "Removing system-wide installation requires administrative privileges. Please run as Administrator."
+        exit 1
+    }
+
+    # Remove directories
+    $directories = @($PROGRAM_DIR, $DATA_DIR)
+    foreach ($dir in $directories) {
+        if (Test-Path $dir) {
+            Write-Log "Removing directory: $dir"
+            try {
+                Remove-Item -Path $dir -Recurse -Force
+            } catch {
+                Write-ErrorLog "Failed to remove directory $dir`: $_"
+                exit 1
+            }
+        }
+    }
+
+    # Clear log file before final message since the log directory will be gone
+    Set-LogFile -Path $null
+    Write-SuccessLog "Uninstallation completed successfully!"
+}
+
 # Main script execution
 switch ($Action.ToLower()) {
     'help' {
@@ -430,6 +484,9 @@ switch ($Action.ToLower()) {
             exit 1
         }
         Update-Runner
+    }
+    'uninstall' {
+        Uninstall-Runner
     }
     default {
         Write-ErrorLog "Unknown action: $Action"
