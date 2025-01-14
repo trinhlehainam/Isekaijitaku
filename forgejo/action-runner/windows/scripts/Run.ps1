@@ -18,6 +18,10 @@ param(
     [string]$ConfigFile = "$env:USERPROFILE\GiteaActionRunner\config\config.yaml"
 )
 
+# Import logging module
+$ScriptPath = Split-Path -Parent $MyInvocation.MyCommand.Path
+Import-Module "$ScriptPath\LogHelpers.psm1" -Force
+
 # Ensure we stop on errors
 $ErrorActionPreference = 'Stop'
 
@@ -28,24 +32,9 @@ $CONFIG_DIR = "$INSTALL_DIR\config"
 $LOGS_DIR = "$INSTALL_DIR\logs"
 $LOG_FILE = "$LOGS_DIR\runner.log"
 $RUNNER_EXE = "$BIN_DIR\act_runner.exe"
-$STATE_FILE = "$CONFIG_DIR\.runner"
 
-# Function to write logs with timestamp
-function Write-Log {
-    param([string]$Message)
-    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $logMessage = "[$timestamp] $Message"
-    Write-Host $logMessage
-    Add-Content -Path $LOG_FILE -Value $logMessage
-}
-
-function Write-Error-Log {
-    param([string]$Message)
-    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
-    $errorMessage = "[$timestamp] ERROR: $Message"
-    Write-Host $errorMessage -ForegroundColor Red
-    Add-Content -Path $LOG_FILE -Value $errorMessage
-}
+# Initialize logging
+Set-LogFile -Path $LOG_FILE
 
 # Create necessary directories
 $directories = @($INSTALL_DIR, $BIN_DIR, $CONFIG_DIR, $LOGS_DIR)
@@ -57,20 +46,31 @@ foreach ($dir in $directories) {
 
 # Verify installation
 if (-not (Test-Path $RUNNER_EXE)) {
-    Write-Error-Log "Gitea Runner not found at $RUNNER_EXE. Please run Install-Runner.ps1 first."
+    Write-ErrorLog "Gitea Runner not found at $RUNNER_EXE. Please run Install.ps1 first."
+    exit 1
+}
+
+# Verify config file
+if (-not (Test-Path $ConfigFile)) {
+    Write-ErrorLog "Config file not found at $ConfigFile"
+    exit 1
+}
+
+# Get runner state file path from config
+$configContent = Get-Content $ConfigFile -Raw
+if ($configContent -match "file:\s*(.+)") {
+    $runnerStateFile = $matches[1].Trim()
+    Write-Log "Using runner state file: $runnerStateFile"
+} else {
+    Write-ErrorLog "Could not find runner state file path in config"
     exit 1
 }
 
 # Register the runner if not already registered
-if (-not (Test-Path $STATE_FILE)) {
+if (-not (Test-Path $runnerStateFile)) {
     Write-Log "Runner not registered, starting registration..."
     
     try {
-        # Initialize runner configuration
-        Write-Log "Generating initial configuration..."
-        & $RUNNER_EXE generate-config --config $ConfigFile
-        
-        # Register runner
         Write-Log "Registering runner with Gitea instance at $InstanceUrl"
         Write-Log "Runner name: $RunnerName"
         Write-Log "Labels: $Labels"
@@ -87,26 +87,14 @@ if (-not (Test-Path $STATE_FILE)) {
         
         $process = Start-Process -FilePath $RUNNER_EXE -ArgumentList $registerArgs -NoNewWindow -Wait -PassThru
         if ($process.ExitCode -ne 0) {
-            Write-Error-Log "Registration failed with exit code: $($process.ExitCode)"
+            Write-ErrorLog "Registration failed with exit code: $($process.ExitCode)"
             exit 1
         }
         
-        Write-Log "Registration successful!"
-        
-        # Secure the config file
-        $acl = Get-Acl $ConfigFile
-        $acl.SetAccessRuleProtection($true, $false)
-        $rule = New-Object System.Security.AccessControl.FileSystemAccessRule(
-            "$env:USERDOMAIN\$env:USERNAME",
-            "FullControl",
-            "Allow"
-        )
-        $acl.AddAccessRule($rule)
-        Set-Acl $ConfigFile $acl
-        Write-Log "Secured configuration file"
+        Write-SuccessLog "Registration successful!"
         
     } catch {
-        Write-Error-Log "Failed to register runner: $_"
+        Write-ErrorLog "Failed to register runner: $_"
         exit 1
     }
 } else {
@@ -118,6 +106,6 @@ Write-Log "Starting runner daemon..."
 try {
     & $RUNNER_EXE daemon --config $ConfigFile
 } catch {
-    Write-Error-Log "Failed to start runner daemon: $_"
+    Write-ErrorLog "Failed to start runner daemon: $_"
     exit 1
 }
