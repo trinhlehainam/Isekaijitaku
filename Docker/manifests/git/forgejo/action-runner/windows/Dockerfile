@@ -1,7 +1,7 @@
 # References:
 # - Gitea Runner: https://gitea.com/gitea/act_runner
 # - Gitea Runner Dockerfile: https://gitea.com/gitea/act_runner/src/branch/main/Dockerfile
-# - Base Windows Image: https://hub.docker.com/_/microsoft-windows-servercore
+# - Docker Windows Server Core Dockerfile: https://github.com/docker-library/docker/blob/master/27/windows/windowsservercore-ltsc2022/Dockerfile
 
 ARG WINDOWS_IMAGE="mcr.microsoft.com/windows/servercore:ltsc2022"
 
