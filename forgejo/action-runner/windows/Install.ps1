@@ -8,9 +8,10 @@ param(
         'register-task',
         'get-status',
         'remove-task',
-        'update-runner'
+        'update-runner',
+        'help'
     )]
-    [string]$Action = 'install-runner',
+    [string]$Action = 'help',
 
     [Parameter(Mandatory=$false)]
     [string]$TaskName = "GiteaActionRunner",
@@ -20,6 +21,10 @@ param(
 
     [Parameter(Mandatory=$false)]
     [string]$RunnerVersion = "0.2.11",
+
+    [Parameter(Mandatory=$false)]
+    [ValidateSet('system', 'user')]
+    [string]$InstallSpace = 'user',
 
     [Parameter(Mandatory=$false)]
     [switch]$Force
@@ -32,26 +37,86 @@ Import-Module "$PSScriptRoot\scripts\LogHelpers.psm1" -Force
 $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
-# Configuration
-$INSTALL_DIR = "$env:USERPROFILE\GiteaActionRunner"
-$BIN_DIR = "$INSTALL_DIR\bin"
-$SCRIPTS_DIR = "$INSTALL_DIR\scripts"
-$LOGS_DIR = "$INSTALL_DIR\logs"
-$CONFIG_FILE = "$INSTALL_DIR\config.yaml"
-$RUNNER_STATE_FILE = "$INSTALL_DIR\.runner"
-$CACHE_DIR = "$env:USERPROFILE\.cache\actcache"
-$WORK_DIR = "$env:USERPROFILE\.cache\act"
+# Configuration based on installation space
+if ($InstallSpace -eq 'system') {
+    # System-wide installation (Program Files)
+    $PROGRAM_DIR = "$env:ProgramFiles\GiteaActRunner"
+    $DATA_DIR = "$env:ProgramData\GiteaActRunner"
+} else {
+    # User space installation
+    $PROGRAM_DIR = "$env:USERPROFILE\.gitea\act_runner\bin"
+    $DATA_DIR = "$env:USERPROFILE\.gitea\act_runner\data"
+}
+
+# Derived paths
+$BIN_DIR = "$PROGRAM_DIR\bin"
+$SCRIPTS_DIR = "$PROGRAM_DIR\scripts"
+$LOGS_DIR = "$DATA_DIR\logs"
+$CONFIG_FILE = "$DATA_DIR\config.yaml"
+$RUNNER_STATE_FILE = "$DATA_DIR\.runner"
+$CACHE_DIR = "$DATA_DIR\cache\actcache"
+$WORK_DIR = "$DATA_DIR\work"
 
 # Initialize logging
 Set-LogFile -Path "$LOGS_DIR\install.log"
+
+function Show-Help {
+    @"
+Gitea Runner Installation Script
+Usage: .\Install.ps1 [-Action <action>] [-TaskName <name>] [-InstallSpace <space>] [-RunnerVersion <version>] [-Force]
+
+Actions:
+  help           Show this help message (default)
+  install-runner Install the runner and register task scheduler
+  register-task  Register the task in Task Scheduler
+  get-status     Get task scheduler status
+  remove-task    Remove the task scheduler entry
+  update-runner  Update the runner binary
+
+Parameters:
+  -Action <action>         The action to perform (default: help)
+  -TaskName <name>        Task scheduler name (default: GiteaActionRunner)
+  -TaskDescription <desc> Task scheduler description
+  -RunnerVersion <ver>    Runner version to install (default: 0.2.11)
+  -InstallSpace <space>   Installation space: 'system' or 'user' (default: system)
+                         'system' requires admin rights and installs to Program Files
+                         'user' installs to user's home directory
+  -Force                  Force operation even if components exist
+
+Examples:
+  # Show help
+  .\Install.ps1
+  .\Install.ps1 -Action help
+
+  # System-wide installation (requires admin)
+  .\Install.ps1 -Action install-runner -InstallSpace system
+
+  # User space installation (no admin required)
+  .\Install.ps1 -Action install-runner -InstallSpace user
+
+  # Register task with custom name
+  .\Install.ps1 -Action register-task -TaskName "MyRunner"
+
+  # Check status
+  .\Install.ps1 -Action get-status
+
+  # Update runner
+  .\Install.ps1 -Action update-runner -RunnerVersion "0.2.12"
+
+Note: System-wide installation (-InstallSpace system) requires administrative privileges
+"@ | Write-Host
+}
 
 function Test-AdminPrivileges {
     $currentUser = [Security.Principal.WindowsIdentity]::GetCurrent()
     $principal = New-Object Security.Principal.WindowsPrincipal($currentUser)
     $adminRole = [Security.Principal.WindowsBuiltInRole]::Administrator
-    
-    if (-not $principal.IsInRole($adminRole)) {
-        Write-ErrorLog "This action requires administrative privileges. Please run as Administrator."
+    return $principal.IsInRole($adminRole)
+}
+
+function Test-InstallPermissions {
+    if ($InstallSpace -eq 'system' -and -not (Test-AdminPrivileges)) {
+        Write-ErrorLog "System-wide installation requires administrative privileges. Please run as Administrator or use -InstallSpace user"
         return $false
     }
     return $true
@@ -60,107 +125,146 @@ function Test-AdminPrivileges {
 function Install-Runner {
     Write-Log "Installing Gitea Runner..."
     
-    # Create necessary directories
-    Write-Log "Creating installation directories..."
-    $directories = @($INSTALL_DIR, $BIN_DIR, $SCRIPTS_DIR, $LOGS_DIR, $CACHE_DIR, $WORK_DIR)
+    # Create directories
+    $directories = @(
+        $PROGRAM_DIR,
+        $BIN_DIR,
+        $SCRIPTS_DIR,
+        $DATA_DIR,
+        $LOGS_DIR,
+        $CACHE_DIR,
+        $WORK_DIR
+    )
+
     foreach ($dir in $directories) {
         if (-not (Test-Path $dir)) {
-            New-Item -ItemType Directory -Force -Path $dir | Out-Null
+            Write-Log "Creating directory: $dir"
+            New-Item -ItemType Directory -Path $dir -Force | Out-Null
         }
     }
 
-    # Detect CPU architecture
-    $osArch = (Get-WmiObject Win32_OperatingSystem).OSArchitecture
-    $arch = switch -Wildcard ($osArch) {
-        '64-bit*' { 'amd64' }
-        'ARM64*' { 'arm64' }
-        default { throw "Unsupported architecture: $osArch" }
-    }
-    Write-Log "Detected architecture: $arch"
-
-    # Download Gitea Runner
-    $downloadUrl = "https://dl.gitea.com/act_runner/$RunnerVersion/act_runner-$RunnerVersion-windows-$arch.exe"
-    $outputFile = "$BIN_DIR\act_runner.exe"
-
-    if ((Test-Path $outputFile) -and -not $Force) {
-        Write-Log "Runner already installed. Use -Force to reinstall."
-        return
-    }
-
-    Write-Log "Downloading Gitea Runner from: $downloadUrl"
+    # Download and extract runner
+    $runnerUrl = "https://dl.gitea.com/act_runner/$RunnerVersion/act_runner-$RunnerVersion-windows-amd64.zip"
+    $zipFile = "$env:TEMP\act_runner.zip"
+    
     try {
-        Invoke-WebRequest -Uri $downloadUrl -OutFile $outputFile
-        if (-not (Test-Path $outputFile)) {
-            throw "Failed to download runner executable"
-        }
+        Write-Log "Downloading runner from: $runnerUrl"
+        Invoke-WebRequest -Uri $runnerUrl -OutFile $zipFile
+        
+        Write-Log "Extracting runner to: $BIN_DIR"
+        Expand-Archive -Path $zipFile -DestinationPath $BIN_DIR -Force
+        
+        Remove-Item $zipFile -Force
     } catch {
-        Write-ErrorLog "Failed to download Gitea Runner: $_"
+        Write-ErrorLog "Failed to download or extract runner: $_"
         exit 1
     }
 
-    # Verify the executable
-    try {
-        $version = & $outputFile --version
-        Write-SuccessLog "Successfully installed Gitea Runner: $version"
-    } catch {
-        Write-ErrorLog "Failed to verify runner executable: $_"
-        exit 1
-    }
+    # Copy scripts
+    Write-Log "Copying scripts..."
+    Copy-Item "$PSScriptRoot\scripts\*" $SCRIPTS_DIR -Force
+    
+    # Create default config if it doesn't exist
+    # Reference: https://gitea.com/gitea/act_runner/src/branch/main/internal/pkg/config/config.example.yaml
+    if (-not (Test-Path $CONFIG_FILE) -or $Force) {
+        Write-Log "Creating default config..."
+        @"
+# Example configuration file, it's safe to copy this as the default config file without any modification.
 
-    # Generate default config.yaml
-    Write-Log "Generating default configuration..."
-    @"
+# You don't have to copy this file to your instance,
+# just run `./act_runner generate-config > config.yaml` to generate a config file.
+
 log:
+  # The level of logging, can be trace, debug, info, warn, error, fatal
   level: info
 
 runner:
-  file: $($RUNNER_STATE_FILE.Replace('\', '/'))
+  # Where to store the registration result.
+  file: $RUNNER_STATE_FILE
+  # Execute how many tasks concurrently at the same time.
   capacity: 1
+  # Extra environment variables to run jobs.
   envs:
+  # Extra environment variables to run jobs from a file.
+  # It will be ignored if it's empty or the file doesn't exist.
   env_file: .env
+  # The timeout for a job to be finished.
+  # Please note that the Gitea instance also has a timeout (3h by default) for the job.
+  # So the job could be stopped by the Gitea instance if it's timeout is shorter than this.
   timeout: 3h
+  # The timeout for the runner to wait for running jobs to finish when shutting down.
+  # Any running jobs that haven't finished after this timeout will be cancelled.
   shutdown_timeout: 0s
+  # Whether skip verifying the TLS certificate of the Gitea instance.
   insecure: false
+  # The timeout for fetching the job from the Gitea instance.
   fetch_timeout: 5s
+  # The interval for fetching the job from the Gitea instance.
   fetch_interval: 2s
+  # The labels of a runner are used to determine which jobs the runner can run, and how to run them.
+  # Like: "macos-arm64:host" or "ubuntu-latest:docker://gitea/runner-images:ubuntu-latest"
+  # Find more images provided by Gitea at https://gitea.com/gitea/runner-images .
+  # If it's empty when registering, it will ask for inputting labels.
+  # If it's empty when execute `daemon`, will use labels in `.runner` file.
   labels:
     - "windows:host"
 
 cache:
+  # Enable cache server to use actions/cache.
   enabled: true
-  dir: "$($CACHE_DIR.Replace('\', '/'))"
+  # The directory to store the cache data.
+  dir: $CACHE_DIR
+  # The host of the cache server.
+  # It's not for the address to listen, but the address to connect from job containers.
+  # So 0.0.0.0 is a bad choice, leave it empty to detect automatically.
   host: ""
+  # The port of the cache server.
+  # 0 means to use a random available port.
   port: 0
+  # The external cache server URL. Valid only when enable is true.
+  # If it's specified, act_runner will use this URL as the ACTIONS_CACHE_URL rather than start a server by itself.
+  # The URL should generally end with "/".
   external_server: ""
 
 container:
+  # Specifies the network to which the container will connect.
+  # Could be host, bridge or the name of a custom network.
+  # If it's empty, act_runner will create a network automatically.
   network: ""
+  # Whether to use privileged mode or not when launching task containers (privileged mode is required for Docker-in-Docker).
   privileged: false
+  # And other options to be used when the container is started (eg, --add-host=my.gitea.url:host-gateway).
   options:
+  # The parent directory of a job's working directory.
+  # NOTE: There is no need to add the first '/' of the path as act_runner will add it automatically. 
+  # If the path starts with '/', the '/' will be trimmed.
+  # For example, if the parent directory is /path/to/my/dir, workdir_parent should be path/to/my/dir
+  # If it's empty, /workspace will be used.
   workdir_parent:
+  # Volumes (including bind mounts) can be mounted to containers. Glob syntax is supported, see https://github.com/gobwas/glob
+  # You can specify multiple volumes. If the sequence is empty, no volumes can be mounted.
+  # For example, if you only allow containers to mount the `data` volume and all the json files in `/src`, you should change the config to:
+  # valid_volumes:
+  #   - data
+  #   - /src/*.json
+  # If you want to allow any volume, please use the following configuration:
+  # valid_volumes:
+  #   - '**'
   valid_volumes: []
+  # overrides the docker client host with the specified one.
+  # If it's empty, act_runner will find an available docker host automatically.
+  # If it's "-", act_runner will find an available docker host automatically, but the docker host won't be mounted to the job containers and service containers.
+  # If it's not empty or "-", the specified docker host will be used. An error will be returned if it doesn't work.
   docker_host: ""
+  # Pull docker image(s) even if already present
   force_pull: true
+  # Rebuild docker image(s) even if already present
   force_rebuild: false
 
 host:
-  workdir_parent: "$($WORK_DIR.Replace('\', '/'))"
-"@ | Out-File -FilePath $CONFIG_FILE -Encoding UTF8
-    Write-Log "Created config file at: $CONFIG_FILE"
-
-    # Copy Run script to scripts directory
-    Copy-Item -Path "$PSScriptRoot\scripts\Run.ps1" -Destination "$SCRIPTS_DIR\Run.ps1" -Force
-    Write-Log "Copied Run.ps1 to $SCRIPTS_DIR"
-
-    # Add to PATH if not already present
-    $currentPath = [Environment]::GetEnvironmentVariable("Path", "User")
-    if (-not $currentPath.Contains($BIN_DIR)) {
-        [Environment]::SetEnvironmentVariable(
-            "Path",
-            "$currentPath;$BIN_DIR",
-            "User"
-        )
-        Write-Log "Added runner directory to PATH"
+  # The parent directory of a job's working directory.
+  workdir_parent: $WORK_DIR
+"@ | Out-File $CONFIG_FILE -Encoding utf8 -Force
     }
 
     Write-SuccessLog "Installation completed successfully!"
@@ -186,7 +290,7 @@ function Register-RunnerTask {
         $action = New-ScheduledTaskAction `
             -Execute "powershell.exe" `
             -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$SCRIPTS_DIR\Run.ps1`" -ConfigFile `"$CONFIG_FILE`"" `
-            -WorkingDirectory $INSTALL_DIR
+            -WorkingDirectory $PROGRAM_DIR
 
         # Create trigger for automatic start
         $trigger = New-ScheduledTaskTrigger -AtStartup
@@ -287,25 +391,27 @@ function Update-Runner {
 
 # Main script execution
 switch ($Action.ToLower()) {
+    'help' {
+        Show-Help
+    }
     'install-runner' {
+        if (-not (Test-InstallPermissions)) {
+            exit 1
+        }
         Install-Runner
-        if (Test-AdminPrivileges) {
+        if (Test-AdminPrivileges -or $InstallSpace -eq 'user') {
             Register-RunnerTask
             Write-Log "`nTo configure and start the runner:"
             Write-Log "1. Edit $SCRIPTS_DIR\Run.ps1 and set your Gitea instance URL and registration token"
             Write-Log "2. Start-ScheduledTask -TaskName $TaskName"
-        } else {
-            Write-Log "`nRunner installed but task scheduler not configured (requires admin privileges)"
-            Write-Log "To configure the task scheduler, run again as administrator with:"
-            Write-Log ".\Install.ps1 -Action register-task"
         }
     }
     'register-task' {
-        if (-not (Test-AdminPrivileges)) {
+        if (-not (Test-InstallPermissions)) {
             exit 1
         }
         if (-not (Test-Path $SCRIPTS_DIR\Run.ps1)) {
-            Write-ErrorLog "Runner not installed. Please run with -Action 'install-runner' first."
+            Write-ErrorLog "Runner not installed. Please run with -Action install-runner first."
             exit 1
         }
         Register-RunnerTask
@@ -314,12 +420,20 @@ switch ($Action.ToLower()) {
         Get-RunnerTaskStatus
     }
     'remove-task' {
-        if (-not (Test-AdminPrivileges)) {
+        if (-not (Test-InstallPermissions)) {
             exit 1
         }
         Remove-RunnerTask
     }
     'update-runner' {
+        if (-not (Test-InstallPermissions)) {
+            exit 1
+        }
         Update-Runner
+    }
+    default {
+        Write-ErrorLog "Unknown action: $Action"
+        Show-Help
+        exit 1
     }
 }
