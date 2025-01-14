@@ -2,25 +2,24 @@
 # This script handles both registration and running of the Gitea Runner
 
 param(
-    [Parameter(Mandatory=$true)]
+    [Parameter(Mandatory=$false)]
     [string]$InstanceUrl,
     
-    [Parameter(Mandatory=$true)]
+    [Parameter(Mandatory=$false)]
     [string]$RegistrationToken,
     
     [Parameter(Mandatory=$false)]
     [string]$RunnerName = $env:COMPUTERNAME,
     
     [Parameter(Mandatory=$false)]
-    [string]$Labels = "windows,vm",
+    [string]$Labels = "windows:host",
 
     [Parameter(Mandatory=$false)]
-    [string]$ConfigFile = "$env:USERPROFILE\GiteaActionRunner\config\config.yaml"
+    [string]$ConfigFile = "$env:USERPROFILE\GiteaActionRunner\config.yaml"
 )
 
 # Import logging module
-$ScriptPath = Split-Path -Parent $MyInvocation.MyCommand.Path
-Import-Module "$ScriptPath\LogHelpers.psm1" -Force
+Import-Module "$PSScriptRoot\scripts\LogHelpers.psm1" -Force
 
 # Ensure we stop on errors
 $ErrorActionPreference = 'Stop'
@@ -28,7 +27,6 @@ $ErrorActionPreference = 'Stop'
 # Configuration
 $INSTALL_DIR = "$env:USERPROFILE\GiteaActionRunner"
 $BIN_DIR = "$INSTALL_DIR\bin"
-$CONFIG_DIR = "$INSTALL_DIR\config"
 $LOGS_DIR = "$INSTALL_DIR\logs"
 $LOG_FILE = "$LOGS_DIR\runner.log"
 $RUNNER_EXE = "$BIN_DIR\act_runner.exe"
@@ -37,7 +35,7 @@ $RUNNER_EXE = "$BIN_DIR\act_runner.exe"
 Set-LogFile -Path $LOG_FILE
 
 # Create necessary directories
-$directories = @($INSTALL_DIR, $BIN_DIR, $CONFIG_DIR, $LOGS_DIR)
+$directories = @($INSTALL_DIR, $BIN_DIR, $LOGS_DIR)
 foreach ($dir in $directories) {
     if (-not (Test-Path $dir)) {
         New-Item -ItemType Directory -Force -Path $dir | Out-Null
@@ -70,6 +68,18 @@ if ($configContent -match "file:\s*(.+)") {
 if (-not (Test-Path $runnerStateFile)) {
     Write-Log "Runner not registered, starting registration..."
     
+    # Verify registration parameters
+    if (-not $InstanceUrl) {
+        Write-ErrorLog "InstanceUrl parameter is required for registration"
+        Write-Log "Usage: Run.ps1 -InstanceUrl <url> -RegistrationToken <token> [-RunnerName <name>] [-Labels <labels>]"
+        exit 1
+    }
+    if (-not $RegistrationToken) {
+        Write-ErrorLog "RegistrationToken parameter is required for registration"
+        Write-Log "Usage: Run.ps1 -InstanceUrl <url> -RegistrationToken <token> [-RunnerName <name>] [-Labels <labels>]"
+        exit 1
+    }
+    
     try {
         Write-Log "Registering runner with Gitea instance at $InstanceUrl"
         Write-Log "Runner name: $RunnerName"
@@ -93,6 +103,10 @@ if (-not (Test-Path $runnerStateFile)) {
         
         Write-SuccessLog "Registration successful!"
         
+        # Clear sensitive data from memory
+        $RegistrationToken = $null
+        [System.GC]::Collect()
+        
     } catch {
         Write-ErrorLog "Failed to register runner: $_"
         exit 1
@@ -104,6 +118,16 @@ if (-not (Test-Path $runnerStateFile)) {
 # Start the runner daemon
 Write-Log "Starting runner daemon..."
 try {
+    # Verify working directory exists
+    $configContent -match "workdir_parent:\s*(.+)"
+    $workDir = $matches[1].Trim().Trim('"')
+    if (-not (Test-Path $workDir)) {
+        Write-WarningLog "Work directory does not exist: $workDir"
+        Write-Log "Creating work directory..."
+        New-Item -ItemType Directory -Force -Path $workDir | Out-Null
+    }
+
+    # Start the daemon
     & $RUNNER_EXE daemon --config $ConfigFile
 } catch {
     Write-ErrorLog "Failed to start runner daemon: $_"

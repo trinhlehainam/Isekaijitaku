@@ -1,6 +1,6 @@
-# Setting Up Gitea Action Runner on Windows (Host/VM Method)
+# Setting Up Gitea Action Runner on Windows
 
-This guide explains how to set up Gitea Action Runner directly on Windows using PowerShell scripts.
+This guide explains how to set up and manage Gitea Action Runner on Windows using PowerShell scripts.
 
 ## Prerequisites
 
@@ -10,30 +10,57 @@ This guide explains how to set up Gitea Action Runner directly on Windows using 
 - A running Forgejo/Gitea instance
 - Access to Forgejo/Gitea dashboard with admin privileges
 
-## Installation Steps
+## Installation Options
 
-1. Run the installation script as Administrator:
+The installation script (`Install.ps1`) provides several actions:
+
 ```powershell
+.\Install.ps1 [-Action <action>] [-TaskName <name>] [-RunnerVersion <version>] [-Force]
+
+Actions:
+  'install-runner'  # Full installation including task scheduler (default)
+  'register-task'   # Register the task in Task Scheduler
+  'get-status'      # Get task scheduler status
+  'remove-task'     # Remove the task scheduler entry
+  'update-runner'   # Update the runner binary
+```
+
+### Parameters
+
+- `-Action`: Installation action to perform
+  - 'install-runner': Performs a full installation (default)
+  - 'register-task': Only registers the task scheduler
+  - 'get-status': Shows current task status
+  - 'remove-task': Removes the task scheduler entry
+  - 'update-runner': Updates the runner binary
+- `-TaskName`: Custom task name (default: "GiteaActionRunner")
+- `-TaskDescription`: Custom task description
+- `-RunnerVersion`: Specify runner version (default: "0.2.11")
+- `-Force`: Force operation even if components already exist
+
+### Examples
+
+```powershell
+# Full installation
 .\Install.ps1
+
+# Install with custom task name and version
+.\Install.ps1 -TaskName "MyRunner" -RunnerVersion "0.2.12"
+
+# Only register task scheduler
+.\Install.ps1 -Action 'register-task'
+
+# Check task status
+.\Install.ps1 -Action 'get-status'
+
+# Remove task
+.\Install.ps1 -Action 'remove-task'
+
+# Update runner
+.\Install.ps1 -Action 'update-runner' -RunnerVersion "0.2.12"
 ```
 
-This script will:
-- Create necessary directories
-- Download and install the Gitea Runner binary
-- Add the binary directory to PATH
-- Install the Run script
-- Create and configure the scheduled task
-
-2. Configure the runner:
-   - Edit `%USERPROFILE%\GiteaActionRunner\scripts\Run.ps1`
-   - Set your Gitea instance URL and registration token
-
-3. Start the runner:
-```powershell
-Start-ScheduledTask -TaskName "GiteaActionRunner"
-```
-
-## File Structure
+## Directory Structure
 
 ```
 %USERPROFILE%/
@@ -44,62 +71,142 @@ Start-ScheduledTask -TaskName "GiteaActionRunner"
     ├── bin/
     │   └── act_runner.exe
     ├── scripts/
-    │   └── Run.ps1
+    │   ├── Run.ps1           # Runner execution script
+    │   └── LogHelpers.psm1   # Shared logging module
     ├── config.yaml   # Runner configuration
     ├── .runner       # Runner registration state
     └── logs/
         ├── install.log
-        └── runner.log
+        ├── runner.log        # Current log
+        ├── runner.log.1      # Rotated logs
+        └── runner.log.2      # Older rotated logs
 ```
 
-## Task Management
+## Configuration
 
-The runner is installed as a scheduled task "GiteaActionRunner" and configured to:
-- Start automatically on system boot
-- Restart automatically on failure (up to 3 times)
-- Run with SYSTEM privileges
-- Start when system becomes available
-- Run only when network is available
+### Runner Configuration (config.yaml)
+The `config.yaml` file contains important settings:
+- Runner labels (e.g., "windows:host")
+- Cache directory settings
+- Work directory settings
+- Log levels and paths
+- Network and security settings
 
-Manage the task using standard PowerShell commands:
+### Runner Script Parameters
+
+Run.ps1 accepts the following parameters:
 ```powershell
+.\scripts\Run.ps1 `
+    -InstanceUrl "https://gitea.example.com" `  # Required for registration
+    -RegistrationToken "your-token" `           # Required for registration
+    -RunnerName "MyRunner" `                    # Optional, defaults to computer name
+    -Labels "windows:host,docker" `             # Optional, defaults to "windows:host"
+    -ConfigFile "path\to\config.yaml"           # Optional, has default location
+```
+
+## Task Scheduler Management
+
+The runner can be managed through Task Scheduler with these features:
+- Automatic startup
+- Failure recovery (3 retries with 1-minute intervals)
+- System privileges
+- Network dependency
+- Battery operation support
+
+### Task Management Commands
+
+```powershell
+# Check task status
+.\Install.ps1 -Action 'get-status'
+
+# View detailed status
+Get-ScheduledTask -TaskName "GiteaActionRunner" | Select-Object *
+
 # Start the runner
 Start-ScheduledTask -TaskName "GiteaActionRunner"
 
 # Stop the runner
 Stop-ScheduledTask -TaskName "GiteaActionRunner"
 
-# Get status
-Get-ScheduledTask -TaskName "GiteaActionRunner"
+# Remove the task
+.\Install.ps1 -Action 'remove-task'
 ```
 
 ## Logging
 
-Logs can be found in:
+### Log Files
 - Runner logs: `%USERPROFILE%\GiteaActionRunner\logs\runner.log`
 - Installation logs: `%USERPROFILE%\GiteaActionRunner\logs\install.log`
 - Windows Event Viewer under Task Scheduler logs
 
-## Security Considerations
+### Log Features
+- Automatic log rotation (10MB per file)
+- Keeps last 5 log files
+- Color-coded console output
+- Detailed error logging with stack traces
+- Debug logging (enable with `$env:GITEA_RUNNER_DEBUG="true"`)
 
-- The task runs with SYSTEM privileges
-- Configuration files are protected with appropriate ACLs
-- Registration tokens are removed from memory after successful registration
-- All operations are logged for auditing purposes
+## Security Features
+
+- Task runs with SYSTEM privileges
+- Protected configuration files
+- Secure token handling
+- Comprehensive audit logging
+- Network validation
+- Error handling security
 
 ## Troubleshooting
 
-1. If the task fails to start:
-   - Check the logs in `%USERPROFILE%\GiteaActionRunner\logs\runner.log`
-   - Verify the Gitea instance URL and registration token
-   - Ensure the runner is not already registered
+1. Installation Issues:
+   ```powershell
+   # Force reinstall
+   .\Install.ps1 -Force
+   
+   # Check installation logs
+   Get-Content "$env:USERPROFILE\GiteaActionRunner\logs\install.log"
+   ```
 
-2. If registration fails:
-   - Verify the registration token is valid
-   - Check network connectivity to the Gitea instance
-   - Ensure the Gitea instance URL is correct
+2. Task Scheduler Issues:
+   ```powershell
+   # Check task status
+   .\Install.ps1 -Action 'get-status'
+   
+   # Recreate task
+   .\Install.ps1 -Action 'remove-task'
+   .\Install.ps1 -Action 'register-task' -Force
+   ```
 
-3. If the runner is not detected by Gitea:
-   - Check if the runner is properly registered
-   - Verify the runner task is running
-   - Check network connectivity
+3. Runner Issues:
+   ```powershell
+   # View live logs
+   Get-Content "$env:USERPROFILE\GiteaActionRunner\logs\runner.log" -Wait
+   
+   # Clear registration and restart
+   Remove-Item "$env:USERPROFILE\GiteaActionRunner\.runner"
+   .\scripts\Run.ps1 -InstanceUrl "..." -RegistrationToken "..."
+   ```
+
+## Best Practices
+
+1. **Installation**:
+   - Use specific versions with `-RunnerVersion`
+   - Keep installation paths short
+   - Use descriptive task names
+
+2. **Maintenance**:
+   - Regularly check task status
+   - Monitor logs for issues
+   - Keep runner updated
+   - Clean work directories periodically
+
+3. **Security**:
+   - Rotate registration tokens
+   - Monitor runner activities
+   - Review task permissions
+   - Keep system updated
+
+4. **Performance**:
+   - Adjust concurrent job capacity
+   - Monitor resource usage
+   - Configure appropriate timeouts
+   - Clean cache periodically
