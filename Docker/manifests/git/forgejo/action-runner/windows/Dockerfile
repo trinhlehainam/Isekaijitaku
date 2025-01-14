@@ -15,10 +15,10 @@ ARG GITEA_RUNNER_VERSION=0.2.11
 # Install Gitea Runner
 RUN \
     # Create installation directory
-    New-Item -ItemType Directory -Force -Path C:\ProgramData\Gitea-Act-Runner\bin; \
+    New-Item -ItemType Directory -Force -Path C:\ProgramData\GiteaActRunner\bin; \
     # Update PATH for Gitea Runner
     \
-    $gitea_runner_exec_path = ('{0}\Gitea-Act-Runner\bin' -f $env:ProgramData); \
+    $gitea_runner_exec_path = ('{0}\GiteaActRunner\bin' -f $env:ProgramData); \
     Write-Host ('Updating PATH: {0}' -f $gitea_runner_exec_path); \
     $newPath = ('{0};{1}' -f $gitea_runner_exec_path, $env:PATH); \
     [Environment]::SetEnvironmentVariable('PATH', $newPath, [EnvironmentVariableTarget]::Machine); \
@@ -56,10 +56,10 @@ RUN \
     }
 
 # Copy scripts
-COPY scripts/ C:\\ProgramData\\Gitea-Act-Runner\\scripts/
+COPY scripts/ C:\\ProgramData\\GiteaActRunner\\scripts/
 
 # Set working directory for runner
-WORKDIR C:\\ProgramData\\Gitea-Act-Runner
+WORKDIR C:\\ProgramData\\GiteaActRunner
 
 # Set entrypoint
-ENTRYPOINT ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "C:\\ProgramData\\Gitea-Act-Runner\\scripts\\Run.ps1"]
+ENTRYPOINT ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "C:\\ProgramData\\GiteaActRunner\\scripts\\Run.ps1"]
