@@ -34,22 +34,30 @@ function Test-RequiredEnvironmentVariables {
 function Import-DotEnv {
     param(
         [Parameter(Mandatory=$true)]
-        [string]$EnvFile
+        [string]$Path,
+
+        [Parameter(Mandatory=$false)]
+        [ValidateSet('Process', 'User', 'Machine')]
+        [string]$Target = 'Process'
     )
 
-    if (Test-Path $EnvFile) {
-        Write-Log "Loading environment from: $EnvFile"
+    if (Test-Path $Path) {
+        Write-Log "Loading environment from: $Path"
         
-        Get-Content $EnvFile | ForEach-Object {
-            $name, $value = $_.split('=')
-            if ([string]::IsNullOrWhiteSpace($name) -or $name.Contains('#') -or $value.Contains('#')) {
-                continue
+        try {
+            # https://stackoverflow.com/questions/72236557/how-do-i-read-a-env-file-from-a-ps1-script
+            Get-Content $Path | ForEach-Object {
+                $name, $value = $_.split('=')
+                if (-not [string]::IsNullOrWhiteSpace($name) -and -not $name.Contains('#')) {
+                    [Environment]::SetEnvironmentVariable($name, $value, $Target)
+                }
             }
-            [Environment]::SetEnvironmentVariable($name, $value, 'Process')
+            Write-Log "Environment loaded successfully"
+        } catch {
+            Write-ErrorLog "Failed to load .env file: $_"
         }
-        Write-Log "Environment loaded successfully"
     } else {
-        Write-Log "No .env file found at: $EnvFile"
+        Write-Log "No .env file found at: $Path"
     }
 }
 

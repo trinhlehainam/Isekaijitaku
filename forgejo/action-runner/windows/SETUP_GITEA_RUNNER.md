@@ -10,6 +10,20 @@ This guide explains how to set up and manage Gitea Action Runner on Windows usin
 - A running Forgejo/Gitea instance
 - Access to Forgejo/Gitea dashboard with admin privileges
 
+## Project Structure
+
+```
+windows/
+├── Setup.ps1              # Main setup script
+├── scripts/
+│   ├── helpers/
+│   │   ├── DotEnvHelper.psm1  # Environment variable management
+│   │   └── LogHelpers.psm1    # Logging utilities
+│   └── Run.ps1            # Runner execution script
+├── bin/                   # Runner binaries
+└── SETUP_GITEA_RUNNER.md  # This documentation
+```
+
 ## Setup Options
 
 The setup script (`Setup.ps1`) provides several actions:
@@ -74,6 +88,10 @@ Available with `-GenerateConfig`:
 - `-LogLevel`: Log level (default: "info")
   - Valid values: trace, debug, info, warn, error
 - `-Force`: Overwrite existing config file
+- `-InstanceUrl`: Gitea instance URL
+- `-RunnerRegisterToken`: Runner registration token
+- `-RunnerName`: Runner name (default: computer name)
+- `-GITEA_MAX_REG_ATTEMPTS`: Maximum registration attempts (default: 10)
 
 ### Examples
 
@@ -90,57 +108,13 @@ Available with `-GenerateConfig`:
 .\Setup.ps1 -Update -RunnerVersion "0.2.12" -Force
 
 # Config Generation
-.\Setup.ps1 -GenerateConfig -ConfigFile "config.yaml" -Labels "windows:host"
+.\Setup.ps1 -GenerateConfig -ConfigFile "config.yaml" -Labels "windows:host" -InstanceUrl "https://gitea.example.com" -RunnerRegisterToken "your-token"
 
 # These will fail (invalid parameter combinations):
 .\Setup.ps1 -Install -ConfigFile config.yaml  # ConfigFile only valid with -GenerateConfig
 .\Setup.ps1 -Status -RunnerVersion "0.2.12"  # RunnerVersion not valid with -Status
 .\Setup.ps1 -Install -Register  # Can't use multiple action switches
 ```
-
-### Configuration Generation
-
-When using the `-GenerateConfig` action, additional parameters are available:
-
-```powershell
-.\Setup.ps1 -GenerateConfig [<config-parameters>]
-```
-
-#### Config Parameters
-- `-ConfigFile`: Custom path for the config file
-- `-RunnerFile`: Custom path for the runner file
-- `-CacheDir`: Custom directory for caching
-- `-WorkDir`: Custom directory for working files
-- `-Labels`: Runner labels (default: "windows:host")
-- `-LogLevel`: Log level (default: "info")
-  - Valid values: trace, debug, info, warn, error
-- `-Force`: Overwrite existing config file
-
-#### Examples
-
-```powershell
-# Generate with default settings
-.\Setup.ps1 -GenerateConfig
-
-# Generate with custom paths
-.\Setup.ps1 -GenerateConfig `
-    -ConfigFile "C:\MyRunner\config.yaml" `
-    -RunnerFile "C:\MyRunner\.runner" `
-    -CacheDir "D:\Cache" `
-    -WorkDir "D:\Work"
-
-# Generate with custom settings
-.\Setup.ps1 -GenerateConfig `
-    -Labels "windows:host,docker:host" `
-    -LogLevel "debug"
-
-# Force overwrite existing config
-.\Setup.ps1 -GenerateConfig -Force
-```
-
-The generated config will include detailed comments explaining each option. Default paths will be based on your installation space:
-- System-wide: Uses `%ProgramData%` and `%ProgramFiles%`
-- User space: Uses `%USERPROFILE%`
 
 ### Environment Configuration
 
@@ -155,27 +129,9 @@ Before starting the runner, you must configure the following environment variabl
 - `GITEA_RUNNER_LABELS`: Runner labels (default: windows:host)
 - `GITEA_MAX_REG_ATTEMPTS`: Maximum registration attempts (default: 10)
 
-You can set these variables in three ways:
+You can set these variables in two ways:
 
-1. Generate .env file:
-```powershell
-.\Setup.ps1 -GenerateDotEnv `
-    -InstanceUrl "https://gitea.example.com" `
-    -RunnerRegisterToken "your-token" `
-    -RunnerName "MyRunner" `
-    -Labels "windows:host,docker:host"
-```
-
-2. Generate config and .env together:
-```powershell
-.\Setup.ps1 -GenerateConfig `
-    -InstanceUrl "https://gitea.example.com" `
-    -RunnerRegisterToken "your-token" `
-    -RunnerName "MyRunner" `
-    -Labels "windows:host,docker:host"
-```
-
-3. Set environment variables manually:
+1. Set environment variables manually:
 ```powershell
 $env:GITEA_INSTANCE_URL = "https://gitea.example.com"
 $env:GITEA_RUNNER_REGISTRATION_TOKEN = "your-token"
@@ -183,79 +139,14 @@ $env:GITEA_RUNNER_NAME = "MyRunner"
 $env:GITEA_RUNNER_LABELS = "windows:host,docker:host"
 ```
 
-### Examples
-
+2. Generate config and set environment variables together:
 ```powershell
-# Show help
-.\Setup.ps1
-.\Setup.ps1 -Action help
-
-# System-wide installation (requires admin)
-.\Setup.ps1 -Install -InstallSpace system
-
-# User space installation (no admin required)
-.\Setup.ps1 -Install -InstallSpace user
-
-# Generate default config
-.\Setup.ps1 -GenerateConfig
-
-# Generate config with force overwrite
-.\Setup.ps1 -GenerateConfig -Force
-
-# Install with custom task name and version
-.\Setup.ps1 -TaskName "MyRunner" -RunnerVersion "0.2.12"
-
-# Only register task scheduler
-.\Setup.ps1 -Register
-
-# Check task status (no admin required)
-.\Setup.ps1 -Status
-
-# Remove task
-.\Setup.ps1 -Unregister
-
-# Update runner
-.\Setup.ps1 -Update -RunnerVersion "0.2.12"
-
-# Uninstall runner
-.\Setup.ps1 -Uninstall                           # No admin if user space and no task
-.\Setup.ps1 -Uninstall -InstallSpace system      # Requires admin
+.\Setup.ps1 -GenerateConfig `
+    -InstanceUrl "https://gitea.example.com" `
+    -RunnerRegisterToken "your-token" `
+    -RunnerName "MyRunner" `
+    -Labels "windows:host,docker:host"
 ```
-
-### Installation Spaces
-
-The script supports two installation spaces:
-
-1. System-wide Installation (`-InstallSpace system`):
-   - Requires administrative privileges
-   - Program files in `%ProgramFiles%\GiteaActRunner`
-   - Data files in `%ProgramData%\GiteaActRunner`
-   - Shared by all users
-   - Better security isolation
-
-2. User Space Installation (`-InstallSpace user`):
-   - No administrative privileges required
-   - All files in user's home directory
-   - Program files in `%USERPROFILE%\.gitea\act_runner\bin`
-   - Data files in `%USERPROFILE%\.gitea\act_runner\data`
-   - Per-user isolation
-   - Portable installation
-
-### Administrative Requirements
-
-- System-wide Installation (`-InstallSpace system`):
-  - `install`: Requires admin
-  - `register`: Requires admin
-  - `status`: No admin required
-  - `unregister`: Requires admin
-  - `update`: Requires admin when task exists and is running
-  - `uninstall`: Requires admin (only when removing system-wide installation or task exists)
-
-- User Space Installation (`-InstallSpace user`):
-  - No admin privileges required for any action except:
-    - When task scheduler entry exists (for uninstall)
-    - When updating with task running (for update)
-  - All other operations within user's home directory
 
 ### Directory Structure
 
@@ -303,55 +194,40 @@ The script supports two installation spaces:
     └── work\                   # Work directory
 ```
 
-## Configuration
+## Installation Spaces
 
-### Runner Configuration (config.yaml)
-The `config.yaml` file in ProgramData contains important settings:
-- Runner labels (e.g., "windows:host")
-- Cache directory settings
-- Work directory settings
-- Log levels and paths
-- Network and security settings
+The script supports two installation spaces:
 
-### Runner Script Parameters
+1. System-wide Installation (`-InstallSpace system`):
+   - Requires administrative privileges
+   - Program files in `%ProgramFiles%\GiteaActRunner`
+   - Data files in `%ProgramData%\GiteaActRunner`
+   - Shared by all users
+   - Better security isolation
 
-Run.ps1 accepts the following parameters:
-```powershell
-.\scripts\Run.ps1 `
-    -InstanceUrl "https://gitea.example.com" `  # Required for registration
-    -RegistrationToken "your-token" `           # Required for registration
-    -RunnerName "MyRunner" `                    # Optional, defaults to computer name
-    -Labels "windows:host,docker" `             # Optional, defaults to "windows:host"
-    -ConfigFile "path\to\config.yaml"           # Optional, has default location
-```
+2. User Space Installation (`-InstallSpace user`):
+   - No administrative privileges required
+   - All files in user's home directory
+   - Program files in `%USERPROFILE%\.gitea\act_runner\bin`
+   - Data files in `%USERPROFILE%\.gitea\act_runner\data`
+   - Per-user isolation
+   - Portable installation
 
-## Task Scheduler Management
+## Administrative Requirements
 
-The runner can be managed through Task Scheduler with these features:
-- Automatic startup
-- Failure recovery (3 retries with 1-minute intervals)
-- System privileges
-- Network dependency
-- Battery operation support
+- System-wide Installation (`-InstallSpace system`):
+  - `install`: Requires admin
+  - `register`: Requires admin
+  - `status`: No admin required
+  - `unregister`: Requires admin
+  - `update`: Requires admin when task exists and is running
+  - `uninstall`: Requires admin (only when removing system-wide installation or task exists)
 
-### Task Management Commands
-
-```powershell
-# Check task status (no admin required)
-.\Setup.ps1 -Status
-
-# View detailed status
-Get-ScheduledTask -TaskName "GiteaActionRunner" | Select-Object *
-
-# Start the runner
-Start-ScheduledTask -TaskName "GiteaActionRunner"
-
-# Stop the runner
-Stop-ScheduledTask -TaskName "GiteaActionRunner"
-
-# Remove the task (requires admin)
-.\Setup.ps1 -Unregister
-```
+- User Space Installation (`-InstallSpace user`):
+  - No admin privileges required for any action except:
+    - When task scheduler entry exists (for uninstall)
+    - When updating with task running (for update)
+  - All other operations within user's home directory
 
 ## Logging
 

@@ -23,9 +23,6 @@ param(
     [Parameter(Mandatory=$true, ParameterSetName='GenerateConfig')]
     [switch]$GenerateConfig,
 
-    [Parameter(Mandatory=$true, ParameterSetName='GenerateDotEnv')]
-    [switch]$GenerateDotEnv,
-
     [Parameter(ParameterSetName='Help')]
     [switch]$Help,
 
@@ -59,7 +56,6 @@ param(
     [string]$WorkDir,
 
     [Parameter(Mandatory=$false, ParameterSetName='GenerateConfig')]
-    [Parameter(Mandatory=$false, ParameterSetName='GenerateDotEnv')]
     [string]$Labels = "windows:host",
 
     [Parameter(Mandatory=$false, ParameterSetName='GenerateConfig')]
@@ -68,14 +64,11 @@ param(
 
     # DotEnv generation parameters
     [Parameter(Mandatory=$false, ParameterSetName='GenerateConfig')]
-    [Parameter(Mandatory=$false, ParameterSetName='GenerateDotEnv')]
     [string]$InstanceUrl,
 
     [Parameter(Mandatory=$false, ParameterSetName='GenerateConfig')]
-    [Parameter(Mandatory=$false, ParameterSetName='GenerateDotEnv')]
     [string]$RunnerRegisterToken,
 
-    [Parameter(Mandatory=$false, ParameterSetName='GenerateDotEnv')]
     [Parameter(Mandatory=$false, ParameterSetName='GenerateConfig')]
     [string]$RunnerName = $env:COMPUTERNAME
 )
@@ -124,7 +117,6 @@ ACTIONS:
     -Update          Update runner binary
     -Uninstall       Remove runner and task
     -GenerateConfig  Generate config and env files
-    -GenerateDotEnv  Generate environment file only
     -Help            Show help
 
 COMMON PARAMETERS:
@@ -188,9 +180,6 @@ EXAMPLES:
     # Generate config only (you must set environment variables before starting runner)
     .\Setup.ps1 -GenerateConfig
 
-    # Generate .env file only
-    .\Setup.ps1 -GenerateDotEnv -InstanceUrl "https://gitea.example.com" -RunnerRegisterToken "token123"
-
 For more information, visit:
 https://gitea.com/gitea/act_runner
 "@
@@ -215,16 +204,16 @@ function Test-InstallPermissions {
 function New-RunnerConfig {
     param(
         [Parameter(Mandatory=$false)]
-        [string]$ConfigFile=$CONFIG_FILE,
+        [string]$ConfigFile,
 
         [Parameter(Mandatory=$false)]
-        [string]$RunnerFile=$RUNNER_STATE_FILE,
+        [string]$RunnerFile,
 
         [Parameter(Mandatory=$false)]
-        [string]$CacheDir=$CACHE_DIR,
+        [string]$CacheDir,
 
         [Parameter(Mandatory=$false)]
-        [string]$WorkDir=$WORK_DIR,
+        [string]$WorkDir,
 
         [Parameter(Mandatory=$false)]
         [string]$InstanceUrl="",
@@ -253,10 +242,6 @@ function New-RunnerConfig {
 
     # Generate .env file
     New-DotEnvFile -InstanceUrl $InstanceUrl -RunnerRegisterToken $RunnerRegisterToken -RunnerName $RunnerName -Labels $Labels -ConfigFile $ConfigFile
-
-    Write-Log "Writing environment file to: $envPath"
-    $envContent | Out-File -FilePath $envPath -Encoding utf8 -Force
-    Write-SuccessLog "Environment file generated successfully at: $envPath"
 
     # Reference: https://gitea.com/gitea/act_runner/src/branch/main/internal/pkg/config/config.example.yaml
     $configContent = @"
@@ -413,7 +398,7 @@ function Install-Runner {
     }
 
     if (-not (Test-Path $CONFIG_FILE)) {
-        New-RunnerConfig($CONFIG_FILE, $RUNNER_STATE_FILE, $CACHE_DIR, $WORK_DIR)
+        New-RunnerConfig $CONFIG_FILE $RUNNER_STATE_FILE $CACHE_DIR $WORK_DIR
     }
 
     # Copy scripts
@@ -446,7 +431,7 @@ function Register-RunnerTask {
 
     # Load environment variables if .env exists
     $envFile = Join-Path $DATA_DIR ".env"
-    Import-DotEnv -EnvFile $envFile
+    Import-DotEnv -Path $envFile
 
     # Define required environment variables
     $requiredVars = @(
@@ -511,40 +496,6 @@ function Test-InstallPermissions {
         Write-ErrorLog "System-wide installation requires administrative privileges. Please run as Administrator or use -InstallSpace user"
         return $false
     }
-    return $true
-}
-
-function Test-RequiredEnvironmentVariables {
-    param(
-        [Parameter(Mandatory=$true)]
-        [array]$RequiredVars,
-
-        [switch]$ThrowOnError
-    )
-
-    $missingVars = @()
-
-    foreach ($var in $RequiredVars) {
-        $value = [Environment]::GetEnvironmentVariable($var.Name)
-        if ([string]::IsNullOrWhiteSpace($value)) {
-            $missingVars += $var
-        }
-    }
-
-    if ($missingVars.Count -gt 0) {
-        $errorMessage = "Missing required environment variables:`n"
-        foreach ($var in $missingVars) {
-            $errorMessage += "- $($var.Name): $($var.Description)`n"
-        }
-        
-        if ($ThrowOnError) {
-            throw $errorMessage
-        } else {
-            Write-Error $errorMessage
-            return $false
-        }
-    }
-
     return $true
 }
 
@@ -667,13 +618,13 @@ function New-DotEnvFile {
         [string]$RunnerRegisterToken,
 
         [Parameter(Mandatory=$false)]
-        [string]$RunnerName = $env:COMPUTERNAME,
+        [string]$RunnerName,
 
         [Parameter(Mandatory=$false)]
-        [string]$Labels = "windows:host",
-        
+        [string]$Labels,
+
         [Parameter(Mandatory=$false)]
-        [string]$ConfigFile = $CONFIG_FILE
+        [string]$ConfigFile
     )
 
     Write-Log "Generating .env file..."
@@ -698,6 +649,9 @@ GITEA_INSTANCE_URL=$InstanceUrl
 GITEA_RUNNER_REGISTRATION_TOKEN=$RunnerRegisterToken
 GITEA_RUNNER_NAME=$RunnerName
 GITEA_RUNNER_LABELS=$Labels
+
+# Optional configuration
+GITEA_MAX_REG_ATTEMPTS=10
 "@
 
     Write-Log "Writing environment file to: $envPath"
@@ -753,15 +707,5 @@ switch ($PSCmdlet.ParameterSetName) {
         if ($PSBoundParameters.ContainsKey('RunnerName')) { $configParams['RunnerName'] = $RunnerName }
         
         New-RunnerConfig @configParams
-    }
-    'GenerateDotEnv' {
-        $envParams = @{}
-        if ($PSBoundParameters.ContainsKey('InstanceUrl')) { $envParams['InstanceUrl'] = $InstanceUrl }
-        if ($PSBoundParameters.ContainsKey('RunnerRegisterToken')) { $envParams['RunnerRegisterToken'] = $RunnerRegisterToken }
-        if ($PSBoundParameters.ContainsKey('RunnerName')) { $envParams['RunnerName'] = $RunnerName }
-        if ($PSBoundParameters.ContainsKey('Labels')) { $envParams['Labels'] = $Labels }
-        if ($PSBoundParameters.ContainsKey('ConfigFile')) { $envParams['ConfigFile'] = $ConfigFile }
-
-        New-DotEnvFile @envParams
     }
 }
