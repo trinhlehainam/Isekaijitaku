@@ -23,6 +23,9 @@ param(
     [Parameter(Mandatory=$true, ParameterSetName='GenerateConfig')]
     [switch]$GenerateConfig,
 
+    [Parameter(Mandatory=$true, ParameterSetName='GenerateDotEnv')]
+    [switch]$GenerateDotEnv,
+
     [Parameter(ParameterSetName='Help')]
     [switch]$Help,
 
@@ -50,23 +53,31 @@ param(
 
     # Config generation parameters
     [Parameter(Mandatory=$false, ParameterSetName='GenerateConfig')]
-    [string]$ConfigFile,
-
-    [Parameter(Mandatory=$false, ParameterSetName='GenerateConfig')]
-    [string]$RunnerFile,
-
-    [Parameter(Mandatory=$false, ParameterSetName='GenerateConfig')]
     [string]$CacheDir,
 
     [Parameter(Mandatory=$false, ParameterSetName='GenerateConfig')]
     [string]$WorkDir,
 
     [Parameter(Mandatory=$false, ParameterSetName='GenerateConfig')]
+    [Parameter(Mandatory=$false, ParameterSetName='GenerateDotEnv')]
     [string]$Labels = "windows:host",
 
     [Parameter(Mandatory=$false, ParameterSetName='GenerateConfig')]
     [ValidateSet('trace', 'debug', 'info', 'warn', 'error')]
-    [string]$LogLevel = 'info'
+    [string]$LogLevel = 'info',
+
+    # DotEnv generation parameters
+    [Parameter(Mandatory=$false, ParameterSetName='GenerateConfig')]
+    [Parameter(Mandatory=$false, ParameterSetName='GenerateDotEnv')]
+    [string]$InstanceUrl,
+
+    [Parameter(Mandatory=$false, ParameterSetName='GenerateConfig')]
+    [Parameter(Mandatory=$false, ParameterSetName='GenerateDotEnv')]
+    [string]$RunnerRegisterToken,
+
+    [Parameter(Mandatory=$false, ParameterSetName='GenerateDotEnv')]
+    [Parameter(Mandatory=$false, ParameterSetName='GenerateConfig')]
+    [string]$RunnerName = $env:COMPUTERNAME
 )
 
 # Configuration based on installation space
@@ -89,8 +100,9 @@ $RUNNER_STATE_FILE = "$DATA_DIR\.runner"
 $CACHE_DIR = "$DATA_DIR\cache\actcache"
 $WORK_DIR = "$DATA_DIR\work"
 
-# Import logging module
+# Import modules
 Import-Module "$PSScriptRoot\scripts\LogHelpers.psm1" -Force
+Import-Module "$PSScriptRoot\scripts\DotEnvHelper.psm1" -Force
 
 # Initialize logging in script directory for persistence
 Set-LogFile -Path "$PSScriptRoot\install.log"
@@ -111,7 +123,8 @@ ACTIONS:
     -Unregister      Remove task
     -Update          Update runner binary
     -Uninstall       Remove runner and task
-    -GenerateConfig  Generate config file
+    -GenerateConfig  Generate config and env files
+    -GenerateDotEnv  Generate environment file only
     -Help            Show help
 
 COMMON PARAMETERS:
@@ -132,12 +145,35 @@ UPDATE PARAMETERS (with -Update):
     -RunnerVersion   Runner version (default: 0.2.11)
 
 CONFIG GENERATION PARAMETERS (with -GenerateConfig):
-    -ConfigFile      Custom path for config file
-    -RunnerFile      Custom path for runner file
     -CacheDir        Custom directory for caching
     -WorkDir         Custom directory for working files
     -Labels          Runner labels (default: windows:host)
     -LogLevel        Log level [trace|debug|info|warn|error] (default: info)
+    -InstanceUrl     Gitea instance URL
+    -RunnerRegisterToken Registration token
+    -RunnerName      Runner name (default: computer name)
+
+DOTENV GENERATION PARAMETERS (with -GenerateDotEnv):
+    -InstanceUrl     Gitea instance URL
+    -RunnerRegisterToken Registration token
+    -RunnerName      Runner name (default: computer name)
+    -Labels          Runner labels (default: windows:host)
+
+REQUIRED ENVIRONMENT VARIABLES:
+Before starting the runner, ensure these environment variables are set:
+    GITEA_INSTANCE_URL          Gitea instance URL
+    GITEA_RUNNER_REGISTRATION_TOKEN  Registration token
+
+You can set these variables in three ways:
+1. Generate .env file:
+   .\Setup.ps1 -GenerateDotEnv -InstanceUrl "https://gitea.example.com" -RunnerRegisterToken "token123"
+
+2. Generate both config and .env:
+   .\Setup.ps1 -GenerateConfig -InstanceUrl "https://gitea.example.com" -RunnerRegisterToken "token123"
+
+3. Set environment variables manually:
+   $env:GITEA_INSTANCE_URL = "https://gitea.example.com"
+   $env:GITEA_RUNNER_REGISTRATION_TOKEN = "token123"
 
 EXAMPLES:
     # Show this help
@@ -146,20 +182,14 @@ EXAMPLES:
     # Install system-wide (requires admin)
     .\Setup.ps1 -Install -InstallSpace system
 
-    # Install user space
-    .\Setup.ps1 -Install -InstallSpace user
+    # Generate config and env files
+    .\Setup.ps1 -GenerateConfig -InstanceUrl "https://gitea.example.com" -RunnerRegisterToken "token123"
 
-    # Generate config
-    .\Setup.ps1 -GenerateConfig -ConfigFile config.yaml
+    # Generate config only (you must set environment variables before starting runner)
+    .\Setup.ps1 -GenerateConfig
 
-    # Check status
-    .\Setup.ps1 -Status
-
-    # Update runner
-    .\Setup.ps1 -Update -RunnerVersion 0.2.12
-
-    # Uninstall
-    .\Setup.ps1 -Uninstall
+    # Generate .env file only
+    .\Setup.ps1 -GenerateDotEnv -InstanceUrl "https://gitea.example.com" -RunnerRegisterToken "token123"
 
 For more information, visit:
 https://gitea.com/gitea/act_runner
@@ -185,16 +215,22 @@ function Test-InstallPermissions {
 function New-RunnerConfig {
     param(
         [Parameter(Mandatory=$false)]
-        [string]$ConfigFile,
+        [string]$ConfigFile=$CONFIG_FILE,
 
         [Parameter(Mandatory=$false)]
-        [string]$RunnerFile,
+        [string]$RunnerFile=$RUNNER_STATE_FILE,
 
         [Parameter(Mandatory=$false)]
-        [string]$CacheDir,
+        [string]$CacheDir=$CACHE_DIR,
 
         [Parameter(Mandatory=$false)]
-        [string]$WorkDir,
+        [string]$WorkDir=$WORK_DIR,
+
+        [Parameter(Mandatory=$false)]
+        [string]$InstanceUrl="",
+
+        [Parameter(Mandatory=$false)]
+        [string]$RunnerRegisterToken="",
 
         [Parameter(Mandatory=$false)]
         [string]$Labels = "windows:host",
@@ -204,28 +240,23 @@ function New-RunnerConfig {
         [string]$LogLevel = 'info',
 
         [Parameter(Mandatory=$false)]
-        [switch]$Force
+        [string]$RunnerName = $env:COMPUTERNAME
     )
 
     Write-Log "Generating runner configuration..."
 
-    # Use provided paths or defaults based on installation space
-    $configPath = if ($ConfigFile) { $ConfigFile } else { $CONFIG_FILE }
-    $runnerPath = if ($RunnerFile) { $RunnerFile } else { Join-Path $DATA_DIR ".runner" }
-    $cachePath = if ($CacheDir) { $CacheDir } else { $CACHE_DIR }
-    $workPath = if ($WorkDir) { $WorkDir } else { $WORK_DIR }
-
     # Create parent directories if they don't exist
-    $configDir = Split-Path -Parent $configPath
+    $configDir = Split-Path -Parent $ConfigFile
     if (-not (Test-Path $configDir)) {
-        Write-Log "Creating config directory: $configDir"
         New-Item -ItemType Directory -Force -Path $configDir | Out-Null
     }
 
-    if ((Test-Path $configPath) -and -not $Force) {
-        Write-ErrorLog "Config file already exists at: $configPath. Use -Force to overwrite."
-        exit 1
-    }
+    # Generate .env file
+    New-DotEnvFile -InstanceUrl $InstanceUrl -RunnerRegisterToken $RunnerRegisterToken -RunnerName $RunnerName -Labels $Labels -ConfigFile $ConfigFile
+
+    Write-Log "Writing environment file to: $envPath"
+    $envContent | Out-File -FilePath $envPath -Encoding utf8 -Force
+    Write-SuccessLog "Environment file generated successfully at: $envPath"
 
     # Reference: https://gitea.com/gitea/act_runner/src/branch/main/internal/pkg/config/config.example.yaml
     $configContent = @"
@@ -240,7 +271,7 @@ log:
 
 runner:
   # Where to store the registration result.
-  file: $runnerPath
+  file: $RunnerFile
   # Execute how many tasks concurrently at the same time.
   capacity: 1
   # Extra environment variables to run jobs.
@@ -275,7 +306,7 @@ cache:
   # Enable cache server to use actions/cache.
   enabled: true
   # The directory to store the cache data.
-  dir: $cachePath
+  dir: $CacheDir
   # The host of the cache server.
   # It's not for the address to listen, but the address to connect from job containers.
   # So 0.0.0.0 is a bad choice, leave it empty to detect automatically.
@@ -325,13 +356,13 @@ container:
 
 host:
   # The parent directory of a job's working directory.
-  workdir_parent: $workPath
+  workdir_parent: $WorkDir
 "@
 
     try {
-        Write-Log "Writing config to: $configPath"
-        Set-Content -Path $configPath -Value $configContent -Force
-        Write-SuccessLog "Config file generated successfully at: $configPath"
+        Write-Log "Writing config to: $ConfigFile"
+        Set-Content -Path $ConfigFile -Value $configContent -Force
+        Write-SuccessLog "Config file generated successfully at: $ConfigFile"
     } catch {
         Write-ErrorLog "Failed to write config file: $_"
         exit 1
@@ -399,67 +430,118 @@ function Install-Runner {
         [Environment]::SetEnvironmentVariable('PATH', $newPath, [EnvironmentVariableTarget]::User)
     }
 
-
     Write-SuccessLog "Installation completed successfully!"
 }
 
 function Register-RunnerTask {
-    Write-Log "Setting up Task Scheduler..."
-    
-    # Remove existing task if it exists
-    Write-Log "Checking for existing scheduled task..."
+    param(
+        [Parameter(Mandatory=$false)]
+        [string]$TaskName = "GiteaActionRunner",
+
+        [Parameter(Mandatory=$false)]
+        [string]$TaskDescription = "Gitea Action Runner Service"
+    )
+
+    Write-Log "Registering runner task..."
+
+    # Load environment variables if .env exists
+    $envFile = Join-Path $DATA_DIR ".env"
+    Import-DotEnv -EnvFile $envFile
+
+    # Validate required environment variables
+    if (-not (Test-RequiredEnvironmentVariables)) {
+        throw "Cannot register runner: Missing required environment variables. Please set them in the .env file or provide them as parameters."
+    }
+
+    # Check if task exists
     $existingTask = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+
     if ($existingTask) {
-        if (-not $Force) {
-            Write-Log "Task already exists. Use -Force to replace it."
-            return
+        if ($Force) {
+            Write-Log "Force flag set. Unregistering existing task..."
+            Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
+        } else {
+            throw "Task '$TaskName' already exists. Use -Force to override."
         }
-        Write-Log "Removing existing task..."
-        Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
     }
 
-    try {
-        # Create action to run the script
-        $action = New-ScheduledTaskAction `
-            -Execute "powershell.exe" `
-            -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$SCRIPTS_DIR\Run.ps1`"" `
-            -WorkingDirectory $PROGRAM_DIR
-
-        # Create trigger for automatic start
-        $trigger = New-ScheduledTaskTrigger -AtStartup
-
-        # Create principal (run with highest privileges)
-        $principal = New-ScheduledTaskPrincipal `
-            -UserId "SYSTEM" `
-            -LogonType ServiceAccount `
-            -RunLevel Highest
-
-        # Create settings
-        $settings = New-ScheduledTaskSettingsSet `
-            -MultipleInstances IgnoreNew `
-            -RestartCount 3 `
-            -RestartInterval (New-TimeSpan -Minutes 1) `
-            -ExecutionTimeLimit (New-TimeSpan -Hours 0) `
-            -AllowStartIfOnBatteries `
-            -DontStopIfGoingOnBatteries `
-            -StartWhenAvailable `
-            -RunOnlyIfNetworkAvailable
-
-        # Register the task
-        Register-ScheduledTask `
-            -TaskName $TaskName `
-            -Description $TaskDescription `
-            -Action $action `
-            -Trigger $trigger `
-            -Principal $principal `
-            -Settings $settings
-
-        Write-SuccessLog "Scheduled task created successfully"
-        Write-Log "Task name: $TaskName"
-    } catch {
-        Write-ErrorLog "Failed to create scheduled task: $_"
-        exit 1
+    # Create the task
+    $action = New-ScheduledTaskAction -Execute "powershell.exe" `
+        -Argument "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$PSScriptRoot\scripts\Run.ps1`""
+    
+    $trigger = New-ScheduledTaskTrigger -AtStartup
+    $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
+    
+    $principal = if ($InstallSpace -eq 'system') {
+        New-ScheduledTaskPrincipal -UserID "NT AUTHORITY\SYSTEM" -LogonType ServiceAccount -RunLevel Highest
+    } else {
+        New-ScheduledTaskPrincipal -GroupId "BUILTIN\Users" -RunLevel Limited
     }
+
+    Register-ScheduledTask -TaskName $TaskName `
+        -Action $action `
+        -Trigger $trigger `
+        -Settings $settings `
+        -Principal $principal `
+        -Description $TaskDescription
+
+    Write-SuccessLog "Task registered successfully!"
+    
+    # Start the task
+    Write-Log "Starting task..."
+    Start-ScheduledTask -TaskName $TaskName
+    Write-SuccessLog "Task started successfully!"
+}
+
+function Test-AdminPrivileges {
+    $currentUser = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $principal = New-Object Security.Principal.WindowsPrincipal($currentUser)
+    $adminRole = [Security.Principal.WindowsBuiltInRole]::Administrator
+    return $principal.IsInRole($adminRole)
+}
+
+function Test-InstallPermissions {
+    if ($InstallSpace -eq 'system' -and -not (Test-AdminPrivileges)) {
+        Write-ErrorLog "System-wide installation requires administrative privileges. Please run as Administrator or use -InstallSpace user"
+        return $false
+    }
+    return $true
+}
+
+function Test-RequiredEnvironmentVariables {
+    param(
+        [switch]$ThrowOnError
+    )
+
+    $requiredVars = @(
+        @{Name = 'GITEA_INSTANCE_URL'; Description = 'Gitea instance URL'},
+        @{Name = 'GITEA_RUNNER_REGISTRATION_TOKEN'; Description = 'Runner registration token'}
+    )
+
+    $missingVars = @()
+
+    foreach ($var in $requiredVars) {
+        $value = [Environment]::GetEnvironmentVariable($var.Name)
+        if ([string]::IsNullOrWhiteSpace($value)) {
+            $missingVars += $var
+        }
+    }
+
+    if ($missingVars.Count -gt 0) {
+        $errorMessage = "Missing required environment variables:`n"
+        foreach ($var in $missingVars) {
+            $errorMessage += "- $($var.Name): $($var.Description)`n"
+        }
+        
+        if ($ThrowOnError) {
+            throw $errorMessage
+        } else {
+            Write-Error $errorMessage
+            return $false
+        }
+    }
+
+    return $true
 }
 
 function Get-RunnerTaskStatus {
@@ -572,6 +654,53 @@ function Uninstall-Runner {
     Write-SuccessLog "Uninstallation completed successfully!"
 }
 
+function New-DotEnvFile {
+    param(
+        [Parameter(Mandatory=$false)]
+        [string]$InstanceUrl,
+
+        [Parameter(Mandatory=$false)]
+        [string]$RunnerRegisterToken,
+
+        [Parameter(Mandatory=$false)]
+        [string]$RunnerName = $env:COMPUTERNAME,
+
+        [Parameter(Mandatory=$false)]
+        [string]$Labels = "windows:host",
+        
+        [Parameter(Mandatory=$false)]
+        [string]$ConfigFile = $CONFIG_FILE
+    )
+
+    Write-Log "Generating .env file..."
+
+    $envPath = Join-Path $DATA_DIR ".env"
+
+    # Create parent directory if it doesn't exist
+    $envDir = Split-Path -Parent $envPath
+    if (-not (Test-Path $envDir)) {
+        New-Item -ItemType Directory -Force -Path $envDir | Out-Null
+    }
+
+    $envContent = @"
+# Gitea Runner Configuration
+# Generated on $(Get-Date -Format "yyyy-MM-dd HH:mm:ss")
+
+# Configuration paths
+CONFIG_FILE=$ConfigFile
+
+# Runner registration details
+GITEA_INSTANCE_URL=$InstanceUrl
+GITEA_RUNNER_REGISTRATION_TOKEN=$RunnerRegisterToken
+GITEA_RUNNER_NAME=$RunnerName
+GITEA_RUNNER_LABELS=$Labels
+"@
+
+    Write-Log "Writing environment file to: $envPath"
+    $envContent | Out-File -FilePath $envPath -Encoding utf8 -Force
+    Write-SuccessLog "Environment file generated successfully at: $envPath"
+}
+
 # Show help if no parameters are provided or -Help is specified
 if ($PSBoundParameters.Count -eq 0 -or $Help) {
     Show-Help
@@ -609,15 +738,26 @@ switch ($PSCmdlet.ParameterSetName) {
     }
     'GenerateConfig' {
         $configParams = @{}
-        # Only pass parameters that were explicitly provided
+        if ($PSBoundParameters.ContainsKey('InstanceUrl')) { $configParams['InstanceUrl'] = $InstanceUrl }
+        if ($PSBoundParameters.ContainsKey('RunnerRegisterToken')) { $configParams['RunnerRegisterToken'] = $RunnerRegisterToken }
         if ($PSBoundParameters.ContainsKey('ConfigFile')) { $configParams['ConfigFile'] = $ConfigFile }
         if ($PSBoundParameters.ContainsKey('RunnerFile')) { $configParams['RunnerFile'] = $RunnerFile }
         if ($PSBoundParameters.ContainsKey('CacheDir')) { $configParams['CacheDir'] = $CacheDir }
         if ($PSBoundParameters.ContainsKey('WorkDir')) { $configParams['WorkDir'] = $WorkDir }
         if ($PSBoundParameters.ContainsKey('Labels')) { $configParams['Labels'] = $Labels }
         if ($PSBoundParameters.ContainsKey('LogLevel')) { $configParams['LogLevel'] = $LogLevel }
-        if ($PSBoundParameters.ContainsKey('Force')) { $configParams['Force'] = $Force }
+        if ($PSBoundParameters.ContainsKey('RunnerName')) { $configParams['RunnerName'] = $RunnerName }
         
         New-RunnerConfig @configParams
+    }
+    'GenerateDotEnv' {
+        $envParams = @{}
+        if ($PSBoundParameters.ContainsKey('InstanceUrl')) { $envParams['InstanceUrl'] = $InstanceUrl }
+        if ($PSBoundParameters.ContainsKey('RunnerRegisterToken')) { $envParams['RunnerRegisterToken'] = $RunnerRegisterToken }
+        if ($PSBoundParameters.ContainsKey('RunnerName')) { $envParams['RunnerName'] = $RunnerName }
+        if ($PSBoundParameters.ContainsKey('Labels')) { $envParams['Labels'] = $Labels }
+        if ($PSBoundParameters.ContainsKey('ConfigFile')) { $envParams['ConfigFile'] = $ConfigFile }
+
+        New-DotEnvFile @envParams
     }
 }

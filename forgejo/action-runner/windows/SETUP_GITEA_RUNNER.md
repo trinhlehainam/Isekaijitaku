@@ -142,6 +142,47 @@ The generated config will include detailed comments explaining each option. Defa
 - System-wide: Uses `%ProgramData%` and `%ProgramFiles%`
 - User space: Uses `%USERPROFILE%`
 
+### Environment Configuration
+
+Before starting the runner, you must configure the following environment variables:
+
+### Required Variables
+- `GITEA_INSTANCE_URL`: Your Gitea instance URL
+- `GITEA_RUNNER_REGISTRATION_TOKEN`: Runner registration token
+
+### Optional Variables
+- `GITEA_RUNNER_NAME`: Runner name (default: computer name)
+- `GITEA_RUNNER_LABELS`: Runner labels (default: windows:host)
+- `GITEA_MAX_REG_ATTEMPTS`: Maximum registration attempts (default: 10)
+
+You can set these variables in three ways:
+
+1. Generate .env file:
+```powershell
+.\Setup.ps1 -GenerateDotEnv `
+    -InstanceUrl "https://gitea.example.com" `
+    -RunnerRegisterToken "your-token" `
+    -RunnerName "MyRunner" `
+    -Labels "windows:host,docker:host"
+```
+
+2. Generate config and .env together:
+```powershell
+.\Setup.ps1 -GenerateConfig `
+    -InstanceUrl "https://gitea.example.com" `
+    -RunnerRegisterToken "your-token" `
+    -RunnerName "MyRunner" `
+    -Labels "windows:host,docker:host"
+```
+
+3. Set environment variables manually:
+```powershell
+$env:GITEA_INSTANCE_URL = "https://gitea.example.com"
+$env:GITEA_RUNNER_REGISTRATION_TOKEN = "your-token"
+$env:GITEA_RUNNER_NAME = "MyRunner"
+$env:GITEA_RUNNER_LABELS = "windows:host,docker:host"
+```
+
 ### Examples
 
 ```powershell
