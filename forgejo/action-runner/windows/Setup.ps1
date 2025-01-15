@@ -21,13 +21,13 @@ param(
     [Parameter(Mandatory=$true, ParameterSetName='GenerateConfig')]
     [switch]$GenerateConfig,
 
-    [Parameter(Mandatory=$false, ParameterSetName='Install')]
-    [Parameter(Mandatory=$false, ParameterSetName='Register')]
-    [Parameter(Mandatory=$false, ParameterSetName='Status')]
-    [Parameter(Mandatory=$false, ParameterSetName='Unregister')]
-    [Parameter(Mandatory=$false, ParameterSetName='Update')]
-    [Parameter(Mandatory=$false, ParameterSetName='Uninstall')]
-    [Parameter(Mandatory=$false, ParameterSetName='GenerateConfig')]
+    [Parameter(Mandatory=$false, ParameterSetName='Install', Position=1)]
+    [Parameter(Mandatory=$false, ParameterSetName='Register', Position=1)]
+    [Parameter(Mandatory=$false, ParameterSetName='Status', Position=1)]
+    [Parameter(Mandatory=$false, ParameterSetName='Unregister', Position=1)]
+    [Parameter(Mandatory=$false, ParameterSetName='Update', Position=1)]
+    [Parameter(Mandatory=$false, ParameterSetName='Uninstall', Position=1)]
+    [Parameter(Mandatory=$false, ParameterSetName='GenerateConfig', Position=1)]
     [switch]$Help,
 
     # Common parameters
@@ -503,12 +503,6 @@ function Install-Runner {
         return
     }
     
-    # Add firewall rule if running as admin
-    if (Test-AdminPrivileges) {
-        # https://learn.microsoft.com/en-us/powershell/module/netsecurity/new-netfirewallrule?view=windowsserver2025-ps
-        New-NetFirewallRule -DisplayName "act_runner.exe" -Direction Inbound -Program "$exeFile" -Action Allow -Profile Private, Public
-    }
-
     try {
         Write-Log "Downloading runner from: $runnerUrl"
         Invoke-WebRequest -Uri $runnerUrl -OutFile $exeFile
@@ -516,7 +510,6 @@ function Install-Runner {
         Write-ErrorLog "Failed to download runner: $_"
         exit 1
     }
-
 
     # Copy scripts
     Write-Log "Copying scripts to: $SCRIPTS_DIR"
@@ -535,16 +528,49 @@ function Install-Runner {
     Write-SuccessLog "Installation completed successfully!"
 }
 
+function New-FirewallRule {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$RuleName,
+        [Parameter(Mandatory=$true)]
+        [string]$exeFile
+    )
+    # Create firewall rule for the task
+    try {
+        # Remove existing rule if any
+        Remove-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue
+
+        # Create new rule
+        $params = @{
+            DisplayName = $ruleName
+            Direction   = "Inbound"
+            Program     = $exeFile
+            Action      = "Allow"
+            Profile     = @("Private", "Public")
+            Description = "Allow Gitea Action Runner to have network access"
+            Enabled     = "True"
+        }
+            
+        New-NetFirewallRule @params -ErrorAction Stop | Out-Null
+        Write-SuccessLog "Network access rule created for $exeFile"
+        return $true
+    }
+    catch {
+        Write-ErrorLog "Failed to create network access rule: $_"
+        return $false
+    }
+}
+
 function Register-RunnerTask {
     param(
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory = $false)]
         [string]$TaskName = "GiteaActionRunner",
 
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory = $false)]
         [string]$TaskDescription = "Gitea Action Runner Service"
     )
 
-    Write-Log "Registering runner task..."
+    Write-Log "Registering task: $TaskName"
 
     # Load environment variables if .env exists
     $envFile = Join-Path $DATA_DIR ".env"
@@ -561,44 +587,70 @@ function Register-RunnerTask {
         throw "Cannot register runner: Missing required environment variables. Please set them in the .env file or provide them as parameters."
     }
 
+    if (-not (Test-InstallPermissions)) {
+        exit 1
+    }
+
     # Check if task exists
     $existingTask = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+    if ($existingTask -and -not $Force) {
+        Write-ErrorLog "Task already exists: $TaskName. Use -Force to overwrite"
+        exit 1
+    }
 
-    if ($existingTask) {
-        if ($Force) {
-            Write-Log "Force flag set. Unregistering existing task..."
-            Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
-        } else {
-            throw "Task '$TaskName' already exists. Use -Force to override."
+    # Remove existing task if force
+    if ($existingTask -and $Force) {
+        Write-Log "Removing existing task: $TaskName"
+        Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
+    }
+
+    try {
+        # Create firewall rule for the task
+        $ruleName = "GiteaActionRunner"
+        $exeFile = "$BIN_DIR\act_runner.exe"
+        if (-not (New-FirewallRule -RuleName $ruleName -exeFile $exeFile)) {
+            exit 1
         }
+
+        # Create task action
+        $action = New-ScheduledTaskAction -Execute "powershell.exe" `
+            -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$SCRIPTS_DIR\Run.ps1`"" `
+            -WorkingDirectory $DATA_DIR
+
+        # Create task trigger (at system startup)
+        $trigger = New-ScheduledTaskTrigger -AtStartup
+
+        # Configure task settings
+        $settings = New-ScheduledTaskSettingsSet `
+            -ExecutionTimeLimit (New-TimeSpan -Days 365) `
+            -RestartCount 3 `
+            -RestartInterval (New-TimeSpan -Minutes 1) `
+            -AllowStartIfOnBatteries `
+            -DontStopIfGoingOnBatteries `
+            -StartWhenAvailable
+
+        # Configure task principal (run with highest privileges)
+        $principal = New-ScheduledTaskPrincipal `
+            -UserId "SYSTEM" `
+            -LogonType ServiceAccount `
+            -RunLevel Highest
+
+        # Register the task
+        Register-ScheduledTask `
+            -TaskName $TaskName `
+            -Description $TaskDescription `
+            -Action $action `
+            -Trigger $trigger `
+            -Settings $settings `
+            -Principal $principal `
+            -Force
+
+        Write-SuccessLog "Task registered successfully: $TaskName"
     }
-
-    # Create the task
-    $action = New-ScheduledTaskAction -Execute "powershell.exe" `
-        -Argument "-NoProfile -NonInteractive -ExecutionPolicy Bypass -File `"$PSScriptRoot\scripts\Run.ps1`""
-    
-    $trigger = New-ScheduledTaskTrigger -AtStartup
-    $settings = New-ScheduledTaskSettingsSet -AllowStartIfOnBatteries -DontStopIfGoingOnBatteries -RestartCount 3 -RestartInterval (New-TimeSpan -Minutes 1)
-    
-    $principal = if ($InstallSpace -eq 'system') {
-        New-ScheduledTaskPrincipal -UserID "NT AUTHORITY\SYSTEM" -LogonType ServiceAccount -RunLevel Highest
-    } else {
-        New-ScheduledTaskPrincipal -GroupId "BUILTIN\Users" -RunLevel Limited
+    catch {
+        Write-ErrorLog "Failed to register task: $_"
+        exit 1
     }
-
-    Register-ScheduledTask -TaskName $TaskName `
-        -Action $action `
-        -Trigger $trigger `
-        -Settings $settings `
-        -Principal $principal `
-        -Description $TaskDescription
-
-    Write-SuccessLog "Task registered successfully!"
-    
-    # Start the task
-    Write-Log "Starting task..."
-    Start-ScheduledTask -TaskName $TaskName
-    Write-SuccessLog "Task started successfully!"
 }
 
 function Get-RunnerTaskStatus {
@@ -776,7 +828,7 @@ switch ($PSCmdlet.ParameterSetName) {
         if ($PSBoundParameters.ContainsKey('InstanceUrl')) { $configParams['InstanceUrl'] = $InstanceUrl }
         if ($PSBoundParameters.ContainsKey('RunnerRegisterToken')) { $configParams['RunnerRegisterToken'] = $RunnerRegisterToken }
         if ($PSBoundParameters.ContainsKey('ConfigFile')) { $configParams['ConfigFile'] = $ConfigFile } else { $configParams['ConfigFile'] = $CONFIG_FILE }
-        if ($PSBoundParameters.ContainsKey('RunnerFile')) { $configParams['RunnerFile'] = $RunnerFile } else { $configParams['RunnerFile'] = $RUNNER_FILE }
+        if ($PSBoundParameters.ContainsKey('RunnerFile')) { $configParams['RunnerFile'] = $RunnerFile } else { $configParams['RunnerFile'] = $RUNNER_STATE_FILE }
         if ($PSBoundParameters.ContainsKey('CacheDir')) { $configParams['CacheDir'] = $CacheDir } else { $configParams['CacheDir'] = $CACHE_DIR }
         if ($PSBoundParameters.ContainsKey('WorkDir')) { $configParams['WorkDir'] = $WorkDir } else { $configParams['WorkDir'] = $WORK_DIR }
 
