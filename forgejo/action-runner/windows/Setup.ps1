@@ -1,7 +1,5 @@
-# Gitea Runner Installation Script
-[CmdletBinding()]
+[CmdletBinding(DefaultParameterSetName='Help')]
 param(
-    # Installation parameters
     [Parameter(Mandatory=$true, ParameterSetName='Install')]
     [switch]$Install,
 
@@ -23,14 +21,27 @@ param(
     [Parameter(Mandatory=$true, ParameterSetName='GenerateConfig')]
     [switch]$GenerateConfig,
 
-    [Parameter(ParameterSetName='Help')]
-    [switch]$Help,
-
-    # Common parameters for installation and task management
     [Parameter(Mandatory=$false, ParameterSetName='Install')]
     [Parameter(Mandatory=$false, ParameterSetName='Register')]
     [Parameter(Mandatory=$false, ParameterSetName='Status')]
     [Parameter(Mandatory=$false, ParameterSetName='Unregister')]
+    [Parameter(Mandatory=$false, ParameterSetName='Update')]
+    [Parameter(Mandatory=$false, ParameterSetName='Uninstall')]
+    [Parameter(Mandatory=$false, ParameterSetName='GenerateConfig')]
+    [switch]$Help,
+
+    # Common parameters
+    [Parameter(Mandatory=$false)]
+    [switch]$Force=$false,
+
+    # Installation parameters
+    [Parameter(Mandatory=$false, ParameterSetName='Install')]
+    [Parameter(Mandatory=$false, ParameterSetName='Uninstall')]
+    [ValidateSet('system', 'user')]
+    [string]$InstallSpace = 'user',
+
+    [Parameter(Mandatory=$false, ParameterSetName='Install')]
+    [Parameter(Mandatory=$false, ParameterSetName='Register')]
     [string]$TaskName = "GiteaActionRunner",
 
     [Parameter(Mandatory=$false, ParameterSetName='Install')]
@@ -41,36 +52,40 @@ param(
     [Parameter(Mandatory=$false, ParameterSetName='Update')]
     [string]$RunnerVersion = "0.2.11",
 
-    [Parameter(Mandatory=$false, ParameterSetName='Install')]
-    [ValidateSet('system', 'user')]
-    [string]$InstallSpace = 'user',
-
-    [Parameter(Mandatory=$false)]
-    [switch]$Force,
-
     # Config generation parameters
+    [Parameter(Mandatory=$false, ParameterSetName='Install')]
     [Parameter(Mandatory=$false, ParameterSetName='GenerateConfig')]
     [string]$CacheDir,
 
+    [Parameter(Mandatory=$false, ParameterSetName='Install')]
     [Parameter(Mandatory=$false, ParameterSetName='GenerateConfig')]
     [string]$WorkDir,
 
+    [Parameter(Mandatory=$false, ParameterSetName='Install')]
     [Parameter(Mandatory=$false, ParameterSetName='GenerateConfig')]
     [string]$Labels = "windows:host",
 
+    [Parameter(Mandatory=$false, ParameterSetName='Install')]
     [Parameter(Mandatory=$false, ParameterSetName='GenerateConfig')]
     [ValidateSet('trace', 'debug', 'info', 'warn', 'error')]
-    [string]$LogLevel = 'info',
+    [string]$LogLevel = "info",
 
-    # DotEnv generation parameters
+    # Environment variables
+    [Parameter(Mandatory=$false, ParameterSetName='Install')]
     [Parameter(Mandatory=$false, ParameterSetName='GenerateConfig')]
     [string]$InstanceUrl,
 
+    [Parameter(Mandatory=$false, ParameterSetName='Install')]
     [Parameter(Mandatory=$false, ParameterSetName='GenerateConfig')]
     [string]$RunnerRegisterToken,
 
+    [Parameter(Mandatory=$false, ParameterSetName='Install')]
     [Parameter(Mandatory=$false, ParameterSetName='GenerateConfig')]
-    [string]$RunnerName = $env:COMPUTERNAME
+    [string]$RunnerName = $env:COMPUTERNAME,
+
+    # Task registration flag
+    [Parameter(Mandatory=$false, ParameterSetName='Install')]
+    [switch]$RegisterTask
 )
 
 # Configuration based on installation space
@@ -105,12 +120,161 @@ $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
 function Show-Help {
-    $helpText = @"
+    param(
+        [Parameter(Mandatory=$false)]
+        [string]$Action
+    )
+
+    switch ($Action) {
+        'Install' {
+            $helpText = @"
+Install Action Help
+------------------
+Installs the Gitea Runner and optionally registers it as a scheduled task.
+
+Usage: 
+    .\Setup.ps1 -Install [parameters]
+
+Parameters:
+    -InstallSpace       Installation space [system|user] (default: user)
+    -TaskName          Custom task name (default: GiteaActionRunner)
+    -TaskDescription   Custom task description
+    -RunnerVersion     Runner version (default: 0.2.11)
+    -RegisterTask      Register as scheduled task after installation
+    -Force            Force operation even if components exist
+
+Configuration Parameters:
+    -InstanceUrl       Gitea instance URL
+    -RunnerRegisterToken Registration token
+    -RunnerName        Runner name (default: computer name)
+    -Labels           Runner labels (default: windows:host)
+    -LogLevel         Log level [trace|debug|info|warn|error]
+    -CacheDir         Custom directory for caching
+    -WorkDir          Custom directory for working files
+
+Examples:
+    # Basic installation in user space
+    .\Setup.ps1 -Install
+
+    # Full installation with task registration and configuration
+    .\Setup.ps1 -Install -InstallSpace system `
+        -InstanceUrl "https://gitea.example.com" `
+        -RunnerRegisterToken "token123" `
+        -RegisterTask `
+        -TaskName "MyRunner" `
+        -Labels "windows:host,docker"
+"@
+        }
+        'Register' {
+            $helpText = @"
+Register Action Help
+-------------------
+Registers the runner as a scheduled task.
+
+Usage:
+    .\Setup.ps1 -Register [parameters]
+
+Parameters:
+    -TaskName         Custom task name (default: GiteaActionRunner)
+    -TaskDescription  Custom task description
+    -Force           Force operation even if task exists
+
+Examples:
+    # Register with default settings
+    .\Setup.ps1 -Register
+
+    # Register with custom name and description
+    .\Setup.ps1 -Register -TaskName "MyRunner" -TaskDescription "Custom Runner"
+"@
+        }
+        'Status' {
+            $helpText = @"
+Status Action Help
+-----------------
+Shows the status of the runner task.
+
+Usage:
+    .\Setup.ps1 -Status
+
+No additional parameters required.
+"@
+        }
+        'Update' {
+            $helpText = @"
+Update Action Help
+-----------------
+Updates the runner binary to a specified version.
+
+Usage:
+    .\Setup.ps1 -Update [parameters]
+
+Parameters:
+    -RunnerVersion   Runner version (default: 0.2.11)
+    -Force          Force update even if version matches
+
+Examples:
+    # Update to specific version
+    .\Setup.ps1 -Update -RunnerVersion "0.2.12"
+"@
+        }
+        'Uninstall' {
+            $helpText = @"
+Uninstall Action Help
+--------------------
+Removes the runner and optionally its task.
+
+Usage:
+    .\Setup.ps1 -Uninstall [parameters]
+
+Parameters:
+    -Force          Force removal even if components are in use
+
+Examples:
+    # Uninstall runner
+    .\Setup.ps1 -Uninstall
+"@
+        }
+        'GenerateConfig' {
+            $helpText = @"
+Generate Config Action Help
+-------------------------
+Generates configuration and environment files.
+
+Usage:
+    .\Setup.ps1 -GenerateConfig [parameters]
+
+Parameters:
+    -InstanceUrl          Gitea instance URL
+    -RunnerRegisterToken  Registration token
+    -RunnerName          Runner name (default: computer name)
+    -Labels             Runner labels (default: windows:host)
+    -LogLevel           Log level [trace|debug|info|warn|error]
+    -CacheDir           Custom directory for caching
+    -WorkDir            Custom directory for working files
+    -Force             Force overwrite of existing files
+
+Examples:
+    # Generate with minimal settings
+    .\Setup.ps1 -GenerateConfig -InstanceUrl "https://gitea.example.com" -RunnerRegisterToken "token123"
+
+    # Generate with all options
+    .\Setup.ps1 -GenerateConfig `
+        -InstanceUrl "https://gitea.example.com" `
+        -RunnerRegisterToken "token123" `
+        -RunnerName "MyRunner" `
+        -Labels "windows:host,docker" `
+        -LogLevel "debug" `
+        -CacheDir "C:\Cache" `
+        -WorkDir "C:\Work"
+"@
+        }
+        default {
+            $helpText = @"
 Gitea Runner Installation Script
 Usage: Setup.ps1 [action] [parameters]
 
 ACTIONS:
-    -Install         Install runner and register task
+    -Install         Install runner and optionally register task
     -Register        Register task only
     -Status          Show task status
     -Unregister      Remove task
@@ -119,70 +283,14 @@ ACTIONS:
     -GenerateConfig  Generate config and env files
     -Help            Show help
 
-COMMON PARAMETERS:
-    -Force           Force operation even if components exist
+For action-specific help, use:
+    .\Setup.ps1 -Help -[Action]
 
-INSTALLATION PARAMETERS (with -Install):
-    -TaskName        Custom task name (default: GiteaActionRunner)
-    -TaskDescription Custom task description
-    -RunnerVersion   Runner version (default: 0.2.11)
-    -InstallSpace    Installation space [system|user] (default: user)
-                     'system' requires admin privileges
-
-TASK MANAGEMENT PARAMETERS (with -Register, -Status, -Unregister):
-    -TaskName        Custom task name (default: GiteaActionRunner)
-    -TaskDescription Custom task description (only with -Register)
-
-UPDATE PARAMETERS (with -Update):
-    -RunnerVersion   Runner version (default: 0.2.11)
-
-CONFIG GENERATION PARAMETERS (with -GenerateConfig):
-    -CacheDir        Custom directory for caching
-    -WorkDir         Custom directory for working files
-    -Labels          Runner labels (default: windows:host)
-    -LogLevel        Log level [trace|debug|info|warn|error] (default: info)
-    -InstanceUrl     Gitea instance URL
-    -RunnerRegisterToken Registration token
-    -RunnerName      Runner name (default: computer name)
-
-DOTENV GENERATION PARAMETERS (with -GenerateDotEnv):
-    -InstanceUrl     Gitea instance URL
-    -RunnerRegisterToken Registration token
-    -RunnerName      Runner name (default: computer name)
-    -Labels          Runner labels (default: windows:host)
-
-REQUIRED ENVIRONMENT VARIABLES:
-Before starting the runner, ensure these environment variables are set:
-    GITEA_INSTANCE_URL          Gitea instance URL
-    GITEA_RUNNER_REGISTRATION_TOKEN  Registration token
-
-You can set these variables in three ways:
-1. Generate .env file:
-   .\Setup.ps1 -GenerateDotEnv -InstanceUrl "https://gitea.example.com" -RunnerRegisterToken "token123"
-
-2. Generate both config and .env:
-   .\Setup.ps1 -GenerateConfig -InstanceUrl "https://gitea.example.com" -RunnerRegisterToken "token123"
-
-3. Set environment variables manually:
-   $env:GITEA_INSTANCE_URL = "https://gitea.example.com"
-   $env:GITEA_RUNNER_REGISTRATION_TOKEN = "token123"
-
-EXAMPLES:
-    # Show this help
-    .\Setup.ps1 -Help
-
-    # Install system-wide (requires admin)
-    .\Setup.ps1 -Install -InstallSpace system
-
-    # Generate config and env files
-    .\Setup.ps1 -GenerateConfig -InstanceUrl "https://gitea.example.com" -RunnerRegisterToken "token123"
-
-    # Generate config only (you must set environment variables before starting runner)
-    .\Setup.ps1 -GenerateConfig
-
-For more information, visit:
-https://gitea.com/gitea/act_runner
+Example:
+    .\Setup.ps1 -Help -Install
 "@
+        }
+    }
     Write-Host $helpText
 }
 
@@ -355,6 +463,7 @@ host:
 }
 
 function Install-Runner {
+
     Write-Log "Installing Gitea Runner..."
     
     # Create directories
@@ -389,6 +498,17 @@ function Install-Runner {
     $runnerUrl = "https://dl.gitea.com/act_runner/$RunnerVersion/act_runner-$RunnerVersion-windows-$arch.exe"
     $exeFile = "$BIN_DIR\act_runner.exe"
     
+    if ((Test-Path $exeFile) -and (-not $Force)) {
+        Write-Log "Runner already exists at: $exeFile"
+        return
+    }
+    
+    # Add firewall rule if running as admin
+    if (Test-AdminPrivileges) {
+        # https://learn.microsoft.com/en-us/powershell/module/netsecurity/new-netfirewallrule?view=windowsserver2025-ps
+        New-NetFirewallRule -DisplayName "act_runner.exe" -Direction Inbound -Program "$exeFile" -Action Allow -Profile Private, Public
+    }
+
     try {
         Write-Log "Downloading runner from: $runnerUrl"
         Invoke-WebRequest -Uri $runnerUrl -OutFile $exeFile
@@ -397,9 +517,6 @@ function Install-Runner {
         exit 1
     }
 
-    if (-not (Test-Path $CONFIG_FILE)) {
-        New-RunnerConfig $CONFIG_FILE $RUNNER_STATE_FILE $CACHE_DIR $WORK_DIR
-    }
 
     # Copy scripts
     Write-Log "Copying scripts to: $SCRIPTS_DIR"
@@ -482,21 +599,6 @@ function Register-RunnerTask {
     Write-Log "Starting task..."
     Start-ScheduledTask -TaskName $TaskName
     Write-SuccessLog "Task started successfully!"
-}
-
-function Test-AdminPrivileges {
-    $currentUser = [Security.Principal.WindowsIdentity]::GetCurrent()
-    $principal = New-Object Security.Principal.WindowsPrincipal($currentUser)
-    $adminRole = [Security.Principal.WindowsBuiltInRole]::Administrator
-    return $principal.IsInRole($adminRole)
-}
-
-function Test-InstallPermissions {
-    if ($InstallSpace -eq 'system' -and -not (Test-AdminPrivileges)) {
-        Write-ErrorLog "System-wide installation requires administrative privileges. Please run as Administrator or use -InstallSpace user"
-        return $false
-    }
-    return $true
 }
 
 function Get-RunnerTaskStatus {
@@ -659,19 +761,42 @@ GITEA_MAX_REG_ATTEMPTS=10
     Write-SuccessLog "Environment file generated successfully at: $envPath"
 }
 
-# Show help if no parameters are provided or -Help is specified
-if ($PSBoundParameters.Count -eq 0 -or $Help) {
-    Show-Help
-    exit 0
+# Main script execution
+if ($PSCmdlet.ParameterSetName -eq 'Help' -or $Help) {
+    $action = $PSBoundParameters.Keys | Where-Object { $_ -ne 'Help' } | Select-Object -First 1
+    Show-Help -Action $action
+    return
 }
 
-# Main script execution
 switch ($PSCmdlet.ParameterSetName) {
     'Install' {
-        if (-not (Test-InstallPermissions)) {
-            exit 1
-        }
         Install-Runner
+
+        $configParams = @{}
+        if ($PSBoundParameters.ContainsKey('InstanceUrl')) { $configParams['InstanceUrl'] = $InstanceUrl }
+        if ($PSBoundParameters.ContainsKey('RunnerRegisterToken')) { $configParams['RunnerRegisterToken'] = $RunnerRegisterToken }
+        if ($PSBoundParameters.ContainsKey('ConfigFile')) { $configParams['ConfigFile'] = $ConfigFile } else { $configParams['ConfigFile'] = $CONFIG_FILE }
+        if ($PSBoundParameters.ContainsKey('RunnerFile')) { $configParams['RunnerFile'] = $RunnerFile } else { $configParams['RunnerFile'] = $RUNNER_FILE }
+        if ($PSBoundParameters.ContainsKey('CacheDir')) { $configParams['CacheDir'] = $CacheDir } else { $configParams['CacheDir'] = $CACHE_DIR }
+        if ($PSBoundParameters.ContainsKey('WorkDir')) { $configParams['WorkDir'] = $WorkDir } else { $configParams['WorkDir'] = $WORK_DIR }
+
+        if (-not (Test-Path $CONFIG_FILE) -or ($Force)) {
+            New-RunnerConfig @configParams
+        }
+
+        if ($RegisterTask) {
+            if (-not (Test-InstallPermissions)) {
+                exit 1
+            }
+
+            $taskParams = @{
+                TaskName = $TaskName
+                TaskDescription = $TaskDescription
+            }
+            if ($Force) { $taskParams['Force'] = $true }
+            
+            Register-RunnerTask @taskParams
+        }
     }
     'Register' {
         if (-not (Test-InstallPermissions)) {

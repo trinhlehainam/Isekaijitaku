@@ -94,7 +94,7 @@ function Register-Runner {
                 Write-Log "Registration attempt $attempt of $max_registration_attempts..."
                 
                 $process_params = @{
-                    FilePath = "act_runner"
+                    FilePath = $runnerExe
                     ArgumentList = $params
                     NoNewWindow = $true
                     Wait = $true
@@ -159,7 +159,7 @@ try {
         $params += @("--config", $env:CONFIG_FILE)
     }
     $process_params = @{
-        FilePath               = "act_runner"
+        FilePath               = $runnerExe
         ArgumentList           = $params
         NoNewWindow            = $true
         RedirectStandardOutput = "$LOGS_DIR/runner.log"
