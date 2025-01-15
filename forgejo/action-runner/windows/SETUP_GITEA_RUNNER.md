@@ -18,13 +18,14 @@ The setup script (`Setup.ps1`) provides several actions:
 .\Setup.ps1 [-Action <action>] [-TaskName <name>] [-InstallSpace <space>] [-RunnerVersion <version>] [-Force]
 
 Actions:
-  help           Show help message (default)
-  install        Install the runner and register task scheduler
-  register-task  Register the task in Task Scheduler
-  status         Get task scheduler status
-  remove-task    Remove the task scheduler entry
-  update         Update the runner binary
-  uninstall      Remove runner files and task scheduler entry
+  help            Show help message (default)
+  install         Install the runner and register task scheduler
+  register        Register the task in Task Scheduler
+  status          Get task scheduler status
+  unregister      Remove the task scheduler entry
+  update          Update the runner binary
+  uninstall       Remove runner files and task scheduler entry
+  generate-config Generate default config file
 ```
 
 ### Parameters
@@ -32,11 +33,12 @@ Actions:
 - `-Action`: Installation action to perform
   - `help`: Show help message (default)
   - `install`: Performs a full installation
-  - `register-task`: Only registers the task scheduler
+  - `register`: Only registers the task scheduler
   - `status`: Shows current task status
-  - `remove-task`: Removes the task scheduler entry
+  - `unregister`: Removes the task scheduler entry
   - `update`: Updates the runner binary
   - `uninstall`: Removes all runner files and task scheduler entry
+  - `generate-config`: Generates default config file
 - `-TaskName`: Custom task name (default: "GiteaActionRunner")
 - `-TaskDescription`: Custom task description
 - `-RunnerVersion`: Specify runner version (default: "0.2.11")
@@ -44,6 +46,82 @@ Actions:
   - `system`: System-wide installation (requires admin)
   - `user`: User space installation (no admin required)
 - `-Force`: Force operation even if components already exist
+
+### Configuration File
+
+The configuration file is generated with default settings suitable for most environments. You can customize it after generation:
+
+```yaml
+log:
+  level: info
+  file: "<logs_dir>/runner.log"
+
+runner:
+  file: "<data_dir>/.runner"
+  capacity: 1
+  envs:
+    RUNNER_NAME: "<computername>"
+    RUNNER_LABELS: "windows:host"
+  timeout: 3h
+  insecure: false
+
+cache:
+  enabled: true
+  dir: "<cache_dir>"
+
+container:
+  privileged: false
+  network: bridge
+  options:
+    - "--security-opt"
+    - "seccomp=unconfined"
+
+host:
+  workdir_parent: "<work_dir>"
+```
+
+The paths in the config file are automatically set based on your installation space:
+- System-wide: Uses `%ProgramData%` and `%ProgramFiles%`
+- User space: Uses `%USERPROFILE%`
+
+### Examples
+
+```powershell
+# Show help
+.\Setup.ps1
+.\Setup.ps1 -Action help
+
+# System-wide installation (requires admin)
+.\Setup.ps1 -Action install -InstallSpace system
+
+# User space installation (no admin required)
+.\Setup.ps1 -Action install -InstallSpace user
+
+# Generate default config
+.\Setup.ps1 -Action generate-config
+
+# Generate config with force overwrite
+.\Setup.ps1 -Action generate-config -Force
+
+# Install with custom task name and version
+.\Setup.ps1 -TaskName "MyRunner" -RunnerVersion "0.2.12"
+
+# Only register task scheduler
+.\Setup.ps1 -Action register
+
+# Check task status (no admin required)
+.\Setup.ps1 -Action status
+
+# Remove task
+.\Setup.ps1 -Action unregister
+
+# Update runner
+.\Setup.ps1 -Action update -RunnerVersion "0.2.12"
+
+# Uninstall runner
+.\Setup.ps1 -Action uninstall                           # No admin if user space and no task
+.\Setup.ps1 -Action uninstall -InstallSpace system      # Requires admin
+```
 
 ### Installation Spaces
 
@@ -68,9 +146,9 @@ The script supports two installation spaces:
 
 - System-wide Installation (`-InstallSpace system`):
   - `install`: Requires admin
-  - `register-task`: Requires admin
+  - `register`: Requires admin
   - `status`: No admin required
-  - `remove-task`: Requires admin
+  - `unregister`: Requires admin
   - `update`: Requires admin when task exists and is running
   - `uninstall`: Requires admin (only when removing system-wide installation or task exists)
 
@@ -80,40 +158,7 @@ The script supports two installation spaces:
     - When updating with task running (for update)
   - All other operations within user's home directory
 
-### Examples
-
-```powershell
-# Show help
-.\Setup.ps1
-.\Setup.ps1 -Action help
-
-# System-wide installation (requires admin)
-.\Setup.ps1 -Action install -InstallSpace system
-
-# User space installation (no admin required)
-.\Setup.ps1 -Action install -InstallSpace user
-
-# Install with custom task name and version
-.\Setup.ps1 -TaskName "MyRunner" -RunnerVersion "0.2.12"
-
-# Only register task scheduler
-.\Setup.ps1 -Action register-task
-
-# Check task status (no admin required)
-.\Setup.ps1 -Action status
-
-# Remove task
-.\Setup.ps1 -Action remove-task
-
-# Update runner
-.\Setup.ps1 -Action update -RunnerVersion "0.2.12"
-
-# Uninstall runner
-.\Setup.ps1 -Action uninstall                           # No admin if user space and no task
-.\Setup.ps1 -Action uninstall -InstallSpace system      # Requires admin
-```
-
-## Directory Structure
+### Directory Structure
 
 ### System-wide Installation (`-InstallSpace system`)
 
@@ -206,7 +251,7 @@ Start-ScheduledTask -TaskName "GiteaActionRunner"
 Stop-ScheduledTask -TaskName "GiteaActionRunner"
 
 # Remove the task (requires admin)
-.\Setup.ps1 -Action remove-task
+.\Setup.ps1 -Action unregister
 ```
 
 ## Logging
@@ -293,8 +338,8 @@ Get-Content ".\install.log" | Select-String "ERROR"
    .\Setup.ps1 -Action status
    
    # Recreate task (run as administrator)
-   .\Setup.ps1 -Action remove-task
-   .\Setup.ps1 -Action register-task -Force
+   .\Setup.ps1 -Action unregister
+   .\Setup.ps1 -Action register -Force
    ```
 
 3. Runner Issues:

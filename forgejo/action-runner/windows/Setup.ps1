@@ -3,11 +3,12 @@ param(
     [Parameter(Mandatory=$false)]
     [ValidateSet(
         'install',
-        'register-task',
+        'register',
         'status',
-        'remove-task',
+        'unregister',
         'update',
         'uninstall',
+        'generate-config',
         'help'
     )]
     [string]$Action = 'help',
@@ -61,52 +62,46 @@ $ProgressPreference = 'SilentlyContinue'
 
 function Show-Help {
     @"
-Gitea Runner Installation Script
-Usage: .\Setup.ps1 [-Action <action>] [-TaskName <name>] [-InstallSpace <space>] [-RunnerVersion <version>] [-Force]
+Gitea Runner Setup Script
+
+Usage:
+    .\Setup.ps1 [-Action <action>] [-TaskName <name>] [-InstallSpace <space>] [-RunnerVersion <version>] [-Force]
 
 Actions:
-  help           Show this help message (default)
-  install-runner Install the runner and register task scheduler
-  register-task  Register the task in Task Scheduler
-  get-status     Get task scheduler status
-  remove-task    Remove the task scheduler entry
-  update-runner  Update the runner binary
-  uninstall      Remove runner files and task scheduler entry
+    help             Show this help message (default)
+    install          Install the runner and register task scheduler
+    register         Register the task in Task Scheduler
+    status           Get task scheduler status
+    unregister       Remove the task scheduler entry
+    update           Update the runner binary
+    uninstall        Remove runner files and task scheduler entry
+    generate-config  Generate default config file
 
 Parameters:
-  -Action <action>         The action to perform (default: help)
-  -TaskName <name>        Task scheduler name (default: GiteaActionRunner)
-  -TaskDescription <desc> Task scheduler description
-  -RunnerVersion <ver>    Runner version to install (default: 0.2.11)
-  -InstallSpace <space>   Installation space: 'system' or 'user' (default: user)
-                         'system' requires admin rights and installs to Program Files
-                         'user' installs to user's home directory
-  -Force                  Force operation even if components exist
+    -TaskName        Custom task name (default: GiteaActionRunner)
+    -TaskDescription Custom task description
+    -RunnerVersion   Runner version (default: 0.2.11)
+    -InstallSpace    Installation space: 'system' or 'user' (default: user)
+    -Force           Force operation even if components exist
 
 Examples:
-  # Show help
-  .\Setup.ps1
-  .\Setup.ps1 -Action help
+    # Show help
+    .\Setup.ps1 -Action help
 
-  # System-wide installation (requires admin)
-  .\Setup.ps1 -Action install-runner -InstallSpace system
+    # Install runner (user space)
+    .\Setup.ps1 -Action install
 
-  # User space installation (no admin required)
-  .\Setup.ps1 -Action install-runner -InstallSpace user
+    # Install runner (system-wide, requires admin)
+    .\Setup.ps1 -Action install -InstallSpace system
 
-  # Register task with custom name
-  .\Setup.ps1 -Action register-task -TaskName "MyRunner"
+    # Generate default config
+    .\Setup.ps1 -Action generate-config
 
-  # Check status
-  .\Setup.ps1 -Action get-status
+    # Update runner
+    .\Setup.ps1 -Action update -RunnerVersion 0.2.12
 
-  # Update runner
-  .\Setup.ps1 -Action update-runner -RunnerVersion "0.2.12"
-
-  # Uninstall runner
-  .\Setup.ps1 -Action uninstall
-
-Note: System-wide installation (-InstallSpace system) requires administrative privileges
+    # Uninstall runner
+    .\Setup.ps1 -Action uninstall
 "@ | Write-Host
 }
 
@@ -125,67 +120,19 @@ function Test-InstallPermissions {
     return $true
 }
 
-function Install-Runner {
-    Write-Log "Installing Gitea Runner..."
-    
-    # Create directories
-    $directories = @(
-        $PROGRAM_DIR,
-        $BIN_DIR,
-        $SCRIPTS_DIR,
-        $DATA_DIR,
-        $LOGS_DIR,
-        $CACHE_DIR,
-        $WORK_DIR
+function New-RunnerConfig {
+    param (
+        [string]$ConfigFile = $CONFIG_FILE,
+        [string]$RunnerStateFile = $RUNNER_STATE_FILE,
+        [string]$CacheDir = $CACHE_DIR,
+        [string]$WorkDir = $WORK_DIR,
+        [switch]$Force = $false
     )
-
-    foreach ($dir in $directories) {
-        if (-not (Test-Path $dir)) {
-            Write-Log "Creating directory: $dir"
-            New-Item -ItemType Directory -Path $dir -Force | Out-Null
-        }
-    }
-
-    $osArch = (Get-WmiObject Win32_OperatingSystem).OSArchitecture
-    $arch = switch -Wildcard ($osArch) { 
-        '64-bit*' { 'amd64' } 
-        'ARM64*' { 'arm64' } 
-        default { 
-            Write-ErrorLog "Unsupported architecture: $osArch"
-            exit 1
-        } 
-    }
-
-    # Download and extract runner
-    $runnerUrl = "https://dl.gitea.com/act_runner/$RunnerVersion/act_runner-$RunnerVersion-windows-$arch.exe"
-    $exeFile = "$BIN_DIR\act_runner.exe"
-    
-    try {
-        Write-Log "Downloading runner from: $runnerUrl"
-        Invoke-WebRequest -Uri $runnerUrl -OutFile $exeFile
-    } catch {
-        Write-ErrorLog "Failed to download runner: $_"
-        exit 1
-    }
-
-    # Copy scripts
-    Write-Log "Copying scripts to: $SCRIPTS_DIR"
-    Copy-Item "$PSScriptRoot\scripts\*" $SCRIPTS_DIR -Force
-    
-    # Add runner directory to PATH
-    Write-Log "Updating PATH: $BIN_DIR"
-    $newPath = ('{0};{1}' -f $BIN_DIR, $env:PATH)
-    if ($InstallSpace -eq 'system') {
-        [Environment]::SetEnvironmentVariable('PATH', $newPath, [EnvironmentVariableTarget]::Machine)
-    }
-    if ($InstallSpace -eq 'user') {
-        [Environment]::SetEnvironmentVariable('PATH', $newPath, [EnvironmentVariableTarget]::User)
-    }
 
     # Create default config if it doesn't exist
     # Reference: https://gitea.com/gitea/act_runner/src/branch/main/internal/pkg/config/config.example.yaml
-    if (-not (Test-Path $CONFIG_FILE) -or $Force) {
-        Write-Log "Creating default config file: $CONFIG_FILE"
+    if (-not (Test-Path $ConfigFile) -or $Force) {
+        Write-Log "Creating default config file: $ConfigFile"
         @"
 # Example configuration file, it's safe to copy this as the default config file without any modification.
 
@@ -198,7 +145,7 @@ log:
 
 runner:
   # Where to store the registration result.
-  file: $RUNNER_STATE_FILE
+  file: $RunnerStateFile
   # Execute how many tasks concurrently at the same time.
   capacity: 1
   # Extra environment variables to run jobs.
@@ -231,7 +178,7 @@ cache:
   # Enable cache server to use actions/cache.
   enabled: true
   # The directory to store the cache data.
-  dir: $CACHE_DIR
+  dir: $CacheDir
   # The host of the cache server.
   # It's not for the address to listen, but the address to connect from job containers.
   # So 0.0.0.0 is a bad choice, leave it empty to detect automatically.
@@ -281,9 +228,72 @@ container:
 
 host:
   # The parent directory of a job's working directory.
-  workdir_parent: $WORK_DIR
-"@ | Out-File $CONFIG_FILE -Encoding utf8 -Force
+  workdir_parent: $WorkDir
+"@ | Out-File $ConfigFile -Encoding utf8 -Force
     }
+}
+
+function Install-Runner {
+    Write-Log "Installing Gitea Runner..."
+    
+    # Create directories
+    $directories = @(
+        $PROGRAM_DIR,
+        $BIN_DIR,
+        $SCRIPTS_DIR,
+        $DATA_DIR,
+        $LOGS_DIR,
+        $CACHE_DIR,
+        $WORK_DIR
+    )
+
+    foreach ($dir in $directories) {
+        if (-not (Test-Path $dir)) {
+            Write-Log "Creating directory: $dir"
+            New-Item -ItemType Directory -Path $dir -Force | Out-Null
+        }
+    }
+
+    $osArch = (Get-WmiObject Win32_OperatingSystem).OSArchitecture
+    $arch = switch -Wildcard ($osArch) { 
+        '64-bit*' { 'amd64' } 
+        'ARM64*' { 'arm64' } 
+        default { 
+            Write-ErrorLog "Unsupported architecture: $osArch"
+            exit 1
+        } 
+    }
+
+    # Download and extract runner
+    $runnerUrl = "https://dl.gitea.com/act_runner/$RunnerVersion/act_runner-$RunnerVersion-windows-$arch.exe"
+    $exeFile = "$BIN_DIR\act_runner.exe"
+    
+    try {
+        Write-Log "Downloading runner from: $runnerUrl"
+        Invoke-WebRequest -Uri $runnerUrl -OutFile $exeFile
+    } catch {
+        Write-ErrorLog "Failed to download runner: $_"
+        exit 1
+    }
+
+    if (-not (Test-Path $CONFIG_FILE)) {
+        New-RunnerConfig($CONFIG_FILE, $RUNNER_STATE_FILE, $CACHE_DIR, $WORK_DIR)
+    }
+
+    # Copy scripts
+    Write-Log "Copying scripts to: $SCRIPTS_DIR"
+    Copy-Item "$PSScriptRoot\scripts\*" $SCRIPTS_DIR -Force
+    
+    # Add runner directory to PATH
+    Write-Log "Updating PATH: $BIN_DIR"
+    $newPath = ('{0};{1}' -f $BIN_DIR, $env:PATH)
+    if ($InstallSpace -eq 'system') {
+        [Environment]::SetEnvironmentVariable('PATH', $newPath, [EnvironmentVariableTarget]::Machine)
+    }
+    if ($InstallSpace -eq 'user') {
+        [Environment]::SetEnvironmentVariable('PATH', $newPath, [EnvironmentVariableTarget]::User)
+    }
+
 
     Write-SuccessLog "Installation completed successfully!"
 }
@@ -369,7 +379,7 @@ function Get-RunnerTaskStatus {
     Write-Log "  Number of Missed Runs: $($taskInfo.NumberOfMissedRuns)"
 }
 
-function Remove-RunnerTask {
+function Unregister-RunnerTask {
     Write-Log "Removing Task Scheduler entry..."
     
     $task = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
@@ -468,12 +478,8 @@ switch ($Action.ToLower()) {
         }
         Install-Runner
     }
-    'register-task' {
+    'register' {
         if (-not (Test-InstallPermissions)) {
-            exit 1
-        }
-        if (-not (Test-Path $SCRIPTS_DIR\Run.ps1)) {
-            Write-ErrorLog "Runner not installed. Please run with -Action install-runner first."
             exit 1
         }
         Register-RunnerTask
@@ -481,17 +487,20 @@ switch ($Action.ToLower()) {
     'status' {
         Get-RunnerTaskStatus
     }
-    'remove-task' {
+    'unregister' {
         if (-not (Test-InstallPermissions)) {
             exit 1
         }
-        Remove-RunnerTask
+        Unregister-RunnerTask
     }
     'update' {
         Update-Runner
     }
     'uninstall' {
         Uninstall-Runner
+    }
+    'generate-config' {
+        New-RunnerConfig
     }
     default {
         Write-ErrorLog "Unknown action: $Action"
