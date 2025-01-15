@@ -1,5 +1,5 @@
 # Gitea Runner Installation Script
-[CmdletBinding(DefaultParameterSetName='Help')]
+[CmdletBinding()]
 param(
     # Installation parameters
     [Parameter(Mandatory=$true, ParameterSetName='Install')]
@@ -23,7 +23,7 @@ param(
     [Parameter(Mandatory=$true, ParameterSetName='GenerateConfig')]
     [switch]$GenerateConfig,
 
-    [Parameter(Mandatory=$true, ParameterSetName='Help')]
+    [Parameter(ParameterSetName='Help')]
     [switch]$Help,
 
     # Common parameters for installation and task management
@@ -572,11 +572,14 @@ function Uninstall-Runner {
     Write-SuccessLog "Uninstallation completed successfully!"
 }
 
+# Show help if no parameters are provided or -Help is specified
+if ($PSBoundParameters.Count -eq 0 -or $Help) {
+    Show-Help
+    exit 0
+}
+
 # Main script execution
 switch ($PSCmdlet.ParameterSetName) {
-    'Help' {
-        Show-Help
-    }
     'Install' {
         if (-not (Test-InstallPermissions)) {
             exit 1
