@@ -21,13 +21,13 @@ param(
     [Parameter(Mandatory=$true, ParameterSetName='GenerateConfig')]
     [switch]$GenerateConfig,
 
-    [Parameter(Mandatory=$false, ParameterSetName='Install', Position=1)]
-    [Parameter(Mandatory=$false, ParameterSetName='Register', Position=1)]
-    [Parameter(Mandatory=$false, ParameterSetName='Status', Position=1)]
-    [Parameter(Mandatory=$false, ParameterSetName='Unregister', Position=1)]
-    [Parameter(Mandatory=$false, ParameterSetName='Update', Position=1)]
-    [Parameter(Mandatory=$false, ParameterSetName='Uninstall', Position=1)]
-    [Parameter(Mandatory=$false, ParameterSetName='GenerateConfig', Position=1)]
+    [Parameter(Mandatory=$false, ParameterSetName='Install')]
+    [Parameter(Mandatory=$false, ParameterSetName='Register')]
+    [Parameter(Mandatory=$false, ParameterSetName='Status')]
+    [Parameter(Mandatory=$false, ParameterSetName='Unregister')]
+    [Parameter(Mandatory=$false, ParameterSetName='Update')]
+    [Parameter(Mandatory=$false, ParameterSetName='Uninstall')]
+    [Parameter(Mandatory=$false, ParameterSetName='GenerateConfig')]
     [switch]$Help,
 
     # Common parameters
