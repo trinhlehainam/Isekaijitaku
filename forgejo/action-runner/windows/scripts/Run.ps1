@@ -2,8 +2,8 @@
 $ErrorActionPreference = 'Stop'
 
 # Import modules
-Import-Module "$PSScriptRoot\LogHelpers.psm1" -Force
-Import-Module "$PSScriptRoot\DotEnvHelper.psm1" -Force
+Import-Module "$PSScriptRoot\helpers\LogHelpers.psm1" -Force
+Import-Module "$PSScriptRoot\helpers\DotEnvHelper.psm1" -Force
 
 # Constants and paths
 $PROGRAM_DIR = Split-Path -Parent $PSScriptRoot
@@ -97,6 +97,7 @@ function Register-Runner {
     }
 }
 
+# Validate environment before proceeding
 Test-RequiredEnvironmentVariables -RequiredVars $requiredVars -ThrowOnError
 
 Register-Runner

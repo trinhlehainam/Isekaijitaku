@@ -101,8 +101,8 @@ $CACHE_DIR = "$DATA_DIR\cache\actcache"
 $WORK_DIR = "$DATA_DIR\work"
 
 # Import modules
-Import-Module "$PSScriptRoot\scripts\LogHelpers.psm1" -Force
-Import-Module "$PSScriptRoot\scripts\DotEnvHelper.psm1" -Force
+Import-Module "$PSScriptRoot\scripts\helpers\LogHelpers.psm1" -Force
+Import-Module "$PSScriptRoot\scripts\helpers\DotEnvHelper.psm1" -Force
 
 # Initialize logging in script directory for persistence
 Set-LogFile -Path "$PSScriptRoot\install.log"
@@ -448,8 +448,14 @@ function Register-RunnerTask {
     $envFile = Join-Path $DATA_DIR ".env"
     Import-DotEnv -EnvFile $envFile
 
+    # Define required environment variables
+    $requiredVars = @(
+        @{Name = 'GITEA_INSTANCE_URL'; Description = 'Gitea instance URL'},
+        @{Name = 'GITEA_RUNNER_REGISTRATION_TOKEN'; Description = 'Runner registration token'}
+    )
+
     # Validate required environment variables
-    if (-not (Test-RequiredEnvironmentVariables)) {
+    if (-not (Test-RequiredEnvironmentVariables -RequiredVars $requiredVars)) {
         throw "Cannot register runner: Missing required environment variables. Please set them in the .env file or provide them as parameters."
     }
 
@@ -510,17 +516,15 @@ function Test-InstallPermissions {
 
 function Test-RequiredEnvironmentVariables {
     param(
-        [switch]$ThrowOnError
-    )
+        [Parameter(Mandatory=$true)]
+        [array]$RequiredVars,
 
-    $requiredVars = @(
-        @{Name = 'GITEA_INSTANCE_URL'; Description = 'Gitea instance URL'},
-        @{Name = 'GITEA_RUNNER_REGISTRATION_TOKEN'; Description = 'Runner registration token'}
+        [switch]$ThrowOnError
     )
 
     $missingVars = @()
 
-    foreach ($var in $requiredVars) {
+    foreach ($var in $RequiredVars) {
         $value = [Environment]::GetEnvironmentVariable($var.Name)
         if ([string]::IsNullOrWhiteSpace($value)) {
             $missingVars += $var

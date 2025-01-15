@@ -40,7 +40,6 @@ function Import-DotEnv {
     if (Test-Path $EnvFile) {
         Write-Log "Loading environment from: $EnvFile"
         
-        # https://stackoverflow.com/a/74839464
         Get-Content $EnvFile | ForEach-Object {
             $name, $value = $_.split('=')
             if ([string]::IsNullOrWhiteSpace($name) -or $name.Contains('#') -or $value.Contains('#')) {
