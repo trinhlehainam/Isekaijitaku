@@ -23,6 +23,9 @@ param(
     [Parameter(Mandatory=$true, ParameterSetName='GenerateConfig')]
     [switch]$GenerateConfig,
 
+    [Parameter(Mandatory=$true, ParameterSetName='Help')]
+    [switch]$Help,
+
     # Common parameters for installation and task management
     [Parameter(Mandatory=$false, ParameterSetName='Install')]
     [Parameter(Mandatory=$false, ParameterSetName='Register')]
@@ -97,48 +100,71 @@ $ErrorActionPreference = 'Stop'
 $ProgressPreference = 'SilentlyContinue'
 
 function Show-Help {
-    @"
-Gitea Runner Setup Script
+    $helpText = @"
+Gitea Runner Installation Script
+Usage: Setup.ps1 [action] [parameters]
 
-Usage:
-    .\Setup.ps1 [-Action <action>] [-TaskName <name>] [-InstallSpace <space>] [-RunnerVersion <version>] [-Force]
+ACTIONS:
+    -Install         Install runner and register task
+    -Register        Register task only
+    -Status          Show task status
+    -Unregister      Remove task
+    -Update          Update runner binary
+    -Uninstall       Remove runner and task
+    -GenerateConfig  Generate config file
+    -Help            Show help
 
-Actions:
-    help             Show this help message (default)
-    install          Install the runner and register task scheduler
-    register         Register the task in Task Scheduler
-    status           Get task scheduler status
-    unregister       Remove the task scheduler entry
-    update           Update the runner binary
-    uninstall        Remove runner files and task scheduler entry
-    generate-config  Generate default config file
+COMMON PARAMETERS:
+    -Force           Force operation even if components exist
 
-Parameters:
+INSTALLATION PARAMETERS (with -Install):
     -TaskName        Custom task name (default: GiteaActionRunner)
     -TaskDescription Custom task description
     -RunnerVersion   Runner version (default: 0.2.11)
-    -InstallSpace    Installation space: 'system' or 'user' (default: user)
-    -Force           Force operation even if components exist
+    -InstallSpace    Installation space [system|user] (default: user)
+                     'system' requires admin privileges
 
-Examples:
-    # Show help
-    .\Setup.ps1 -Action help
+TASK MANAGEMENT PARAMETERS (with -Register, -Status, -Unregister):
+    -TaskName        Custom task name (default: GiteaActionRunner)
+    -TaskDescription Custom task description (only with -Register)
 
-    # Install runner (user space)
-    .\Setup.ps1 -Action install
+UPDATE PARAMETERS (with -Update):
+    -RunnerVersion   Runner version (default: 0.2.11)
 
-    # Install runner (system-wide, requires admin)
-    .\Setup.ps1 -Action install -InstallSpace system
+CONFIG GENERATION PARAMETERS (with -GenerateConfig):
+    -ConfigFile      Custom path for config file
+    -RunnerFile      Custom path for runner file
+    -CacheDir        Custom directory for caching
+    -WorkDir         Custom directory for working files
+    -Labels          Runner labels (default: windows:host)
+    -LogLevel        Log level [trace|debug|info|warn|error] (default: info)
 
-    # Generate default config
-    .\Setup.ps1 -Action generate-config
+EXAMPLES:
+    # Show this help
+    .\Setup.ps1 -Help
+
+    # Install system-wide (requires admin)
+    .\Setup.ps1 -Install -InstallSpace system
+
+    # Install user space
+    .\Setup.ps1 -Install -InstallSpace user
+
+    # Generate config
+    .\Setup.ps1 -GenerateConfig -ConfigFile config.yaml
+
+    # Check status
+    .\Setup.ps1 -Status
 
     # Update runner
-    .\Setup.ps1 -Action update -RunnerVersion 0.2.12
+    .\Setup.ps1 -Update -RunnerVersion 0.2.12
 
-    # Uninstall runner
-    .\Setup.ps1 -Action uninstall
-"@ | Write-Host
+    # Uninstall
+    .\Setup.ps1 -Uninstall
+
+For more information, visit:
+https://gitea.com/gitea/act_runner
+"@
+    Write-Host $helpText
 }
 
 function Test-AdminPrivileges {
