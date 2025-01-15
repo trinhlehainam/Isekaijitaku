@@ -1,33 +1,69 @@
 # Gitea Runner Installation Script
+[CmdletBinding(DefaultParameterSetName='Help')]
 param(
-    [Parameter(Mandatory=$false)]
-    [ValidateSet(
-        'install',
-        'register',
-        'status',
-        'unregister',
-        'update',
-        'uninstall',
-        'generate-config',
-        'help'
-    )]
-    [string]$Action = 'help',
+    # Installation parameters
+    [Parameter(Mandatory=$true, ParameterSetName='Install')]
+    [switch]$Install,
 
-    [Parameter(Mandatory=$false)]
+    [Parameter(Mandatory=$true, ParameterSetName='Register')]
+    [switch]$Register,
+
+    [Parameter(Mandatory=$true, ParameterSetName='Status')]
+    [switch]$Status,
+
+    [Parameter(Mandatory=$true, ParameterSetName='Unregister')]
+    [switch]$Unregister,
+
+    [Parameter(Mandatory=$true, ParameterSetName='Update')]
+    [switch]$Update,
+
+    [Parameter(Mandatory=$true, ParameterSetName='Uninstall')]
+    [switch]$Uninstall,
+
+    [Parameter(Mandatory=$true, ParameterSetName='GenerateConfig')]
+    [switch]$GenerateConfig,
+
+    # Common parameters for installation and task management
+    [Parameter(Mandatory=$false, ParameterSetName='Install')]
+    [Parameter(Mandatory=$false, ParameterSetName='Register')]
+    [Parameter(Mandatory=$false, ParameterSetName='Status')]
+    [Parameter(Mandatory=$false, ParameterSetName='Unregister')]
     [string]$TaskName = "GiteaActionRunner",
 
-    [Parameter(Mandatory=$false)]
+    [Parameter(Mandatory=$false, ParameterSetName='Install')]
+    [Parameter(Mandatory=$false, ParameterSetName='Register')]
     [string]$TaskDescription = "Gitea Action Runner Service",
 
-    [Parameter(Mandatory=$false)]
+    [Parameter(Mandatory=$false, ParameterSetName='Install')]
+    [Parameter(Mandatory=$false, ParameterSetName='Update')]
     [string]$RunnerVersion = "0.2.11",
 
-    [Parameter(Mandatory=$false)]
+    [Parameter(Mandatory=$false, ParameterSetName='Install')]
     [ValidateSet('system', 'user')]
     [string]$InstallSpace = 'user',
 
     [Parameter(Mandatory=$false)]
-    [switch]$Force
+    [switch]$Force,
+
+    # Config generation parameters
+    [Parameter(Mandatory=$false, ParameterSetName='GenerateConfig')]
+    [string]$ConfigFile,
+
+    [Parameter(Mandatory=$false, ParameterSetName='GenerateConfig')]
+    [string]$RunnerFile,
+
+    [Parameter(Mandatory=$false, ParameterSetName='GenerateConfig')]
+    [string]$CacheDir,
+
+    [Parameter(Mandatory=$false, ParameterSetName='GenerateConfig')]
+    [string]$WorkDir,
+
+    [Parameter(Mandatory=$false, ParameterSetName='GenerateConfig')]
+    [string]$Labels = "windows:host",
+
+    [Parameter(Mandatory=$false, ParameterSetName='GenerateConfig')]
+    [ValidateSet('trace', 'debug', 'info', 'warn', 'error')]
+    [string]$LogLevel = 'info'
 )
 
 # Configuration based on installation space
@@ -293,7 +329,7 @@ function Install-Runner {
     foreach ($dir in $directories) {
         if (-not (Test-Path $dir)) {
             Write-Log "Creating directory: $dir"
-            New-Item -ItemType Directory -Path $dir -Force | Out-Null
+            New-Item -ItemType Directory -Force -Path $dir | Out-Null
         }
     }
 
@@ -511,38 +547,38 @@ function Uninstall-Runner {
 }
 
 # Main script execution
-switch ($Action.ToLower()) {
-    'help' {
+switch ($PSCmdlet.ParameterSetName) {
+    'Help' {
         Show-Help
     }
-    'install' {
+    'Install' {
         if (-not (Test-InstallPermissions)) {
             exit 1
         }
         Install-Runner
     }
-    'register' {
+    'Register' {
         if (-not (Test-InstallPermissions)) {
             exit 1
         }
         Register-RunnerTask
     }
-    'status' {
+    'Status' {
         Get-RunnerTaskStatus
     }
-    'unregister' {
+    'Unregister' {
         if (-not (Test-InstallPermissions)) {
             exit 1
         }
         Unregister-RunnerTask
     }
-    'update' {
+    'Update' {
         Update-Runner
     }
-    'uninstall' {
+    'Uninstall' {
         Uninstall-Runner
     }
-    'generate-config' {
+    'GenerateConfig' {
         $configParams = @{}
         # Only pass parameters that were explicitly provided
         if ($PSBoundParameters.ContainsKey('ConfigFile')) { $configParams['ConfigFile'] = $ConfigFile }
@@ -550,18 +586,9 @@ switch ($Action.ToLower()) {
         if ($PSBoundParameters.ContainsKey('CacheDir')) { $configParams['CacheDir'] = $CacheDir }
         if ($PSBoundParameters.ContainsKey('WorkDir')) { $configParams['WorkDir'] = $WorkDir }
         if ($PSBoundParameters.ContainsKey('Labels')) { $configParams['Labels'] = $Labels }
-        if ($PSBoundParameters.ContainsKey('Capacity')) { $configParams['Capacity'] = $Capacity }
-        if ($PSBoundParameters.ContainsKey('LogFile')) { $configParams['LogFile'] = $LogFile }
         if ($PSBoundParameters.ContainsKey('LogLevel')) { $configParams['LogLevel'] = $LogLevel }
-        if ($PSBoundParameters.ContainsKey('RunnerName')) { $configParams['RunnerName'] = $RunnerName }
-        if ($PSBoundParameters.ContainsKey('Timeout')) { $configParams['Timeout'] = $Timeout }
         if ($PSBoundParameters.ContainsKey('Force')) { $configParams['Force'] = $Force }
         
         New-RunnerConfig @configParams
-    }
-    default {
-        Write-ErrorLog "Unknown action: $Action"
-        Show-Help
-        exit 1
     }
 }

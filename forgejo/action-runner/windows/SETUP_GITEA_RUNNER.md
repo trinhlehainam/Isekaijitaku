@@ -30,30 +30,80 @@ Actions:
 
 ### Parameters
 
-#### Common Parameters
-- `-Action`: Installation action to perform
-  - `help`: Show help message (default)
-  - `install`: Performs a full installation
-  - `register`: Only registers the task scheduler
-  - `status`: Shows current task status
-  - `unregister`: Removes the task scheduler entry
-  - `update`: Updates the runner binary
-  - `uninstall`: Removes all runner files and task scheduler entry
-  - `generate-config`: Generates default config file
+The script uses parameter sets to ensure that parameters are only available for relevant actions.
+
+#### Action Switches
+Only one action switch can be used at a time:
+- `-Install`: Install runner and register task
+- `-Register`: Register task only
+- `-Status`: Show task status
+- `-Unregister`: Remove task
+- `-Update`: Update runner binary
+- `-Uninstall`: Remove runner and task
+- `-GenerateConfig`: Generate config file
+
+If no action switch is specified, help information will be displayed.
+
+#### Installation Parameters
+Available with `-Install`:
 - `-TaskName`: Custom task name (default: "GiteaActionRunner")
 - `-TaskDescription`: Custom task description
 - `-RunnerVersion`: Specify runner version (default: "0.2.11")
 - `-InstallSpace`: Installation space (default: "user")
   - `system`: System-wide installation (requires admin)
   - `user`: User space installation (no admin required)
-- `-Force`: Force operation even if components already exist
+- `-Force`: Force operation even if components exist
+
+#### Task Management Parameters
+Available with `-Register`, `-Status`, `-Unregister`:
+- `-TaskName`: Custom task name (default: "GiteaActionRunner")
+- `-TaskDescription`: Custom task description (only with -Register)
+
+#### Update Parameters
+Available with `-Update`:
+- `-RunnerVersion`: Specify runner version (default: "0.2.11")
+- `-Force`: Force update even if same version
+
+#### Config Generation Parameters
+Available with `-GenerateConfig`:
+- `-ConfigFile`: Custom path for the config file
+- `-RunnerFile`: Custom path for the runner file
+- `-CacheDir`: Custom directory for caching
+- `-WorkDir`: Custom directory for working files
+- `-Labels`: Runner labels (default: "windows:host")
+- `-LogLevel`: Log level (default: "info")
+  - Valid values: trace, debug, info, warn, error
+- `-Force`: Overwrite existing config file
+
+### Examples
+
+```powershell
+# Installation
+.\Setup.ps1 -Install -InstallSpace system -TaskName "MyRunner"
+
+# Task Management
+.\Setup.ps1 -Register -TaskName "MyRunner"
+.\Setup.ps1 -Status -TaskName "MyRunner"
+.\Setup.ps1 -Unregister -TaskName "MyRunner"
+
+# Update
+.\Setup.ps1 -Update -RunnerVersion "0.2.12" -Force
+
+# Config Generation
+.\Setup.ps1 -GenerateConfig -ConfigFile "config.yaml" -Labels "windows:host"
+
+# These will fail (invalid parameter combinations):
+.\Setup.ps1 -Install -ConfigFile config.yaml  # ConfigFile only valid with -GenerateConfig
+.\Setup.ps1 -Status -RunnerVersion "0.2.12"  # RunnerVersion not valid with -Status
+.\Setup.ps1 -Install -Register  # Can't use multiple action switches
+```
 
 ### Configuration Generation
 
-When using the `generate-config` action, additional parameters are available:
+When using the `-GenerateConfig` action, additional parameters are available:
 
 ```powershell
-.\Setup.ps1 -Action generate-config [<config-parameters>]
+.\Setup.ps1 -GenerateConfig [<config-parameters>]
 ```
 
 #### Config Parameters
@@ -62,71 +112,33 @@ When using the `generate-config` action, additional parameters are available:
 - `-CacheDir`: Custom directory for caching
 - `-WorkDir`: Custom directory for working files
 - `-Labels`: Runner labels (default: "windows:host")
-- `-Capacity`: Number of parallel jobs (default: 1)
-- `-LogFile`: Custom path for log file
 - `-LogLevel`: Log level (default: "info")
   - Valid values: trace, debug, info, warn, error
-- `-RunnerName`: Custom runner name (default: computer name)
-- `-Timeout`: Job timeout (default: "3h")
 - `-Force`: Overwrite existing config file
 
 #### Examples
 
 ```powershell
 # Generate with default settings
-.\Setup.ps1 -Action generate-config
+.\Setup.ps1 -GenerateConfig
 
 # Generate with custom paths
-.\Setup.ps1 -Action generate-config `
-    -ConfigFile "C:\MyRunner\config.yml" `
+.\Setup.ps1 -GenerateConfig `
+    -ConfigFile "C:\MyRunner\config.yaml" `
     -RunnerFile "C:\MyRunner\.runner" `
     -CacheDir "D:\Cache" `
     -WorkDir "D:\Work"
 
-# Generate with custom runner settings
-.\Setup.ps1 -Action generate-config `
-    -RunnerName "MyCustomRunner" `
+# Generate with custom settings
+.\Setup.ps1 -GenerateConfig `
     -Labels "windows:host,docker:host" `
-    -Capacity 2 `
-    -LogLevel "debug" `
-    -Timeout "6h"
+    -LogLevel "debug"
 
 # Force overwrite existing config
-.\Setup.ps1 -Action generate-config -Force
+.\Setup.ps1 -GenerateConfig -Force
 ```
 
-The generated config will have this structure:
-
-```yaml
-log:
-  level: info  # Configurable via -LogLevel
-  file: "<logs_dir>/runner.log"  # Configurable via -LogFile
-
-runner:
-  file: "<data_dir>/.runner"  # Configurable via -RunnerFile
-  capacity: 1  # Configurable via -Capacity
-  envs:
-    RUNNER_NAME: "<computername>"  # Configurable via -RunnerName
-    RUNNER_LABELS: "windows:host"  # Configurable via -Labels
-  timeout: 3h  # Configurable via -Timeout
-  insecure: false
-
-cache:
-  enabled: true
-  dir: "<cache_dir>"  # Configurable via -CacheDir
-
-container:
-  privileged: false
-  network: bridge
-  options:
-    - "--security-opt"
-    - "seccomp=unconfined"
-
-host:
-  workdir_parent: "<work_dir>"  # Configurable via -WorkDir
-```
-
-If paths are not specified, they will default based on your installation space:
+The generated config will include detailed comments explaining each option. Default paths will be based on your installation space:
 - System-wide: Uses `%ProgramData%` and `%ProgramFiles%`
 - User space: Uses `%USERPROFILE%`
 
@@ -138,35 +150,35 @@ If paths are not specified, they will default based on your installation space:
 .\Setup.ps1 -Action help
 
 # System-wide installation (requires admin)
-.\Setup.ps1 -Action install -InstallSpace system
+.\Setup.ps1 -Install -InstallSpace system
 
 # User space installation (no admin required)
-.\Setup.ps1 -Action install -InstallSpace user
+.\Setup.ps1 -Install -InstallSpace user
 
 # Generate default config
-.\Setup.ps1 -Action generate-config
+.\Setup.ps1 -GenerateConfig
 
 # Generate config with force overwrite
-.\Setup.ps1 -Action generate-config -Force
+.\Setup.ps1 -GenerateConfig -Force
 
 # Install with custom task name and version
 .\Setup.ps1 -TaskName "MyRunner" -RunnerVersion "0.2.12"
 
 # Only register task scheduler
-.\Setup.ps1 -Action register
+.\Setup.ps1 -Register
 
 # Check task status (no admin required)
-.\Setup.ps1 -Action status
+.\Setup.ps1 -Status
 
 # Remove task
-.\Setup.ps1 -Action unregister
+.\Setup.ps1 -Unregister
 
 # Update runner
-.\Setup.ps1 -Action update -RunnerVersion "0.2.12"
+.\Setup.ps1 -Update -RunnerVersion "0.2.12"
 
 # Uninstall runner
-.\Setup.ps1 -Action uninstall                           # No admin if user space and no task
-.\Setup.ps1 -Action uninstall -InstallSpace system      # Requires admin
+.\Setup.ps1 -Uninstall                           # No admin if user space and no task
+.\Setup.ps1 -Uninstall -InstallSpace system      # Requires admin
 ```
 
 ### Installation Spaces
@@ -285,7 +297,7 @@ The runner can be managed through Task Scheduler with these features:
 
 ```powershell
 # Check task status (no admin required)
-.\Setup.ps1 -Action status
+.\Setup.ps1 -Status
 
 # View detailed status
 Get-ScheduledTask -TaskName "GiteaActionRunner" | Select-Object *
@@ -297,7 +309,7 @@ Start-ScheduledTask -TaskName "GiteaActionRunner"
 Stop-ScheduledTask -TaskName "GiteaActionRunner"
 
 # Remove the task (requires admin)
-.\Setup.ps1 -Action unregister
+.\Setup.ps1 -Unregister
 ```
 
 ## Logging
@@ -381,11 +393,11 @@ Get-Content ".\install.log" | Select-String "ERROR"
 2. Task Scheduler Issues:
    ```powershell
    # Check task status
-   .\Setup.ps1 -Action status
+   .\Setup.ps1 -Status
    
    # Recreate task (run as administrator)
-   .\Setup.ps1 -Action unregister
-   .\Setup.ps1 -Action register -Force
+   .\Setup.ps1 -Unregister
+   .\Setup.ps1 -Register -Force
    ```
 
 3. Runner Issues:
