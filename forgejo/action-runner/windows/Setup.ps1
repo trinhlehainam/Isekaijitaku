@@ -42,11 +42,11 @@ param(
 
     [Parameter(Mandatory=$false, ParameterSetName='Install')]
     [Parameter(Mandatory=$false, ParameterSetName='Register')]
-    [string]$TaskName = "GiteaActionRunner",
+    [string]$ServiceName = "GiteaActionRunner",
 
     [Parameter(Mandatory=$false, ParameterSetName='Install')]
     [Parameter(Mandatory=$false, ParameterSetName='Register')]
-    [string]$TaskDescription = "Gitea Action Runner Service",
+    [string]$ServiceDescription = "Gitea Action Runner Service",
 
     [Parameter(Mandatory=$false, ParameterSetName='Install')]
     [Parameter(Mandatory=$false, ParameterSetName='Update')]
@@ -83,9 +83,9 @@ param(
     [Parameter(Mandatory=$false, ParameterSetName='GenerateConfig')]
     [string]$RunnerName = $env:COMPUTERNAME,
 
-    # Task registration flag
+    # Service registration flag
     [Parameter(Mandatory=$false, ParameterSetName='Install')]
-    [switch]$RegisterTask
+    [switch]$RegisterService
 )
 
 # Configuration based on installation space
@@ -130,17 +130,17 @@ function Show-Help {
             $helpText = @"
 Install Action Help
 ------------------
-Installs the Gitea Runner and optionally registers it as a scheduled task.
+Installs the Gitea Runner and optionally registers it as a Windows Service.
 
 Usage: 
     .\Setup.ps1 -Install [parameters]
 
 Parameters:
     -InstallSpace       Installation space [system|user] (default: user)
-    -TaskName          Custom task name (default: GiteaActionRunner)
-    -TaskDescription   Custom task description
+    -ServiceName       Custom service name (default: GiteaActionRunner)
+    -ServiceDescription Custom service description
     -RunnerVersion     Runner version (default: 0.2.11)
-    -RegisterTask      Register as scheduled task after installation
+    -RegisterService   Register as Windows Service after installation
     -Force            Force operation even if components exist
 
 Configuration Parameters:
@@ -156,12 +156,12 @@ Examples:
     # Basic installation in user space
     .\Setup.ps1 -Install
 
-    # Full installation with task registration and configuration
+    # Full installation with service registration and configuration
     .\Setup.ps1 -Install -InstallSpace system `
         -InstanceUrl "https://gitea.example.com" `
         -RunnerRegisterToken "token123" `
-        -RegisterTask `
-        -TaskName "MyRunner" `
+        -RegisterService `
+        -ServiceName "MyRunner" `
         -Labels "windows:host,docker"
 "@
         }
@@ -169,29 +169,29 @@ Examples:
             $helpText = @"
 Register Action Help
 -------------------
-Registers the runner as a scheduled task.
+Registers the runner as a Windows Service.
 
 Usage:
     .\Setup.ps1 -Register [parameters]
 
 Parameters:
-    -TaskName         Custom task name (default: GiteaActionRunner)
-    -TaskDescription  Custom task description
-    -Force           Force operation even if task exists
+    -ServiceName       Custom service name (default: GiteaActionRunner)
+    -ServiceDescription Custom service description
+    -Force           Force operation even if service exists
 
 Examples:
     # Register with default settings
     .\Setup.ps1 -Register
 
     # Register with custom name and description
-    .\Setup.ps1 -Register -TaskName "MyRunner" -TaskDescription "Custom Runner"
+    .\Setup.ps1 -Register -ServiceName "MyRunner" -ServiceDescription "Custom Runner"
 "@
         }
         'Status' {
             $helpText = @"
 Status Action Help
 -----------------
-Shows the status of the runner task.
+Shows the status of the runner service.
 
 Usage:
     .\Setup.ps1 -Status
@@ -221,7 +221,7 @@ Examples:
             $helpText = @"
 Uninstall Action Help
 --------------------
-Removes the runner and optionally its task.
+Removes the runner and optionally its service.
 
 Usage:
     .\Setup.ps1 -Uninstall [parameters]
@@ -274,12 +274,12 @@ Gitea Runner Installation Script
 Usage: Setup.ps1 [action] [parameters]
 
 ACTIONS:
-    -Install         Install runner and optionally register task
-    -Register        Register task only
-    -Status          Show task status
-    -Unregister      Remove task
+    -Install         Install runner and optionally register service
+    -Register        Register service only
+    -Status          Show service status
+    -Unregister      Remove service
     -Update          Update runner binary
-    -Uninstall       Remove runner and task
+    -Uninstall       Remove runner and service
     -GenerateConfig  Generate config and env files
     -Help            Show help
 
@@ -561,134 +561,141 @@ function New-FirewallRule {
     }
 }
 
-function Register-RunnerTask {
+function Get-RunnerService {
     param(
-        [Parameter(Mandatory = $false)]
-        [string]$TaskName = "GiteaActionRunner",
+        [string]$ServiceName = "GiteaActionRunner"
+    )
+    
+    return Get-CimInstance -ClassName Win32_Service -Filter "Name='$ServiceName'"
+}
 
-        [Parameter(Mandatory = $false)]
-        [string]$TaskDescription = "Gitea Action Runner Service"
+function Register-RunnerService {
+    param(
+        [string]$ServiceName = "GiteaActionRunner",
+        [string]$DisplayName = "Gitea Action Runner Service",
+        [string]$Description = "Runs Gitea Actions for CI/CD pipelines"
     )
 
-    Write-Log "Registering task: $TaskName"
-
-    # Load environment variables if .env exists
-    $envFile = Join-Path $DATA_DIR ".env"
-    Import-DotEnv -Path $envFile
-
-    # Define required environment variables
-    $requiredVars = @(
-        @{Name = 'GITEA_INSTANCE_URL'; Description = 'Gitea instance URL'},
-        @{Name = 'GITEA_RUNNER_REGISTRATION_TOKEN'; Description = 'Runner registration token'}
-    )
-
-    # Validate required environment variables
-    if (-not (Test-RequiredEnvironmentVariables -RequiredVars $requiredVars)) {
-        throw "Cannot register runner: Missing required environment variables. Please set them in the .env file or provide them as parameters."
-    }
-
+    Write-Log "Registering service: $ServiceName"
+    
     if (-not (Test-InstallPermissions)) {
         exit 1
     }
 
-    # Check if task exists
-    $existingTask = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
-    if ($existingTask -and -not $Force) {
-        Write-ErrorLog "Task already exists: $TaskName. Use -Force to overwrite"
+    # Check if service exists
+    $existingService = Get-RunnerService -ServiceName $ServiceName
+    if ($existingService -and -not $Force) {
+        Write-ErrorLog "Service already exists: $ServiceName. Use -Force to overwrite"
         exit 1
     }
 
-    # Remove existing task if force
-    if ($existingTask -and $Force) {
-        Write-Log "Removing existing task: $TaskName"
-        Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
+    # Remove existing service if force
+    if ($existingService -and $Force) {
+        Write-Log "Removing existing service: $ServiceName"
+        Stop-Service -Name $ServiceName -Force -ErrorAction SilentlyContinue
+        Remove-Service -Name $ServiceName -ErrorAction SilentlyContinue
+        Start-Sleep -Seconds 2 # Wait for service removal
     }
 
     try {
-        # Create firewall rule for the task
-        $ruleName = "GiteaActionRunner"
+        # Create the service
+        $params = @{
+            Name = $ServiceName
+            BinaryPathName = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"$SCRIPTS_DIR\Run.ps1`""
+            DisplayName = $DisplayName
+            Description = $Description
+            StartupType = 'Automatic'
+        }
+        
+        New-Service @params
+        
+        # Configure recovery options through registry
+        $recoveryPath = "HKLM:\SYSTEM\CurrentControlSet\Services\$ServiceName"
+        Set-ItemProperty -Path $recoveryPath -Name "FailureActions" -Value ([byte[]](
+            0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x00,0x03,0x00,0x00,0x00,
+            0x60,0xEA,0x00,0x00,0x01,0x00,0x00,0x00,0x60,0xEA,0x00,0x00,0x01,0x00,0x00,0x00,
+            0x60,0xEA,0x00,0x00,0x01,0x00,0x00,0x00
+        ))
+
+        # Add network access permissions
+        # Create firewall rule for the service
+        $ruleName = "GiteaRunner_$ServiceName"
         $exeFile = "$BIN_DIR\act_runner.exe"
         if (-not (New-FirewallRule -RuleName $ruleName -exeFile $exeFile)) {
             exit 1
         }
 
-        # Create task action
-        $action = New-ScheduledTaskAction -Execute "powershell.exe" `
-            -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$SCRIPTS_DIR\Run.ps1`"" `
-            -WorkingDirectory $DATA_DIR
-
-        # Create task trigger (at system startup)
-        $trigger = New-ScheduledTaskTrigger -AtStartup
-
-        # Configure task settings
-        $settings = New-ScheduledTaskSettingsSet `
-            -ExecutionTimeLimit (New-TimeSpan -Days 365) `
-            -RestartCount 3 `
-            -RestartInterval (New-TimeSpan -Minutes 1) `
-            -AllowStartIfOnBatteries `
-            -DontStopIfGoingOnBatteries `
-            -StartWhenAvailable
-
-        # Configure task principal (run with highest privileges)
-        $principal = New-ScheduledTaskPrincipal `
-            -UserId "SYSTEM" `
-            -LogonType ServiceAccount `
-            -RunLevel Highest
-
-        # Register the task
-        Register-ScheduledTask `
-            -TaskName $TaskName `
-            -Description $TaskDescription `
-            -Action $action `
-            -Trigger $trigger `
-            -Settings $settings `
-            -Principal $principal `
-            -Force
-
-        Write-SuccessLog "Task registered successfully: $TaskName"
+        # Start the service
+        Start-Service -Name $ServiceName
+        
+        # Get service status using CIM
+        $serviceStatus = Get-RunnerService -ServiceName $ServiceName
+        Write-SuccessLog "Service registered and started successfully: $ServiceName (State: $($serviceStatus.State))"
     }
     catch {
-        Write-ErrorLog "Failed to register task: $_"
+        Write-ErrorLog "Failed to register service: $_"
         exit 1
     }
 }
 
-function Get-RunnerTaskStatus {
-    Write-Log "Checking Task Scheduler status..."
+function Get-RunnerServiceStatus {
+    param(
+        [string]$ServiceName = "GiteaActionRunner"
+    )
     
-    $task = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
-    if (-not $task) {
-        Write-Log "Task '$TaskName' not found"
-        return
-    }
+    try {
+        $service = Get-RunnerService -ServiceName $ServiceName
+        if (-not $service) {
+            Write-ErrorLog "Service not found: $ServiceName"
+            return $false
+        }
+        
+        Write-Log "Service status:"
+        Write-Log "Name: $($service.Name)"
+        Write-Log "DisplayName: $($service.DisplayName)"
+        Write-Log "State: $($service.State)"
+        Write-Log "StartMode: $($service.StartMode)"
+        Write-Log "PathName: $($service.PathName)"
+        Write-Log "ProcessId: $($service.ProcessId)"
+        Write-Log "StartName: $($service.StartName)"
+        Write-Log "Description: $($service.Description)"
 
-    Write-Log "Task Details:"
-    Write-Log "  Name: $($task.TaskName)"
-    Write-Log "  State: $($task.State)"
-    Write-Log "  Last Run Time: $($task.LastRunTime)"
-    Write-Log "  Last Result: $($task.LastTaskResult)"
-    Write-Log "  Next Run Time: $($task.NextRunTime)"
-    
-    $taskInfo = Get-ScheduledTaskInfo -TaskName $TaskName
-    Write-Log "  Last Run Time: $($taskInfo.LastRunTime)"
-    Write-Log "  Last Run Result: $($taskInfo.LastTaskResult)"
-    Write-Log "  Number of Missed Runs: $($taskInfo.NumberOfMissedRuns)"
+        return @{
+            Name = $service.Name
+            DisplayName = $service.DisplayName
+            State = $service.State
+            StartMode = $service.StartMode
+            PathName = $service.PathName
+            ProcessId = $service.ProcessId
+            StartName = $service.StartName
+            Description = $service.Description
+        }
+    }
+    catch {
+        Write-ErrorLog "Failed to get service status: $_"
+        return $false
+    }
 }
 
-function Unregister-RunnerTask {
-    Write-Log "Removing Task Scheduler entry..."
+function Unregister-RunnerService {
+    param(
+        [string]$ServiceName = "GiteaActionRunner"
+    )
+
+    Write-Log "Removing service..."
     
-    $task = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
-    if (-not $task) {
-        Write-Log "Task '$TaskName' not found"
+    $service = Get-RunnerService -ServiceName $ServiceName
+    if (-not $service) {
+        Write-Log "Service '$ServiceName' not found"
         return
     }
 
     try {
-        Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
-        Write-SuccessLog "Task '$TaskName' removed successfully"
+        Stop-Service -Name $ServiceName -Force -ErrorAction SilentlyContinue
+        Remove-Service -Name $ServiceName -ErrorAction SilentlyContinue
+        Write-SuccessLog "Service '$ServiceName' removed successfully"
     } catch {
-        Write-ErrorLog "Failed to remove task: $_"
+        Write-ErrorLog "Failed to remove service: $_"
         exit 1
     }
 }
@@ -696,48 +703,48 @@ function Unregister-RunnerTask {
 function Update-Runner {
     Write-Log "Updating Gitea Runner..."
     
-    # Stop the task if it exists and is running
-    $task = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
-    if ($task -and $task.State -eq 'Running') {
+    # Stop the service if it exists and is running
+    $service = Get-RunnerService -ServiceName $ServiceName
+    if ($service -and $service.State -eq 'Running') {
         if (-not (Test-AdminPrivileges)) {
-            Write-ErrorLog "Runner task is running. Please stop the task and try again."
+            Write-ErrorLog "Runner service is running. Please stop the service and try again."
             exit 1
         }
-        Write-Log "Stopping runner task..."
-        Stop-ScheduledTask -TaskName $TaskName
+        Write-Log "Stopping runner service..."
+        Stop-Service -Name $ServiceName
     }
 
     # Force reinstall the runner
     Install-Runner -Force
     
-    # Restart the task if it exists
-    if ($task) {
+    # Restart the service if it exists
+    if ($service) {
         if (-not (Test-AdminPrivileges)) {
-            Write-ErrorLog "Restarting runner task requires administrative privileges. Please run as Administrator."
+            Write-ErrorLog "Restarting runner service requires administrative privileges. Please run as Administrator."
             exit 1
         }
-        Write-Log "Restarting runner task..."
-        Start-ScheduledTask -TaskName $TaskName
+        Write-Log "Restarting runner service..."
+        Start-Service -Name $ServiceName
     }
 }
 
 function Uninstall-Runner {
     Write-Log "Uninstalling Gitea Runner..."
 
-    # Check if task exists
-    $taskExists = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
+    # Check if service exists
+    $serviceExists = Get-RunnerService -ServiceName $ServiceName
     
-    # If task exists and we need admin rights
-    if ($taskExists) {
+    # If service exists and we need admin rights
+    if ($serviceExists) {
         if (-not (Test-AdminPrivileges)) {
-            Write-ErrorLog "Removing task scheduler entry requires administrative privileges. Please run as Administrator."
+            Write-ErrorLog "Removing service requires administrative privileges. Please run as Administrator."
             exit 1
         }
         
-        Write-Log "Stopping task: $TaskName"
-        Stop-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
-        Write-Log "Removing task: $TaskName"
-        Unregister-ScheduledTask -TaskName $TaskName -Confirm:$false
+        Write-Log "Stopping service: $ServiceName"
+        Stop-Service -Name $ServiceName -Force -ErrorAction SilentlyContinue
+        Write-Log "Removing service: $ServiceName"
+        Unregister-RunnerService -ServiceName $ServiceName
     }
 
     # Remove directories based on install space
@@ -836,34 +843,34 @@ switch ($PSCmdlet.ParameterSetName) {
             New-RunnerConfig @configParams
         }
 
-        if ($RegisterTask) {
+        if ($RegisterService) {
             if (-not (Test-InstallPermissions)) {
                 exit 1
             }
 
-            $taskParams = @{
-                TaskName = $TaskName
-                TaskDescription = $TaskDescription
+            $serviceParams = @{
+                ServiceName = $ServiceName
+                DisplayName = $ServiceDescription
             }
-            if ($Force) { $taskParams['Force'] = $true }
+            if ($Force) { $serviceParams['Force'] = $true }
             
-            Register-RunnerTask @taskParams
+            Register-RunnerService @serviceParams
         }
     }
     'Register' {
         if (-not (Test-InstallPermissions)) {
             exit 1
         }
-        Register-RunnerTask
+        Register-RunnerService
     }
     'Status' {
-        Get-RunnerTaskStatus
+        Get-RunnerServiceStatus
     }
     'Unregister' {
         if (-not (Test-InstallPermissions)) {
             exit 1
         }
-        Unregister-RunnerTask
+        Unregister-RunnerService
     }
     'Update' {
         Update-Runner
