@@ -34,12 +34,6 @@ param(
     [Parameter(Mandatory=$false)]
     [switch]$Force=$false,
 
-    # Installation parameters
-    [Parameter(Mandatory=$false, ParameterSetName='Install')]
-    [Parameter(Mandatory=$false, ParameterSetName='Uninstall')]
-    [ValidateSet('system', 'user')]
-    [string]$InstallSpace = 'user',
-
     [Parameter(Mandatory=$false, ParameterSetName='Install')]
     [Parameter(Mandatory=$false, ParameterSetName='Register')]
     [string]$ServiceName = "GiteaActionRunner",
@@ -88,8 +82,23 @@ param(
     [switch]$RegisterService
 )
 
-# Configuration based on installation space
-if ($InstallSpace -eq 'system') {
+$ErrorActionPreference = 'Stop'
+
+# Import modules
+Import-Module "$PSScriptRoot\scripts\helpers\LogHelpers.psm1" -Force
+Import-Module "$PSScriptRoot\scripts\helpers\DotEnvHelper.psm1" -Force
+# Initialize logging in script directory for persistence
+Set-LogFile -Path "$PSScriptRoot\install.log"
+
+function Test-AdminPrivileges {
+    $currentUser = [Security.Principal.WindowsIdentity]::GetCurrent()
+    $principal = New-Object Security.Principal.WindowsPrincipal($currentUser)
+    $adminRole = [Security.Principal.WindowsBuiltInRole]::Administrator
+    return $principal.IsInRole($adminRole)
+}
+
+$HasAdminRights = (Test-AdminPrivileges)
+if ($HasAdminRights) {
     # System-wide installation
     $PROGRAM_DIR = "$env:ProgramFiles\GiteaActRunner"
     $DATA_DIR = "$env:ProgramData\GiteaActRunner"
@@ -107,13 +116,6 @@ $CONFIG_FILE = "$DATA_DIR\config.yaml"
 $RUNNER_STATE_FILE = "$DATA_DIR\.runner"
 $CACHE_DIR = "$DATA_DIR\cache\actcache"
 $WORK_DIR = "$DATA_DIR\work"
-
-# Import modules
-Import-Module "$PSScriptRoot\scripts\helpers\LogHelpers.psm1" -Force
-Import-Module "$PSScriptRoot\scripts\helpers\DotEnvHelper.psm1" -Force
-
-# Initialize logging in script directory for persistence
-Set-LogFile -Path "$PSScriptRoot\install.log"
 
 # Ensure we stop on errors
 $ErrorActionPreference = 'Stop'
@@ -136,7 +138,6 @@ Usage:
     .\Setup.ps1 -Install [parameters]
 
 Parameters:
-    -InstallSpace       Installation space [system|user] (default: user)
     -ServiceName       Custom service name (default: GiteaActionRunner)
     -ServiceDescription Custom service description
     -RunnerVersion     Runner version (default: 0.2.11)
@@ -157,7 +158,7 @@ Examples:
     .\Setup.ps1 -Install
 
     # Full installation with service registration and configuration
-    .\Setup.ps1 -Install -InstallSpace system `
+    .\Setup.ps1 -Install `
         -InstanceUrl "https://gitea.example.com" `
         -RunnerRegisterToken "token123" `
         -RegisterService `
@@ -294,16 +295,10 @@ Example:
     Write-Host $helpText
 }
 
-function Test-AdminPrivileges {
-    $currentUser = [Security.Principal.WindowsIdentity]::GetCurrent()
-    $principal = New-Object Security.Principal.WindowsPrincipal($currentUser)
-    $adminRole = [Security.Principal.WindowsBuiltInRole]::Administrator
-    return $principal.IsInRole($adminRole)
-}
 
 function Test-InstallPermissions {
-    if ($InstallSpace -eq 'system' -and -not (Test-AdminPrivileges)) {
-        Write-ErrorLog "System-wide installation requires administrative privileges. Please run as Administrator or use -InstallSpace user"
+    if (-not (Test-AdminPrivileges)) {
+        Write-ErrorLog "Installation requires administrative privileges. Please run as Administrator or use -Force"
         return $false
     }
     return $true
@@ -518,13 +513,12 @@ function Install-Runner {
     # Add runner directory to PATH
     Write-Log "Updating PATH: $BIN_DIR"
     $newPath = ('{0};{1}' -f $BIN_DIR, $env:PATH)
-    if ($InstallSpace -eq 'system') {
+    if ($HasAdminRights) {
         [Environment]::SetEnvironmentVariable('PATH', $newPath, [EnvironmentVariableTarget]::Machine)
     }
-    if ($InstallSpace -eq 'user') {
+    else {
         [Environment]::SetEnvironmentVariable('PATH', $newPath, [EnvironmentVariableTarget]::User)
     }
-
     Write-SuccessLog "Installation completed successfully!"
 }
 
@@ -599,9 +593,10 @@ function Register-RunnerService {
 
     try {
         # Create the service
+        $powershell_path = (Get-Command powershell).Source
         $params = @{
             Name = $ServiceName
-            BinaryPathName = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"$SCRIPTS_DIR\Run.ps1`""
+            BinaryPathName = "$powershell_path -NoProfile -ExecutionPolicy Bypass -File `"$SCRIPTS_DIR\Run.ps1`""
             DisplayName = $DisplayName
             Description = $Description
             StartupType = 'Automatic'
@@ -736,25 +731,20 @@ function Uninstall-Runner {
     
     # If service exists and we need admin rights
     if ($serviceExists) {
-        if (-not (Test-AdminPrivileges)) {
-            Write-ErrorLog "Removing service requires administrative privileges. Please run as Administrator."
-            exit 1
+        if ($HasAdminRights) {
+            Write-Log "Stopping service: $ServiceName"
+            Stop-Service -Name $ServiceName -Force -ErrorAction SilentlyContinue
+            Write-Log "Removing service: $ServiceName"
+            Unregister-RunnerService -ServiceName $ServiceName
         }
-        
-        Write-Log "Stopping service: $ServiceName"
-        Stop-Service -Name $ServiceName -Force -ErrorAction SilentlyContinue
-        Write-Log "Removing service: $ServiceName"
-        Unregister-RunnerService -ServiceName $ServiceName
-    }
-
-    # Remove directories based on install space
-    if ($InstallSpace -eq 'system' -and -not (Test-AdminPrivileges)) {
-        Write-ErrorLog "Removing system-wide installation requires administrative privileges. Please run as Administrator."
-        exit 1
+        else {
+            Write-WarningLog "Removing service requires administrative privileges. Please run as Administrator."
+        }
     }
 
     # Remove directories
     $directories = @($PROGRAM_DIR, $DATA_DIR)
+    $success = $true
     foreach ($dir in $directories) {
         if (Test-Path $dir) {
             Write-Log "Removing directory: $dir"
@@ -762,12 +752,17 @@ function Uninstall-Runner {
                 Remove-Item -Path $dir -Recurse -Force
             } catch {
                 Write-ErrorLog "Failed to remove directory $dir`: $_"
-                exit 1
+                $success = $false
             }
         }
     }
 
-    Write-SuccessLog "Uninstallation completed successfully!"
+    if ($success) {
+        Write-SuccessLog "Uninstallation completed successfully!"
+    }
+    else {
+        Write-ErrorLog "Uninstallation failed."
+    }
 }
 
 function New-DotEnvFile {
@@ -844,7 +839,7 @@ switch ($PSCmdlet.ParameterSetName) {
         }
 
         if ($RegisterService) {
-            if (-not (Test-InstallPermissions)) {
+            if (-not $HasAdminRights) {
                 exit 1
             }
 
@@ -858,7 +853,7 @@ switch ($PSCmdlet.ParameterSetName) {
         }
     }
     'Register' {
-        if (-not (Test-InstallPermissions)) {
+        if (-not $HasAdminRights) {
             exit 1
         }
         Register-RunnerService
@@ -867,7 +862,7 @@ switch ($PSCmdlet.ParameterSetName) {
         Get-RunnerServiceStatus
     }
     'Unregister' {
-        if (-not (Test-InstallPermissions)) {
+        if (-not $HasAdminRights) {
             exit 1
         }
         Unregister-RunnerService

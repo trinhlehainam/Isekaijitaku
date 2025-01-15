@@ -32,6 +32,21 @@ function Write-Log {
     }
 }
 
+function Write-WarningLog {
+    param(
+        [Parameter(Mandatory=$true)]
+        [string]$Message
+    )
+    
+    $timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+    $warningMessage = "[$timestamp] WARNING: $Message"
+    
+    Write-Host $warningMessage -ForegroundColor Yellow
+    if ($script:LogFile) {
+        Add-Content -Path $script:LogFile -Value $warningMessage
+    }
+}
+
 function Write-ErrorLog {
     param(
         [Parameter(Mandatory=$true)]
