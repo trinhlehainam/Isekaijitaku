@@ -1,9 +1,3 @@
-param(
-    [Parameter(Mandatory=$false, ParameterSetName='Install')]
-    [ValidateSet('system', 'user')]
-    [string]$UserSpace = 'user'
-)
-
 # Enable strict error handling
 $ErrorActionPreference = 'Stop'
 
@@ -11,13 +5,20 @@ $ErrorActionPreference = 'Stop'
 Import-Module "$PSScriptRoot\helpers\LogHelpers.psm1" -Force
 Import-Module "$PSScriptRoot\helpers\DotEnvHelper.psm1" -Force
 
+# Check if running as LocalSystem (service)
+function Test-RunningAsSystem {
+    $currentUser = [Security.Principal.WindowsIdentity]::GetCurrent()
+    return $currentUser.User.Value -eq 'S-1-5-18'
+}
+
 # Constants and paths
-$PROGRAM_DIR = if ($UserSpace -eq 'system') {
+$IsSystemService = Test-RunningAsSystem
+$PROGRAM_DIR = if ($IsSystemService) {
         "$env:ProgramFiles\GiteaActRunner"
     } else {
-        "$env:USERPROFILE\.gitea\act_runner"
+            "$env:USERPROFILE\.gitea\act_runner"
     }
-$DATA_DIR = if ($UserSpace -eq 'system') {
+$DATA_DIR = if ($IsSystemService) {
         "$env:ProgramData\GiteaActRunner"
     } else {
         "$env:USERPROFILE\.gitea\act_runner\data"
@@ -36,6 +37,10 @@ if (-not (Test-Path $LOGS_DIR)) {
 
 Set-LogFile -Path "$LOGS_DIR\runner.log"
 Set-ErrorLogFile -Path "$LOGS_DIR\runner.error"
+
+Write-Log "Starting runner script (IsSystemService: $IsSystemService)"
+Write-Log "Program directory: $PROGRAM_DIR"
+Write-Log "Data directory: $DATA_DIR"
 
 # Load environment variables
 $envFile = Join-Path $DATA_DIR ".env"
@@ -127,7 +132,8 @@ function Register-Runner {
             }
 
             if (-not $success) {
-                Write-Error-Log-And-Throw "Runner registration failed after $max_registration_attempts attempts"
+                Write-ErrorLog "Runner registration failed after $max_registration_attempts attempts"
+                exit 1
             }
 
             # Remove registration token variables after successful registration
@@ -161,10 +167,10 @@ try {
     $process_params = @{
         FilePath               = $runnerExe
         ArgumentList           = $params
-        NoNewWindow            = $true
+        NoNewWindow           = $true
         RedirectStandardOutput = "$LOGS_DIR/runner.log"
         RedirectStandardError  = "$LOGS_DIR/runner.error"
-        PassThru               = $true
+        PassThru              = $true
     }
     
     $process = Start-Process @process_params

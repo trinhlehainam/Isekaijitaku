@@ -596,7 +596,7 @@ function Register-RunnerService {
         $powershell_path = (Get-Command powershell).Source
         $params = @{
             Name = $ServiceName
-            BinaryPathName = "$powershell_path -NoProfile -ExecutionPolicy Bypass -File `"$SCRIPTS_DIR\Run.ps1`""
+            BinaryPathName = "$powershell_path -ExecutionPolicy Bypass -NoProfile -File `"$SCRIPTS_DIR\Run.ps1`""
             DisplayName = $DisplayName
             Description = $Description
             StartupType = 'Automatic'
