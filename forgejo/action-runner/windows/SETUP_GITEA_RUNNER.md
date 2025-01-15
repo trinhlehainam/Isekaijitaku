@@ -1,354 +1,225 @@
-# Setting Up Gitea Action Runner on Windows
+# Gitea Runner Setup Guide for Windows
 
-This guide explains how to set up and manage Gitea Action Runner on Windows using PowerShell scripts.
+## Overview
+
+This guide explains how to set up the Gitea Runner on Windows using Windows Services. The runner can be installed either system-wide (requires admin rights) or in user space.
 
 ## Prerequisites
 
-- Windows 10/11 Pro or Windows Server 2019/2022
+- Windows 10/11 or Windows Server 2016+
 - PowerShell 5.1 or later
-- Administrative privileges (only for system-wide installation)
-- A running Forgejo/Gitea instance
-- Access to Forgejo/Gitea dashboard with admin privileges
+- Administrator rights (for system installation)
+- Network access to Gitea instance
 
-## Project Structure
+## Installation
 
-```
-windows/
-├── Setup.ps1              # Main setup script
-├── scripts/
-│   ├── helpers/
-│   │   ├── DotEnvHelper.psm1  # Environment variable management
-│   │   └── LogHelpers.psm1    # Logging utilities
-│   └── Run.ps1            # Runner execution script
-├── bin/                   # Runner binaries
-└── SETUP_GITEA_RUNNER.md  # This documentation
-```
+### Quick Start
 
-## Setup Options
-
-The setup script (`Setup.ps1`) provides several actions:
-
+1. Basic installation (user space):
 ```powershell
-.\Setup.ps1 [-Action <action>] [-TaskName <name>] [-InstallSpace <space>] [-RunnerVersion <version>] [-Force]
-
-Actions:
-  help            Show help message (default)
-  install         Install the runner and register task scheduler
-  register        Register the task in Task Scheduler
-  status          Get task scheduler status
-  unregister      Remove the task scheduler entry
-  update          Update the runner binary
-  uninstall       Remove runner files and task scheduler entry
-  generate-config Generate default config file
+.\Setup.ps1 -Install
 ```
 
-### Parameters
-
-The script uses parameter sets to ensure that parameters are only available for relevant actions.
-
-#### Action Switches
-Only one action switch can be used at a time:
-- `-Install`: Install runner and register task
-- `-Register`: Register task only
-- `-Status`: Show task status
-- `-Unregister`: Remove task
-- `-Update`: Update runner binary
-- `-Uninstall`: Remove runner and task
-- `-GenerateConfig`: Generate config file
-
-If no action switch is specified, help information will be displayed.
-
-#### Installation Parameters
-Available with `-Install`:
-- `-TaskName`: Custom task name (default: "GiteaActionRunner")
-- `-TaskDescription`: Custom task description
-- `-RunnerVersion`: Specify runner version (default: "0.2.11")
-- `-InstallSpace`: Installation space (default: "user")
-  - `system`: System-wide installation (requires admin)
-  - `user`: User space installation (no admin required)
-- `-Force`: Force operation even if components exist
-
-#### Task Management Parameters
-Available with `-Register`, `-Status`, `-Unregister`:
-- `-TaskName`: Custom task name (default: "GiteaActionRunner")
-- `-TaskDescription`: Custom task description (only with -Register)
-
-#### Update Parameters
-Available with `-Update`:
-- `-RunnerVersion`: Specify runner version (default: "0.2.11")
-- `-Force`: Force update even if same version
-
-#### Config Generation Parameters
-Available with `-GenerateConfig`:
-- `-ConfigFile`: Custom path for the config file
-- `-RunnerFile`: Custom path for the runner file
-- `-CacheDir`: Custom directory for caching
-- `-WorkDir`: Custom directory for working files
-- `-Labels`: Runner labels (default: "windows:host")
-- `-LogLevel`: Log level (default: "info")
-  - Valid values: trace, debug, info, warn, error
-- `-Force`: Overwrite existing config file
-- `-InstanceUrl`: Gitea instance URL
-- `-RunnerRegisterToken`: Runner registration token
-- `-RunnerName`: Runner name (default: computer name)
-- `-GITEA_MAX_REG_ATTEMPTS`: Maximum registration attempts (default: 10)
-
-### Examples
-
+2. Full installation with service registration:
 ```powershell
-# Installation
-.\Setup.ps1 -Install -InstallSpace system -TaskName "MyRunner"
-
-# Task Management
-.\Setup.ps1 -Register -TaskName "MyRunner"
-.\Setup.ps1 -Status -TaskName "MyRunner"
-.\Setup.ps1 -Unregister -TaskName "MyRunner"
-
-# Update
-.\Setup.ps1 -Update -RunnerVersion "0.2.12" -Force
-
-# Config Generation
-.\Setup.ps1 -GenerateConfig -ConfigFile "config.yaml" -Labels "windows:host" -InstanceUrl "https://gitea.example.com" -RunnerRegisterToken "your-token"
-
-# These will fail (invalid parameter combinations):
-.\Setup.ps1 -Install -ConfigFile config.yaml  # ConfigFile only valid with -GenerateConfig
-.\Setup.ps1 -Status -RunnerVersion "0.2.12"  # RunnerVersion not valid with -Status
-.\Setup.ps1 -Install -Register  # Can't use multiple action switches
-```
-
-### Environment Configuration
-
-Before starting the runner, you must configure the following environment variables:
-
-### Required Variables
-- `GITEA_INSTANCE_URL`: Your Gitea instance URL
-- `GITEA_RUNNER_REGISTRATION_TOKEN`: Runner registration token
-
-### Optional Variables
-- `GITEA_RUNNER_NAME`: Runner name (default: computer name)
-- `GITEA_RUNNER_LABELS`: Runner labels (default: windows:host)
-- `GITEA_MAX_REG_ATTEMPTS`: Maximum registration attempts (default: 10)
-
-You can set these variables in two ways:
-
-1. Set environment variables manually:
-```powershell
-$env:GITEA_INSTANCE_URL = "https://gitea.example.com"
-$env:GITEA_RUNNER_REGISTRATION_TOKEN = "your-token"
-$env:GITEA_RUNNER_NAME = "MyRunner"
-$env:GITEA_RUNNER_LABELS = "windows:host,docker:host"
-```
-
-2. Generate config and set environment variables together:
-```powershell
-.\Setup.ps1 -GenerateConfig `
+.\Setup.ps1 -Install `
+    -InstallSpace system `
     -InstanceUrl "https://gitea.example.com" `
-    -RunnerRegisterToken "your-token" `
+    -RunnerRegisterToken "token123" `
     -RunnerName "MyRunner" `
-    -Labels "windows:host,docker:host"
+    -Labels "windows,docker" `
+    -RegisterService `
+    -ServiceName "MyGiteaRunner"
 ```
 
-### Directory Structure
+### Installation Options
 
-### System-wide Installation (`-InstallSpace system`)
+- `-Install`: Install the runner
+- `-InstallSpace`: Installation space [system|user] (default: user)
+- `-RunnerVersion`: Runner version (default: 0.2.11)
+- `-Force`: Force overwrite existing files/service
 
-```
-%ProgramFiles%\GiteaActRunner\     # Program files (requires admin)
-├── bin\
-│   └── act_runner.exe            # Runner binary
-└── scripts\
-    ├── Run.ps1                   # Runner execution script
-    └── LogHelpers.psm1           # Shared logging module
+- `-InstanceUrl`: Gitea instance URL
+- `-RunnerRegisterToken`: Registration token
+- `-RunnerName`: Custom runner name
+- `-Labels`: Runner labels (default: windows:host)
+- `-LogLevel`: Log level [trace|debug|info|warn|error]
+- `-CacheDir`: Custom cache directory
+- `-WorkDir`: Custom work directory
 
-%ProgramData%\GiteaActRunner\      # Program data
-├── config.yaml                   # Runner configuration
-├── .runner                       # Runner registration state
-├── logs\
-│   ├── install.log              # Installation logs
-│   ├── runner.log               # Current log
-│   ├── runner.log.1             # Rotated logs
-│   └── runner.log.2             # Older rotated logs
-├── cache\
-│   └── actcache\                # Cache directory for actions
-└── work\                        # Work directory for job execution
-```
+- `-RegisterService`: Register as Windows Service
+- `-ServiceName`: Custom service name (default: GiteaActionRunner)
+- `-ServiceDescription`: Custom service description
 
-### User Space Installation (`-InstallSpace user`)
+## Service Management
 
-```
-%USERPROFILE%\.gitea\act_runner\
-├── bin\                         # Program files
-│   ├── bin\
-│   │   └── act_runner.exe      # Runner binary
-│   └── scripts\
-│       ├── Run.ps1             # Runner execution script
-│       └── LogHelpers.psm1     # Shared logging module
-└── data\                       # Program data
-    ├── config.yaml             # Runner configuration
-    ├── .runner                 # Runner registration state
-    ├── logs\
-    │   ├── install.log         # Installation logs
-    │   └── runner.log          # Runner logs
-    ├── cache\
-    │   └── actcache\          # Cache directory
-    └── work\                   # Work directory
+### Service Registration
+
+Register runner as a Windows Service:
+```powershell
+.\Setup.ps1 -Register `
+    -ServiceName "MyGiteaRunner" `
+    -InstanceUrl "https://gitea.example.com" `
+    -RunnerRegisterToken "token123"
 ```
 
-## Installation Spaces
+### Service Status
 
-The script supports two installation spaces:
+Check service status:
+```powershell
+.\Setup.ps1 -Status
+```
 
-1. System-wide Installation (`-InstallSpace system`):
-   - Requires administrative privileges
-   - Program files in `%ProgramFiles%\GiteaActRunner`
-   - Data files in `%ProgramData%\GiteaActRunner`
-   - Shared by all users
-   - Better security isolation
+### Service Removal
 
-2. User Space Installation (`-InstallSpace user`):
-   - No administrative privileges required
-   - All files in user's home directory
-   - Program files in `%USERPROFILE%\.gitea\act_runner\bin`
-   - Data files in `%USERPROFILE%\.gitea\act_runner\data`
-   - Per-user isolation
-   - Portable installation
+Remove service:
+```powershell
+.\Setup.ps1 -Unregister
+```
 
-## Administrative Requirements
+### Service Properties
 
-- System-wide Installation (`-InstallSpace system`):
-  - `install`: Requires admin
-  - `register`: Requires admin
-  - `status`: No admin required
-  - `unregister`: Requires admin
-  - `update`: Requires admin when task exists and is running
-  - `uninstall`: Requires admin (only when removing system-wide installation or task exists)
+The service is configured with:
+- System account execution
+- Highest privileges
+- Automatic startup
+- Network access
+- Restart on failure (3 attempts)
+- No execution time limit
 
-- User Space Installation (`-InstallSpace user`):
-  - No admin privileges required for any action except:
-    - When task scheduler entry exists (for uninstall)
-    - When updating with task running (for update)
-  - All other operations within user's home directory
+### Service Recovery
+
+Automatic recovery settings:
+- First failure: Restart after 1 minute
+- Second failure: Restart after 1 minute
+- Third failure: Restart after 1 minute
+- Reset count: After 24 hours
+
+## Directory Structure
+
+### System Installation
+- Program: `%ProgramFiles%\GiteaActRunner`
+- Data: `%ProgramData%\GiteaActRunner`
+
+### User Installation
+- Program: `%USERPROFILE%\.gitea\act_runner`
+- Data: `%USERPROFILE%\.gitea\act_runner\data`
+
+### Common Directories
+- Binary: `[Program]\bin`
+- Scripts: `[Program]\scripts`
+- Logs: `[Data]\logs`
+- Cache: `[Data]\cache\actcache`
+- Work: `[Data]\work`
+
+## Configuration Files
+
+- Config: `[Data]\config.yaml`
+- Environment: `[Data]\.env`
+- Runner State: `[Data]\.runner`
+
+## Network Configuration
+
+### Firewall Rules
+
+The setup creates:
+- Service-specific rule (GiteaRunner_[ServiceName])
+- Inbound TCP connections
+- Private and public profiles
+- Limited to runner executable
+
+### Network Access
+
+The service runs with:
+- Full network access
+- System account privileges
+- Outbound connections to Gitea
+- Inbound connections for actions
 
 ## Logging
 
-The script provides simple and clear logging with two levels:
-
-### Log Levels
-
-- `INFO`: Normal operational messages (green for success)
-- `ERROR`: Error messages with optional details
-
-### Log Format
-
-```
-[TIMESTAMP] LEVEL MESSAGE
-```
-
-Example:
-```
-[2025-01-14 21:59:00] INFO Starting installation...
-[2025-01-14 21:59:01] ERROR Failed to create directory: Access denied
-```
-
-### Log File Locations
-
-- Installation logs: `<script_directory>\install.log`
-  - Persists between installations and uninstallations
-  - Contains complete setup history
-
-- Runner logs (based on installation space):
-  - System-wide: `%ProgramData%\GiteaActRunner\logs\runner.log`
-  - User space: `%USERPROFILE%\.gitea\act_runner\data\logs\runner.log`
-
-### Log Features
-
-- Consistent timestamp format (yyyy-MM-dd HH:mm:ss)
-- Color-coded console output:
-  - INFO in white (green for success)
-  - ERROR in red
-- Error logging with optional details
-- Installation history preserved in script directory
-
-### Viewing Logs
-
-```powershell
-# View installation logs (always in script directory)
-Get-Content ".\install.log"
-
-# View runner logs
-# For system-wide installation
-Get-Content "$env:ProgramData\GiteaActRunner\logs\runner.log"
-
-# For user space installation
-Get-Content "$env:USERPROFILE\.gitea\act_runner\data\logs\runner.log"
-
-# Filter by log level
-Get-Content ".\install.log" | Select-String "INFO"
-Get-Content ".\install.log" | Select-String "ERROR"
-```
-
-## Security Features
-
-- Task runs with SYSTEM privileges
-- Protected configuration files
-- Secure token handling
-- Comprehensive audit logging
-- Network validation
-- Error handling security
+Find logs in:
+- Runner log: `[Data]\logs\runner.log`
+- Error log: `[Data]\logs\runner.error`
+- Windows Event logs
 
 ## Troubleshooting
 
-1. Installation Issues:
-   ```powershell
-   # Force reinstall (run as administrator)
-   .\Setup.ps1 -Force
-   
-   # Check installation logs
-   Get-Content ".\install.log"
-   ```
+### Common Issues
 
-2. Task Scheduler Issues:
-   ```powershell
-   # Check task status
-   .\Setup.ps1 -Status
-   
-   # Recreate task (run as administrator)
-   .\Setup.ps1 -Unregister
-   .\Setup.ps1 -Register -Force
-   ```
+1. Service won't start:
+   - Check service credentials
+   - Verify file permissions
+   - Check network access
+   - Review event logs
 
-3. Runner Issues:
-   ```powershell
-   # View live logs
-   Get-Content "$env:ProgramData\GiteaActRunner\logs\runner.log" -Wait
-   
-   # Clear registration and restart
-   Remove-Item "$env:ProgramData\GiteaActRunner\.runner"
-   .\scripts\Run.ps1 -InstanceUrl "..." -RegistrationToken "..."
-   ```
+2. Registration fails:
+   - Verify token
+   - Check network
+   - Review runner logs
+   - Confirm URL access
 
-## Best Practices
+3. Network issues:
+   - Check firewall rules
+   - Verify proxy settings
+   - Test Gitea access
+   - Review network logs
 
-1. **Installation**:
-   - Run installation commands as administrator
-   - Use specific versions with `-RunnerVersion`
-   - Keep installation paths default
-   - Use descriptive task names
+### Best Practices
 
-2. **Maintenance**:
-   - Regularly check task status
-   - Monitor logs for issues
-   - Keep runner updated
-   - Clean work directories periodically
+1. Security:
+   - Use system account
+   - Restrict file access
+   - Monitor service status
+   - Regular updates
 
-3. **Security**:
-   - Rotate registration tokens
-   - Monitor runner activities
-   - Review task permissions
-   - Keep system updated
+2. Maintenance:
+   - Monitor logs
+   - Update runner
+   - Check disk space
+   - Verify network
 
-4. **Performance**:
-   - Adjust concurrent job capacity
-   - Monitor resource usage
-   - Configure appropriate timeouts
-   - Clean cache periodically
+3. Performance:
+   - Clean work directory
+   - Monitor resources
+   - Check service health
+   - Regular restarts
+
+## Updates
+
+Update runner:
+```powershell
+.\Setup.ps1 -Update
+```
+
+## Uninstallation
+
+Remove runner and service:
+```powershell
+.\Setup.ps1 -Uninstall
+```
+
+## Environment Variables
+
+Required:
+- `GITEA_INSTANCE_URL`
+- `GITEA_RUNNER_REGISTRATION_TOKEN`
+
+Optional:
+- `GITEA_RUNNER_NAME`
+- `GITEA_RUNNER_LABELS`
+- `CONFIG_FILE`
+
+## Support
+
+For issues:
+1. Check logs in `[Data]\logs`
+2. Review Windows Event Viewer
+3. Check network access
+4. Verify service status
+
+## References
+
+- [Gitea Runner Documentation](https://docs.gitea.com/usage/actions/act-runner)
+- [Windows Services](https://docs.microsoft.com/en-us/windows/win32/services/services)
+- [PowerShell Documentation](https://docs.microsoft.com/en-us/powershell/)
