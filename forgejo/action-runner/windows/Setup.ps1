@@ -422,7 +422,7 @@ function Register-RunnerTask {
         # Create action to run the script
         $action = New-ScheduledTaskAction `
             -Execute "powershell.exe" `
-            -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$SCRIPTS_DIR\Run.ps1`" -ConfigFile `"$CONFIG_FILE`"" `
+            -Argument "-NoProfile -ExecutionPolicy Bypass -File `"$SCRIPTS_DIR\Run.ps1`"" `
             -WorkingDirectory $PROGRAM_DIR
 
         # Create trigger for automatic start

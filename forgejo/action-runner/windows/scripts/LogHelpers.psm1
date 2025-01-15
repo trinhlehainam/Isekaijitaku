@@ -1,5 +1,6 @@
 # Log Helper Functions
 $script:logFile = $null
+$script:errorLogFile = $null
 
 function Set-LogFile {
     param(
@@ -8,6 +9,15 @@ function Set-LogFile {
     )
 
     $script:logFile = $Path
+}
+
+function Set-ErrorLogFile {
+    param(
+        [Parameter(Mandatory=$false)]
+        [string]$Path
+    )
+
+    $script:errorLogFile = $Path
 }
 
 function Format-LogMessage {
@@ -67,12 +77,18 @@ function Write-ErrorLog {
         $errorDetails = Format-LogMessage -Level '[ERROR]' -Message "Details: $($ErrorRecord.Exception.Message)"
         Write-Host $errorDetails -ForegroundColor Red
         
-        if ($script:logFile) {
+        if ($script:errorLogFile) {
+            Add-Content -Path $script:errorLogFile -Value $errorDetails
+        }
+        elseif ($script:logFile) {
             Add-Content -Path $script:logFile -Value $errorDetails
         }
     }
     
-    if ($script:logFile) {
+    if ($script:errorLogFile) {
+        Add-Content -Path $script:errorLogFile -Value $logMessage
+    }
+    elseif ($script:logFile) {
         Add-Content -Path $script:logFile -Value $logMessage
     }
 }
