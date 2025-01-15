@@ -17,7 +17,7 @@ param(
     [string]$TaskName = "GiteaActionRunner",
 
     [Parameter(Mandatory=$false)]
-    [string]$TaskDescription = "Runs Gitea Actions for CI/CD workflows",
+    [string]$TaskDescription = "Gitea Action Runner Service",
 
     [Parameter(Mandatory=$false)]
     [string]$RunnerVersion = "0.2.11",
@@ -121,19 +121,52 @@ function Test-InstallPermissions {
 }
 
 function New-RunnerConfig {
-    param (
-        [string]$ConfigFile = $CONFIG_FILE,
-        [string]$RunnerStateFile = $RUNNER_STATE_FILE,
-        [string]$CacheDir = $CACHE_DIR,
-        [string]$WorkDir = $WORK_DIR,
-        [switch]$Force = $false
+    param(
+        [Parameter(Mandatory=$false)]
+        [string]$ConfigFile,
+
+        [Parameter(Mandatory=$false)]
+        [string]$RunnerFile,
+
+        [Parameter(Mandatory=$false)]
+        [string]$CacheDir,
+
+        [Parameter(Mandatory=$false)]
+        [string]$WorkDir,
+
+        [Parameter(Mandatory=$false)]
+        [string]$Labels = "windows:host",
+
+        [Parameter(Mandatory=$false)]
+        [ValidateSet('trace', 'debug', 'info', 'warn', 'error')]
+        [string]$LogLevel = 'info',
+
+        [Parameter(Mandatory=$false)]
+        [switch]$Force
     )
 
-    # Create default config if it doesn't exist
+    Write-Log "Generating runner configuration..."
+
+    # Use provided paths or defaults based on installation space
+    $configPath = if ($ConfigFile) { $ConfigFile } else { $CONFIG_FILE }
+    $runnerPath = if ($RunnerFile) { $RunnerFile } else { Join-Path $DATA_DIR ".runner" }
+    $cachePath = if ($CacheDir) { $CacheDir } else { $CACHE_DIR }
+    $workPath = if ($WorkDir) { $WorkDir } else { $WORK_DIR }
+
+    # Create parent directories if they don't exist
+    $configDir = Split-Path -Parent $configPath
+    if (-not (Test-Path $configDir)) {
+        Write-Log "Creating config directory: $configDir"
+        New-Item -ItemType Directory -Force -Path $configDir | Out-Null
+    }
+
+    if ((Test-Path $configPath) -and -not $Force) {
+        Write-ErrorLog "Config file already exists at: $configPath. Use -Force to overwrite."
+        exit 1
+    }
+
     # Reference: https://gitea.com/gitea/act_runner/src/branch/main/internal/pkg/config/config.example.yaml
-    if (-not (Test-Path $ConfigFile) -or $Force) {
-        Write-Log "Creating default config file: $ConfigFile"
-        @"
+    $configContent = @"
 # Example configuration file, it's safe to copy this as the default config file without any modification.
 
 # You don't have to copy this file to your instance,
@@ -141,15 +174,17 @@ function New-RunnerConfig {
 
 log:
   # The level of logging, can be trace, debug, info, warn, error, fatal
-  level: info
+  level: $LogLevel
 
 runner:
   # Where to store the registration result.
-  file: $RunnerStateFile
+  file: $runnerPath
   # Execute how many tasks concurrently at the same time.
   capacity: 1
   # Extra environment variables to run jobs.
   envs:
+    A_TEST_ENV_NAME_1: a_test_env_value_1
+    A_TEST_ENV_NAME_2: a_test_env_value_2
   # Extra environment variables to run jobs from a file.
   # It will be ignored if it's empty or the file doesn't exist.
   env_file: .env
@@ -172,13 +207,13 @@ runner:
   # If it's empty when registering, it will ask for inputting labels.
   # If it's empty when execute `daemon`, will use labels in `.runner` file.
   labels:
-    - "windows:host"
+    - $Labels
 
 cache:
   # Enable cache server to use actions/cache.
   enabled: true
   # The directory to store the cache data.
-  dir: $CacheDir
+  dir: $cachePath
   # The host of the cache server.
   # It's not for the address to listen, but the address to connect from job containers.
   # So 0.0.0.0 is a bad choice, leave it empty to detect automatically.
@@ -228,8 +263,16 @@ container:
 
 host:
   # The parent directory of a job's working directory.
-  workdir_parent: $WorkDir
-"@ | Out-File $ConfigFile -Encoding utf8 -Force
+  workdir_parent: $workPath
+"@
+
+    try {
+        Write-Log "Writing config to: $configPath"
+        Set-Content -Path $configPath -Value $configContent -Force
+        Write-SuccessLog "Config file generated successfully at: $configPath"
+    } catch {
+        Write-ErrorLog "Failed to write config file: $_"
+        exit 1
     }
 }
 
@@ -500,7 +543,21 @@ switch ($Action.ToLower()) {
         Uninstall-Runner
     }
     'generate-config' {
-        New-RunnerConfig
+        $configParams = @{}
+        # Only pass parameters that were explicitly provided
+        if ($PSBoundParameters.ContainsKey('ConfigFile')) { $configParams['ConfigFile'] = $ConfigFile }
+        if ($PSBoundParameters.ContainsKey('RunnerFile')) { $configParams['RunnerFile'] = $RunnerFile }
+        if ($PSBoundParameters.ContainsKey('CacheDir')) { $configParams['CacheDir'] = $CacheDir }
+        if ($PSBoundParameters.ContainsKey('WorkDir')) { $configParams['WorkDir'] = $WorkDir }
+        if ($PSBoundParameters.ContainsKey('Labels')) { $configParams['Labels'] = $Labels }
+        if ($PSBoundParameters.ContainsKey('Capacity')) { $configParams['Capacity'] = $Capacity }
+        if ($PSBoundParameters.ContainsKey('LogFile')) { $configParams['LogFile'] = $LogFile }
+        if ($PSBoundParameters.ContainsKey('LogLevel')) { $configParams['LogLevel'] = $LogLevel }
+        if ($PSBoundParameters.ContainsKey('RunnerName')) { $configParams['RunnerName'] = $RunnerName }
+        if ($PSBoundParameters.ContainsKey('Timeout')) { $configParams['Timeout'] = $Timeout }
+        if ($PSBoundParameters.ContainsKey('Force')) { $configParams['Force'] = $Force }
+        
+        New-RunnerConfig @configParams
     }
     default {
         Write-ErrorLog "Unknown action: $Action"

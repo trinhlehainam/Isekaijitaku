@@ -30,6 +30,7 @@ Actions:
 
 ### Parameters
 
+#### Common Parameters
 - `-Action`: Installation action to perform
   - `help`: Show help message (default)
   - `install`: Performs a full installation
@@ -47,27 +48,72 @@ Actions:
   - `user`: User space installation (no admin required)
 - `-Force`: Force operation even if components already exist
 
-### Configuration File
+### Configuration Generation
 
-The configuration file is generated with default settings suitable for most environments. You can customize it after generation:
+When using the `generate-config` action, additional parameters are available:
+
+```powershell
+.\Setup.ps1 -Action generate-config [<config-parameters>]
+```
+
+#### Config Parameters
+- `-ConfigFile`: Custom path for the config file
+- `-RunnerFile`: Custom path for the runner file
+- `-CacheDir`: Custom directory for caching
+- `-WorkDir`: Custom directory for working files
+- `-Labels`: Runner labels (default: "windows:host")
+- `-Capacity`: Number of parallel jobs (default: 1)
+- `-LogFile`: Custom path for log file
+- `-LogLevel`: Log level (default: "info")
+  - Valid values: trace, debug, info, warn, error
+- `-RunnerName`: Custom runner name (default: computer name)
+- `-Timeout`: Job timeout (default: "3h")
+- `-Force`: Overwrite existing config file
+
+#### Examples
+
+```powershell
+# Generate with default settings
+.\Setup.ps1 -Action generate-config
+
+# Generate with custom paths
+.\Setup.ps1 -Action generate-config `
+    -ConfigFile "C:\MyRunner\config.yml" `
+    -RunnerFile "C:\MyRunner\.runner" `
+    -CacheDir "D:\Cache" `
+    -WorkDir "D:\Work"
+
+# Generate with custom runner settings
+.\Setup.ps1 -Action generate-config `
+    -RunnerName "MyCustomRunner" `
+    -Labels "windows:host,docker:host" `
+    -Capacity 2 `
+    -LogLevel "debug" `
+    -Timeout "6h"
+
+# Force overwrite existing config
+.\Setup.ps1 -Action generate-config -Force
+```
+
+The generated config will have this structure:
 
 ```yaml
 log:
-  level: info
-  file: "<logs_dir>/runner.log"
+  level: info  # Configurable via -LogLevel
+  file: "<logs_dir>/runner.log"  # Configurable via -LogFile
 
 runner:
-  file: "<data_dir>/.runner"
-  capacity: 1
+  file: "<data_dir>/.runner"  # Configurable via -RunnerFile
+  capacity: 1  # Configurable via -Capacity
   envs:
-    RUNNER_NAME: "<computername>"
-    RUNNER_LABELS: "windows:host"
-  timeout: 3h
+    RUNNER_NAME: "<computername>"  # Configurable via -RunnerName
+    RUNNER_LABELS: "windows:host"  # Configurable via -Labels
+  timeout: 3h  # Configurable via -Timeout
   insecure: false
 
 cache:
   enabled: true
-  dir: "<cache_dir>"
+  dir: "<cache_dir>"  # Configurable via -CacheDir
 
 container:
   privileged: false
@@ -77,10 +123,10 @@ container:
     - "seccomp=unconfined"
 
 host:
-  workdir_parent: "<work_dir>"
+  workdir_parent: "<work_dir>"  # Configurable via -WorkDir
 ```
 
-The paths in the config file are automatically set based on your installation space:
+If paths are not specified, they will default based on your installation space:
 - System-wide: Uses `%ProgramData%` and `%ProgramFiles%`
 - User space: Uses `%USERPROFILE%`
 
