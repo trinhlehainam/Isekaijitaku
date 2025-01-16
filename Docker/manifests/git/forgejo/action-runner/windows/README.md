@@ -228,6 +228,111 @@ deploy:
       memory: 4G
 ```
 
+## Build Prerequisites
+
+The `Install-BuildPrerequisites.ps1` script manages the installation of all development tools and SDKs. The script:
+
+1. **Visual Studio Build Tools 2022**
+   - Installs to default location using official installer
+   - Adds VS installer directory to system PATH
+   - Uses standard channel for installation
+   - Components are organized by development platforms:
+     - Base C++ components
+     - Rust-specific components (MSVC toolchain)
+     - Unity development components
+     - .NET development components
+     - Android development components
+     - UWP development components
+
+2. **Core Workloads**
+   - Visual C++ Tools
+   - .NET Core Build Tools
+   - Managed Desktop Build Tools
+   - Universal Windows Platform Build Tools
+   - Managed Game Development
+
+3. **Additional Tools**
+   - Rust toolchain (stable) via rustup
+   - Android SDK and build tools
+   - Unity build dependencies
+   - Required Windows SDKs
+   - Development tools via Chocolatey
+
+### Component Organization
+
+The script uses a modular approach to manage Visual Studio components:
+```powershell
+# Platform-specific components
+$vsComponentsCpp    # Base C++ development
+$vsComponentsRust   # Rust MSVC toolchain
+$vsComponentsUnity  # Unity development
+$vsComponentsDotNet # .NET development
+$vsComponentsAndroid # Android development
+$vsComponentsUWP    # Universal Windows Platform
+
+# Core workloads
+$vsWorkloads       # Essential build tools
+```
+
+This organization allows for:
+- Easy maintenance of platform-specific components
+- Clear dependency tracking
+- Simplified updates for specific platforms
+- Automatic deduplication of shared components
+
+## Build Capabilities
+
+The runner is equipped with comprehensive build tools and SDKs to support various development scenarios:
+
+### Development Environments
+
+1. **C++ Development**
+   - Visual Studio Build Tools 2022
+   - CMake build system
+   - ATL/MFC support
+   - Windows SDK 11
+   - Address Sanitizer (ASAN)
+
+2. **Rust Development**
+   - Latest stable Rust toolchain
+   - MSVC build tools
+   - Cargo package manager
+
+3. **Unity Development**
+   - Unity Build Support components
+   - IL2CPP build support
+   - Windows build support
+   - Android build support
+   - Required Visual C++ components
+   - .NET Framework support
+
+4. **.NET Development**
+   - .NET Framework 4.8 SDK
+   - .NET Core 6.0 Runtime
+   - NuGet package manager
+   - MSBuild Tools
+
+5. **Android Development**
+   - Android SDK
+   - Android NDK R23C
+   - .NET MAUI support
+   - OpenJDK
+   - Cross-platform build support
+
+6. **Universal Windows Platform (UWP)**
+   - UWP build tools
+   - ARM64 and ARM support
+   - Windows 11 SDK
+   - USB device connectivity support
+
+### Additional Tools
+
+- Git for Windows
+- CMake
+- PowerShell Core
+- Visual C++ Redistributables
+- Windows SDK components
+
 ## Commands
 
 ### Build and Run

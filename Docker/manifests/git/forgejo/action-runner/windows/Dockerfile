@@ -55,13 +55,10 @@ RUN \
         throw \
     }
 
-# Copy scripts
 COPY scripts/ C:\\ProgramData\\GiteaActRunner\\scripts/
 
-# Set working directory for runner
 WORKDIR C:\\ProgramData\\GiteaActRunner
 
-# Set entrypoint
 ENTRYPOINT ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "C:\\ProgramData\\GiteaActRunner\\scripts\\Run.ps1"]
 
 # Install build prerequisites
