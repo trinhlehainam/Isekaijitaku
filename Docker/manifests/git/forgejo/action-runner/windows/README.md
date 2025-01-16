@@ -230,55 +230,76 @@ deploy:
 
 ## Build Prerequisites
 
-The `Install-BuildPrerequisites.ps1` script manages the installation of all development tools and SDKs. The script:
+The `Install-BuildPrerequisites.ps1` script manages the installation of all development tools and SDKs.
 
-1. **Visual Studio Build Tools 2022**
-   - Installs to default location using official installer
-   - Adds VS installer directory to system PATH
-   - Uses standard channel for installation
-   - Components are organized by development platforms:
-     - Base C++ components
-     - Rust-specific components (MSVC toolchain)
-     - Unity development components
-     - .NET development components
-     - Android development components
-     - UWP development components
+### Installation Options
 
-2. **Core Workloads**
-   - Visual C++ Tools
-   - .NET Core Build Tools
-   - Managed Desktop Build Tools
-   - Universal Windows Platform Build Tools
-   - Managed Game Development
-
-3. **Additional Tools**
-   - Rust toolchain (stable) via rustup
-   - Android SDK and build tools
-   - Unity build dependencies
-   - Required Windows SDKs
-   - Development tools via Chocolatey
-
-### Component Organization
-
-The script uses a modular approach to manage Visual Studio components:
 ```powershell
-# Platform-specific components
-$vsComponentsCpp    # Base C++ development
-$vsComponentsRust   # Rust MSVC toolchain
-$vsComponentsUnity  # Unity development
-$vsComponentsDotNet # .NET development
-$vsComponentsAndroid # Android development
-$vsComponentsUWP    # Universal Windows Platform
+.\Install-BuildPrerequisites.ps1 [options]
 
-# Core workloads
-$vsWorkloads       # Essential build tools
+Options:
+  -VSBuildToolsVersion     Visual Studio Build Tools version (default: "17")
+  -WindowsSDKVersion       Windows SDK version (default: "20348")
+  -InstallUnity           Install Unity build support (default: false)
+  -InstallAndroid         Install Android development tools (default: false)
+  -InstallUWP             Install UWP development tools (default: false)
+  -NodeVersion            Node.js LTS version to install (default: "22")
 ```
 
-This organization allows for:
-- Easy maintenance of platform-specific components
-- Clear dependency tracking
-- Simplified updates for specific platforms
-- Automatic deduplication of shared components
+### Default Components
+
+The following components are installed by default:
+
+1. **Base Development Tools**
+   - Visual Studio Build Tools 2022
+   - C++ build tools and Windows SDK
+   - .NET development tools
+   - CMake and Git
+
+2. **Node.js Environment**
+   - Node.js LTS (default v22)
+   - pnpm package manager (via corepack)
+
+3. **Rust Development**
+   - Latest stable Rust toolchain
+   - MSVC build tools
+   - Cargo package manager
+
+### Optional Components
+
+1. **Unity Development** (`-InstallUnity`)
+   - Unity Build Support components
+   - IL2CPP build support
+   - Required Visual C++ components
+   - .NET Framework support
+
+2. **Android Development** (`-InstallAndroid`)
+   - Android SDK
+   - Android NDK R23C
+   - .NET MAUI support
+   - OpenJDK
+
+3. **Universal Windows Platform** (`-InstallUWP`)
+   - UWP build tools
+   - ARM64 and ARM support
+   - Windows 11 SDK
+   - USB device connectivity support
+
+### Example Usage
+
+```powershell
+# Install with default components only
+.\Install-BuildPrerequisites.ps1
+
+# Install with Unity and Android support
+.\Install-BuildPrerequisites.ps1 -InstallUnity -InstallAndroid
+
+# Install all components
+.\Install-BuildPrerequisites.ps1 -InstallUnity -InstallAndroid -InstallUWP
+
+# Install with specific Node.js version
+.\Install-BuildPrerequisites.ps1 -NodeVersion "18"
+```
 
 ## Build Capabilities
 

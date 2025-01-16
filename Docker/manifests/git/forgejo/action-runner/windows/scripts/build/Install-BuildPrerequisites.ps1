@@ -1,37 +1,48 @@
 # References:
 # - https://learn.microsoft.com/en-us/visualstudio/install/use-command-line-parameters-to-install-visual-studio?view=vs-2022
-# - https://learn.microsoft.com/en-us/visualstudio/install/workload-component-id-vs-build-tools?view=vs-2022#visual-c-build-tools
+# - https://github.com/MicrosoftDocs/visualstudio-docs/blob/main/docs/install/includes/vs-2022/workload-component-id-vs-community.md
 # - https://learn.microsoft.com/en-us/visualstudio/install/command-line-parameter-examples?view=vs-2022
 # - https://github.com/adamrehn/ue4-docker/blob/master/src/ue4docker/dockerfiles/ue4-build-prerequisites/windows/install-prerequisites.ps1
 #
 # Install prerequisites for Unity and Unreal Engine builds
 param(
     [string]$VSBuildToolsVersion = "17",
-    [string]$WindowsSDKVersion = "20348"
+    [string]$WindowsSDKVersion = "20348",
+    [string[]]$InstallOptions = @(),
+)
+
+# Valid installation options
+$ValidOptions = @(
+    "Unity",
+    "Android",
+    "UWP"
 )
 
 # Stop on first error
 $ErrorActionPreference = "Stop"
 
-# Import module
+# Import modules
 $scriptPath = Split-Path -Parent $MyInvocation.MyCommand.Path
-$helpersPath = Join-Path $scriptPath "helpers"
+$helpersPath = Join-Path $scriptPath ".." "helpers"
 Import-Module (Join-Path $helpersPath "LogHelper.psm1")
 
-function Start-ProcessSafe
-{
+# Validate installation options
+foreach ($option in $InstallOptions) {
+    if ($ValidOptions -notcontains $option) {
+        throw "Invalid installation option: $option. Valid options are: $($ValidOptions -join ', ')"
+    }
+}
+
+function Start-ProcessSafe {
     param ([string] $Cmd, [string[]] $Argv)
-
-    Write-Log "Executing comand: $Cmd $Argv"
-
+    Write-Log "Executing command: $Cmd $Argv"
     $process = Start-Process -NoNewWindow -PassThru -Wait -FilePath $Cmd -ArgumentList $Argv
-    if ($process.ExitCode -ne 0)
-    {
+    if ($process.ExitCode -ne 0) {
         throw "Exit code: $($process.ExitCode)"
     }
 }
 
-# Install Chocolatey
+# Install Chocolatey if not installed
 if (Get-Command "choco" -ErrorAction SilentlyContinue) {
     Write-Log "Chocolatey is already installed"
 } else {
@@ -100,21 +111,14 @@ $vsComponentsUWP = @(
 $vsWorkloads = @(
     "Microsoft.VisualStudio.Workload.VCTools",
     "Microsoft.VisualStudio.Workload.NetCoreBuildTools",
-    "Microsoft.VisualStudio.Workload.ManagedDesktopBuildTools",
-    "Microsoft.VisualStudio.Workload.UniversalBuildTools",
-    "Microsoft.VisualStudio.Workload.ManagedGame"
+    "Microsoft.VisualStudio.Workload.ManagedDesktopBuildTools"
 )
 
 # Merge all components (removing duplicates)
 $vsComponents = @()
-@(
-    $vsComponentsCpp,
-    $vsComponentsRust,
-    $vsComponentsUnity,
-    $vsComponentsDotNet,
-    $vsComponentsAndroid,
-    $vsComponentsUWP
-) | ForEach-Object {
+
+# Always include base components
+@($vsComponentsCpp, $vsComponentsRust, $vsComponentsDotNet) | ForEach-Object {
     $componentSet = $_
     foreach ($component in $componentSet) {
         if ($vsComponents -notcontains $component) {
@@ -123,9 +127,46 @@ $vsComponents = @()
     }
 }
 
+# Add optional components based on InstallOptions array
+if ($InstallOptions -contains "Unity") {
+    Write-Log "Including Unity development components..."
+    foreach ($component in $vsComponentsUnity) {
+        if ($vsComponents -notcontains $component) {
+            $vsComponents += $component
+        }
+    }
+    $vsWorkloads += "Microsoft.VisualStudio.Workload.ManagedGame"
+}
+
+if ($InstallOptions -contains "Android") {
+    Write-Log "Including Android development components..."
+    foreach ($component in $vsComponentsAndroid) {
+        if ($vsComponents -notcontains $component) {
+            $vsComponents += $component
+        }
+    }
+}
+
+if ($InstallOptions -contains "UWP") {
+    Write-Log "Including UWP development components..."
+    foreach ($component in $vsComponentsUWP) {
+        if ($vsComponents -notcontains $component) {
+            $vsComponents += $component
+        }
+    }
+    $vsWorkloads += "Microsoft.VisualStudio.Workload.UniversalBuildTools"
+}
+
+$InstallPath = "C:\BuildTools"
+
 # Install Visual Studio Build Tools
 Write-Log "Installing Visual Studio Build Tools..."
-$vsInstallerPath = "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer"
+$vsInstallerPath = "$InstallPath\Microsoft Visual Studio\Installer"
+
+# Create Installer directory and add to PATH
+if (-not (Test-Path $vsInstallerPath)) {
+    New-Item -ItemType Directory -Force -Path $vsInstallerPath
+}
 
 # Add VS installer to system PATH
 Write-Log "Adding Visual Studio installer to system PATH..."
@@ -134,9 +175,8 @@ $newPath = ('{0};{1}' -f $vsInstallerPath, $env:PATH)
 
 # Download the Visual Studio installer
 Write-Log "Downloading Visual Studio installer..."
-$vsBootstrapperUrl = "https://aka.ms/vs/17/release/vs_buildtools.exe"
-$vsBootstrapperPath = Join-Path $env:TEMP "vs_buildtools.exe"
-Invoke-WebRequest -Uri $vsBootstrapperUrl -OutFile $vsBootstrapperPath
+$vsBuildtoolsPath = Join-Path $vsInstallerPath "vs_buildtools.exe"
+Invoke-WebRequest -Uri "https://aka.ms/vs/17/release/vs_buildtools.exe" -OutFile $vsBuildtoolsPath
 
 # Install VS Build Tools with required components
 $installArgs = @(
@@ -144,6 +184,7 @@ $installArgs = @(
     "--wait",
     "--norestart",
     "--nocache",
+    "--installPath", "$InstallPath",
     "--channelUri", "https://aka.ms/vs/$VSBuildToolsVersion/release/channel",
     "--installChannelUri", "https://aka.ms/vs/$VSBuildToolsVersion/release/channel",
     "--channelId", "VisualStudio.$VSBuildToolsVersion.Release",
@@ -164,30 +205,41 @@ foreach ($component in $vsComponents) {
 }
 
 Write-Log "Installing Visual Studio Build Tools and components..."
-Start-ProcessSafe -Cmd $vsBootstrapperPath -Argv $installArgs
+Start-ProcessSafe -Cmd $vsBuildtoolsPath -Argv $installArgs
 
-# Install Rust
+# Install Rust (default)
 Write-Log "Installing Rust..."
 $rustupInit = Join-Path $env:TEMP "rustup-init.exe"
 Invoke-WebRequest -Uri "https://static.rust-lang.org/rustup/dist/i686-pc-windows-gnu/rustup-init.exe" -OutFile $rustupInit
 Start-ProcessSafe -Cmd $rustupInit -Argv @("-y", "--default-toolchain", "stable", "--profile", "minimal")
 
-# Install Android SDK and build tools via Chocolatey
-Write-Log "Installing Android SDK and build tools..."
-choco install -y android-sdk
+# Install Node.js and pnpm (default)
+Write-Log "Installing Node.js and pnpm..."
+$NodeVersion = "22"
+choco install nodejs-lts --version=$NodeVersion -y
+Write-Log "Enabling pnpm via corepack..."
+Start-ProcessSafe -Cmd "corepack" -Argv @("enable", "pnpm")
 
-# Install Unity Build Support
-Write-Log "Installing Unity Build Support dependencies..."
-choco install -y --no-progress dotnetfx
-choco install -y --no-progress vcredist140
-choco install -y --no-progress windows-sdk-10-version-2004-all
+# Install optional components based on InstallOptions array
+if ($InstallOptions -contains "Android") {
+    Write-Log "Installing Android SDK and build tools..."
+    $androidPath = Join-Path $InstallPath "Android"
+    choco install -y android-sdk --params "/ProgramFiles:$androidPath"
+}
+
+if ($InstallOptions -contains "Unity") {
+    Write-Log "Installing Unity..."
+    Import-Module (Join-Path $helpersPath "UnityInstallHelper.psm1")
+    Install-UnityEditor -Version "2022.3.16f1" -InstallPath (Join-Path $InstallPath "Unity") `
+        -IncludeAndroid:($InstallOptions -contains "Android") `
+        -IncludeUWP:($InstallOptions -contains "UWP")
+}
 
 # Install additional dependencies via Chocolatey
 Write-Log "Installing additional build dependencies..."
 $chocoPackages = @(
     "cmake",
-    "git",
-    "python3"
+    "git"
 )
 
 foreach ($package in $chocoPackages) {
@@ -195,5 +247,9 @@ foreach ($package in $chocoPackages) {
 }
 
 Start-ProcessSafe "choco-cleaner" @("--dummy")
+
+# Clean up temp directory
+Write-Log "Cleaning up temporary files..."
+Remove-Item -Path (Join-Path $env:TEMP "*") -Force -Recurse -ErrorAction SilentlyContinue
 
 Write-Host "Installation completed successfully!"

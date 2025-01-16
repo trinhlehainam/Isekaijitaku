@@ -4,14 +4,12 @@
 # - Docker Windows Server Core Dockerfile: https://github.com/docker-library/docker/blob/master/27/windows/windowsservercore-ltsc2022/Dockerfile
 
 ARG WINDOWS_IMAGE="mcr.microsoft.com/windows/servercore:ltsc2022"
-
 FROM ${WINDOWS_IMAGE}
 
 # $ProgressPreference: https://github.com/PowerShell/PowerShell/issues/2138#issuecomment-251261324
 SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
 
 ARG GITEA_RUNNER_VERSION=0.2.11
-
 # Install Gitea Runner
 RUN \
     # Create installation directory
@@ -62,4 +60,7 @@ WORKDIR C:\\ProgramData\\GiteaActRunner
 ENTRYPOINT ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "C:\\ProgramData\\GiteaActRunner\\scripts\\Run.ps1"]
 
 # Install build prerequisites
-RUN powershell -NoProfile -ExecutionPolicy Bypass -File C:\\ProgramData\\GiteaActRunner\\scripts\\Install-BuildPrerequisites.ps1
+ARG INSTALL_OPTIONS=""
+RUN $env:INSTALL_OPTIONS = $env:INSTALL_OPTIONS -split ',' | Where-Object { $_ }; \
+    & /GiteaRunner/scripts/build/Install-BuildPrerequisites.ps1 \
+        -InstallOptions $env:INSTALL_OPTIONS \

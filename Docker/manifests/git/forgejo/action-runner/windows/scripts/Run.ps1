@@ -7,9 +7,10 @@
 $ErrorActionPreference = 'Stop'
 
 # Import helper modules
-$helpers_path = Join-Path $PSScriptRoot "helpers"
-Import-Module (Join-Path $helpers_path "LogHelper.psm1")
-Import-Module (Join-Path $helpers_path "CertificateHelper.psm1")
+$helpersPath = Join-Path $PSScriptRoot "helpers"
+Import-Module (Join-Path $helpersPath "ImageHelper.psm1")
+Import-Module (Join-Path $helpersPath "LogHelper.psm1")
+Import-Module (Join-Path $helpersPath "CertificateHelper.psm1")
 
 function Test-Environment {
     Write-Log "Checking environment variables..."
