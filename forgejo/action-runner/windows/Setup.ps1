@@ -527,26 +527,27 @@ function New-FirewallRule {
         [Parameter(Mandatory=$true)]
         [string]$RuleName,
         [Parameter(Mandatory=$true)]
-        [string]$exeFile
+        [string]$ExecPath
     )
     # Create firewall rule for the task
     try {
         # Remove existing rule if any
-        Remove-NetFirewallRule -DisplayName $ruleName -ErrorAction SilentlyContinue
+        Remove-NetFirewallRule -Name $ruleName -ErrorAction SilentlyContinue
 
         # Create new rule
         $params = @{
+            Name        = "Block $ruleName Inbound"
             DisplayName = $ruleName
             Direction   = "Inbound"
-            Program     = $exeFile
-            Action      = "Allow"
+            Program     = $ExecPath
+            Action      = "Block"
             Profile     = @("Private", "Public")
-            Description = "Allow Gitea Action Runner to have network access"
+            Description = "Block access to $ExecPath"
             Enabled     = "True"
         }
             
         New-NetFirewallRule @params -ErrorAction Stop | Out-Null
-        Write-SuccessLog "Network access rule created for $exeFile"
+        Write-SuccessLog "Network access rule created for $ExecPath"
         return $true
     }
     catch {
@@ -734,9 +735,8 @@ function Register-RunnerService {
 
         # Add network access permissions
         # Create firewall rule for the service
-        $ruleName = "GiteaRunner_$ServiceName"
         $exeFile = "$BIN_DIR\act_runner.exe"
-        if (-not (New-FirewallRule -RuleName $ruleName -exeFile $exeFile)) {
+        if (-not (New-FirewallRule -RuleName $ServiceName -ExecPath $exeFile)) {
             exit 1
         }
 
