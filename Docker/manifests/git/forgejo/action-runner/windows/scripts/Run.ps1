@@ -8,8 +8,8 @@ $ErrorActionPreference = 'Stop'
 
 # Import helper scripts
 $helpersPath = Join-Path $PSScriptRoot "helpers"
-. (Join-Path $helpersPath "LogHelper.ps1")
-. (Join-Path $helpersPath "CertificateHelper.ps1")
+. (Join-Path $helpersPath "LogHelpers.ps1")
+. (Join-Path $helpersPath "CertificateHelpers.ps1")
 
 function Test-Environment {
     Write-Log "Checking environment variables..."
@@ -170,9 +170,9 @@ Write-Log "Starting Gitea Runner initialization..."
 Test-Environment
 Register-Runner
 
-Remove-Module "LogHelper"
-Remove-Module "CertificateHelper"
-Import-Module (Join-Path $helpersPath "ImageHelper.psm1")
+Remove-Module "LogHelpers"
+Remove-Module "CertificateHelpers"
+Import-Module (Join-Path $helpersPath "ImageHelpers.psm1")
 
 Write-Log "Starting runner daemon..."
 Start-Runner
