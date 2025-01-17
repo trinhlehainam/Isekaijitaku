@@ -15,9 +15,16 @@ $downloadUrl = "https://nodejs.org/dist/v${Version}/node-v${Version}-win-x64.zip
 $zipPath = Invoke-DownloadWithRetry $downloadUrl
 Expand-Archive -Path $zipPath -DestinationPath $installPath
 
-#rename extract folder
-$nodeFolder = Get-ChildItem $installPath -Directory
-Rename-Item $nodeFolder.FullName $nodePath
+# Rename extracted folder
+$currentNodePath = "$installPath/node-v${Version}-win-x64"
+if (-not (Test-Path $currentNodePath)) {
+    Write-Log "Could not find $currentNodePath after extraction"
+    exit 1
+}
+Rename-Item $currentNodePath $nodePath
+
+# Remove zip file
+Remove-Item $zipPath
 
 # Add Node binaries to the path
 $env:Path += ";$nodePath"

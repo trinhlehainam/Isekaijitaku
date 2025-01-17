@@ -1,6 +1,7 @@
 # References:
 # - [Visual Studio Build Tools Command Line Documentation](https://learn.microsoft.com/en-us/visualstudio/install/use-command-line-parameters-to-install-visual-studio?view=vs-2022)
-# - [Visual Studio Workload Component IDs](https://github.com/MicrosoftDocs/visualstudio-docs/blob/main/docs/install/includes/vs-2022/workload-component-id-vs-community.md)
+# - [Visual Studio Build Tools Workload Component IDs](https://github.com/MicrosoftDocs/visualstudio-docs/blob/main/docs/install/includes/vs-2022/workload-component-id-vs-build-tools.md)
+# - [Visual Studio Community Workload Component IDs](https://github.com/MicrosoftDocs/visualstudio-docs/blob/main/docs/install/includes/vs-2022/workload-component-id-vs-community.md)
 # - [Visual Studio Command Line Parameters Examples](https://learn.microsoft.com/en-us/visualstudio/install/command-line-parameter-examples?view=vs-2022)
 # - [UE4 Docker Build Prerequisites](https://github.com/adamrehn/ue4-docker/blob/master/src/ue4docker/dockerfiles/ue4-build-prerequisites/windows/install-prerequisites.ps1)
 #
@@ -20,9 +21,6 @@ if (-not (Get-Module -ListAvailable -Name VSSetup)) {
     Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
     Install-Module VSSetup -Scope CurrentUser -Force
 }
-
-# Import VSSetup module
-Import-Module VSSetup
 
 # Import helpers scripts
 $scriptPath = Split-Path -Parent $PSScriptRoot
@@ -44,7 +42,6 @@ foreach ($option in $InstallOptions) {
         throw "Invalid installation option: $option. Valid options are: $($ValidOptions -join ', ')"
     }
 }
-
 function Start-ProcessSafe {
     param ([string] $Cmd, [string[]] $Argv)
     Write-Log "Executing command: $Cmd $Argv"
@@ -91,59 +88,31 @@ $vsComponentsRust = @(
     "Microsoft.VisualStudio.Component.Windows11SDK.22621"
 )
 
-# Unity Development Components
+# Unity Build Components
 $vsComponentsUnity = @(
-    "Microsoft.VisualStudio.Component.VC.ASAN",
-    "Microsoft.VisualStudio.Component.Windows10SDK.$WindowsSDKVersion",
-    "Microsoft.VisualStudio.Component.VC.14.29.16.11.x86.x64",
-    "Microsoft.VisualStudio.Component.VC.14.29.16.11.ARM64",
-    "Microsoft.VisualStudio.Component.VC.Redist.14.Latest"
-)
-
-# .NET Development Components
-$vsComponentsDotNet = @(
-    "Microsoft.VisualStudio.Workload.ManagedDesktopBuildTools",
-    "Microsoft.VisualStudio.Component.NuGet.BuildTools",
-    "Microsoft.Net.Component.4.8.SDK",
-    "Microsoft.Net.Component.4.8.TargetingPack",
-    "Microsoft.NetCore.Component.Runtime.6.0",
-    "Microsoft.NetCore.Component.SDK"
-)
-
-# Android Development Components
-$vsComponentsAndroid = @(
-    "Microsoft.VisualStudio.Component.Android.SDK.Build",
-    "Microsoft.VisualStudio.Component.Android.NDK.R23C",
-    "Component.Android.SDK.MAUI",
-    "Component.OpenJDK"
-)
-
-# Universal Windows Platform Components
-$vsComponentsUWP = @(
-    "Microsoft.VisualStudio.Workload.UniversalBuildTools",
-    "Microsoft.VisualStudio.ComponentGroup.UWP.BuildTools",
-    "Microsoft.VisualStudio.Component.UWP.VC.ARM64",
-    "Microsoft.VisualStudio.Component.UWP.VC.ARM",
-    "Microsoft.VisualStudio.Component.Windows10SDK.IpOverUsb",
-    "Microsoft.VisualStudio.Component.Windows11SDK.22621"
+    # Build modern C++ apps for Windows using tools of your choice, including MSVC, Clang, CMake, or MSBuild.
+    "Microsoft.VisualStudio.Workload.VCTools",
+    # Build Android, iOS, Windows, and Mac apps from a single codebase using C# with .NET MAUI.
+    "Microsoft.VisualStudio.Workload.XamarinBuildTools",
+    # Build applications for the Windows platform using WinUI with C# or optionally C++.
+    "Microsoft.VisualStudio.Workload.UniversalBuildTools"
 )
 
 # Core Workloads
-$vsWorkloads = @(
+$vsWorkloadsAndComponentsCore = @(
+    "Microsoft.VisualStudio.Workload.MSBuild",
     "Microsoft.VisualStudio.Workload.VCTools",
-    "Microsoft.VisualStudio.Workload.NetCoreBuildTools",
     "Microsoft.VisualStudio.Workload.ManagedDesktopBuildTools"
 )
 
-# Merge all components (removing duplicates)
-$vsComponents = @()
+$vsWorkloadsAndComponents = @()
 
-# Always include base components
-@($vsComponentsRust, $vsComponentsDotNet) | ForEach-Object {
+# Always include base components and workloads
+@($vsComponentsRust, $vsWorkloadsAndComponentsCore) | ForEach-Object {
     $componentSet = $_
     foreach ($component in $componentSet) {
-        if ($vsComponents -notcontains $component) {
-            $vsComponents += $component
+        if ($vsWorkloadsAndComponents -notcontains $component) {
+            $vsWorkloadsAndComponents += $component
         }
     }
 }
@@ -152,18 +121,17 @@ $vsComponents = @()
 if ($InstallOptions -contains "Unity") {
     Write-Log "Including Unity development components..."
     foreach ($component in $vsComponentsUnity) {
-        if ($vsComponents -notcontains $component) {
-            $vsComponents += $component
+        if ($vsWorkloadsAndComponents -notcontains $component) {
+            $vsWorkloadsAndComponents += $component
         }
     }
-    $vsWorkloads += "Microsoft.VisualStudio.Workload.ManagedGame"
 }
 
 if ($InstallOptions -contains "Android") {
     Write-Log "Including Android development components..."
     foreach ($component in $vsComponentsAndroid) {
-        if ($vsComponents -notcontains $component) {
-            $vsComponents += $component
+        if ($vsWorkloadsAndComponents -notcontains $component) {
+            $vsWorkloadsAndComponents += $component
         }
     }
 }
@@ -171,11 +139,10 @@ if ($InstallOptions -contains "Android") {
 if ($InstallOptions -contains "UWP") {
     Write-Log "Including UWP development components..."
     foreach ($component in $vsComponentsUWP) {
-        if ($vsComponents -notcontains $component) {
-            $vsComponents += $component
+        if ($vsWorkloadsAndComponents -notcontains $component) {
+            $vsWorkloadsAndComponents += $component
         }
     }
-    $vsWorkloads += "Microsoft.VisualStudio.Workload.UniversalBuildTools"
 }
 
 $InstallPath = "C:\BuildTools"
@@ -184,21 +151,11 @@ if (-not (Test-Path $InstallPath)) {
     New-Item -ItemType Directory -Force -Path $InstallPath
 }
 
-# Install Visual Studio Build Tools
-Write-Log "Installing Visual Studio Build Tools..."
-$vsInstallerPath = "$InstallPath\Installer"
-
-# Create Installer directory
-if (-not (Test-Path $vsInstallerPath)) {
-    New-Item -ItemType Directory -Force -Path $vsInstallerPath
-}
-
 # Install VS Build Tools with required components
 Install-VisualStudio `
     -InstallerPath $InstallPath `
     -Version "17.0" `
-    -Workloads $vsWorkloads `
-    -Components $vsComponents
+    -WorkloadsAndComponents $vsWorkloadsAndComponents
 
 # Install Rust (default)
 ./Install-Rust.ps1 -InstallPath $InstallPath
@@ -206,21 +163,13 @@ Install-VisualStudio `
 # Install Node.js and pnpm (default)
 ./Install-NodeJS.ps1 -InstallPath $InstallPath
 
-# Install optional components based on InstallOptions array
-if ($InstallOptions -contains "Android") {
-    Write-Log "Installing Android SDK and build tools..."
-    $androidPath = Join-Path $InstallPath "Android"
-    choco install -y android-sdk --params "/ProgramFiles:$androidPath"
-}
-
 if ($InstallOptions -contains "Unity") {
     Write-Log "Installing Unity..."
-    Import-Module (Join-Path $helpersPath "UnityInstallHelper.psm1")
+    . (Join-Path $helpersPath "UnityInstallHelpers.ps1")
     Install-UnityEditor -Version "2022.3.16f1" -InstallPath (Join-Path $InstallPath "Unity") `
         -IncludeAndroid:($InstallOptions -contains "Android") `
         -IncludeUWP:($InstallOptions -contains "UWP")
 }
-
 
 Start-ProcessSafe "choco-cleaner" @("--dummy")
 

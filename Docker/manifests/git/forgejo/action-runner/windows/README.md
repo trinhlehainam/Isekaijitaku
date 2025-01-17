@@ -270,6 +270,8 @@ The following components are installed by default:
 1. **Unity Development** (`-InstallUnity`)
    - Unity Build Support components
    - IL2CPP build support
+   - Windows build support
+   - Android build support
    - Required Visual C++ components
    - .NET Framework support
 
@@ -299,6 +301,96 @@ The following components are installed by default:
 
 # Install with specific Node.js version
 .\Install-BuildPrerequisites.ps1 -NodeVersion "18"
+```
+
+## Unity Development Support
+
+The runner includes support for Unity development through Unity Hub CLI. The installation process is managed by helper scripts that handle both Unity Hub and Unity Editor installation.
+
+### Prerequisites
+
+Before using the Unity installation scripts, ensure you have the following dependencies installed:
+
+1. **Required Dependencies**:
+   - Node.js: Required for version validation
+   - npx: Required for unity-changeset validation
+   - Chocolatey: Required for Unity Hub and Editor installation
+
+2. **Installation Commands**:
+   ```powershell
+   # Install Chocolatey (if not installed)
+   Set-ExecutionPolicy Bypass -Scope Process -Force
+   [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
+   iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
+
+   # Install Node.js
+   choco install nodejs -y
+
+   # Install npx globally
+   npm install -g npx
+   ```
+
+### Unity Installation Features
+
+1. **Unity Hub Installation**
+   - Automated silent installation
+   - Default installation path: `C:/BuildTools/Unity`
+   - Automatic PATH environment variable configuration
+
+2. **Unity Editor Installation**
+   - Version validation using `unity-changeset`
+   - Configurable installation path
+   - Flexible module selection
+   - Default modules: Windows-Mono and UWP support
+
+### Usage Examples
+
+```powershell
+# Install Unity Hub
+Install-UnityHub -InstallPath "C:/BuildTools/Unity"
+
+# Install Unity Editor with specific modules
+Install-UnityEditor `
+    -Version "2022.3.16f1" `
+    -InstallPath "C:/BuildTools/Unity/Editor" `
+    -Modules @(
+        "windows-mono",
+        "universal-windows-platform-mono",
+        "android",
+        "android-sdk-ndk-tools"
+    )
+
+# Get Unity installation paths
+$hubPath = Get-UnityHubPath -InstallPath "C:/BuildTools/Unity"
+$editorPath = Get-UnityEditorPath -Version "2022.3.16f1" -InstallPath "C:/BuildTools/Unity/Editor"
+
+# Validate Unity version
+Test-UnityVersion -Version "2022.3.16f1"
+```
+
+### Available Modules
+
+The following modules can be specified in the `-Modules` parameter:
+
+- `windows-mono`: Windows Build Support (Mono)
+- `windows-il2cpp`: Windows Build Support (IL2CPP)
+- `universal-windows-platform-mono`: Universal Windows Platform Support
+- `android`: Android Build Support
+- `android-sdk-ndk-tools`: Android SDK & NDK Tools
+- `ios`: iOS Build Support
+- `webgl`: WebGL Build Support
+- `linux-mono`: Linux Build Support
+- `mac-mono`: macOS Build Support
+
+### Installation Paths
+
+```
+C:/BuildTools/Unity/                  # Unity Hub installation
+└── Unity Hub.exe                     # Unity Hub executable
+C:/BuildTools/Unity/Editor/           # Unity Editor installation
+└── [VERSION]/                        # Editor version-specific files
+    ├── Editor/                       # Unity Editor
+    └── modules/                      # Installed modules
 ```
 
 ## Helper Scripts
@@ -347,7 +439,7 @@ Install-Rust -InstallPath $path -Toolchain "stable" -Profile "minimal"
 Install-AndroidSDK -InstallPath $path
 
 # Install Unity
-Install-UnityEditor -Version "2022.3.16f1" -InstallPath $path -IncludeAndroid -IncludeUWP
+Install-UnityEditor -Version "2022.3.16f1" -InstallPath $path -Modules @("windows-mono", "universal-windows-platform-mono")
 ```
 
 #### Environment Management

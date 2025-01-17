@@ -4,8 +4,7 @@ function Install-VisualStudio {
     param (
         [string]$InstallPath,
         [string]$Version = "17.0",
-        [string[]]$Workloads = @(),
-        [string[]]$Components = @()
+        [string[]]$WorkloadsAndComponents = @()
     )
 
     Write-Host "Installing Visual Studio Build Tools..."
@@ -28,16 +27,9 @@ function Install-VisualStudio {
         "--locale", "en-US"
     )
 
-    # Add workloads
-    foreach ($workload in $Workloads) {
-        $installArgs += "--add"
-        $installArgs += $workload
-    }
-
-    # Add components
-    foreach ($component in $Components) {
-        $installArgs += "--add"
-        $installArgs += $component
+    # Add workloads and components to installation arguments
+    foreach ($id in $WorkloadsAndComponents) {
+        $installArgs += @("--add", $id)
     }
 
     # Install Visual Studio Build Tools

@@ -1,73 +1,143 @@
-function Install-UnityHub {
+function Get-UnityChangeSet {
     param (
-        [string]$InstallPath = "C:/BuildTools/Unity"
+        [Parameter(Mandatory = $true)]
+        [string]$Version
     )
 
-    Write-Host "Installing Unity Hub..."
-    $unityHubSetup = Join-Path $env:TEMP "UnityHubSetup.exe"
+    Write-Host "Validating Unity version $Version..."
+
+    # Check if Node.js is installed
+    if (-not (Get-Command "node" -ErrorAction SilentlyContinue)) {
+        Write-Host "Node.js is required but not installed. Please install Node.js before proceeding."
+        return $null
+    }
+
+    # Check if npx is available
+    if (-not (Get-Command "npx" -ErrorAction SilentlyContinue)) {
+        Write-Host "npx is required but not installed. Please install npx using 'npm install -g npx' before proceeding."
+        return $null
+    }
+
+    try {
+        # Use npx to run unity-changeset without global installation
+        $changeSet = (& npx unity-changeset $Version)
+        if ($LASTEXITCODE -ne 0) {
+            return $null
+        }
+        return $changeSet
+    }
+    catch {
+        Write-Warning "Failed to validate Unity version: $_"
+        return $null
+    }
     
-    # Download Unity Hub
-    Invoke-WebRequest -Uri "https://public-cdn.cloud.unity3d.com/hub/prod/UnityHubSetup.exe" -OutFile $unityHubSetup
-    
-    # Install Unity Hub silently
-    Start-Process -FilePath $unityHubSetup -ArgumentList "/S" -Wait
-    
-    # Add Unity Hub to PATH
-    $unityHubPath = "${env:LocalAppData}\UnityHub"
-    $env:PATH = "$unityHubPath;$env:PATH"
-    [Environment]::SetEnvironmentVariable("PATH", $env:PATH, [System.EnvironmentVariableTarget]::Machine)
+    return $null
 }
+
+function Test-Chocolatey {
+    if (-not (Get-Command "choco" -ErrorAction SilentlyContinue)) {
+        Write-Host "Chocolatey is required but not installed. Please install Chocolatey before proceeding."
+        return $false
+    }
+    return $true
+}
+
 
 function Install-UnityEditor {
     param (
-        [Parameter(Mandatory=$true)]
+        [Parameter(Mandatory = $true)]
         [string]$Version,
-        [string]$InstallPath = "C:/BuildTools/Unity-Editor",
-        [string[]]$Modules = @("windows-mono", "windows-il2cpp"),
-        [switch]$IncludeAndroid,
-        [switch]$IncludeUWP
+        [string]$InstallPath = "C:/BuildTools/Unity/Editor",
+        [string[]]$Modules = @("windows-mono", "universal-windows-platform-mono")
     )
 
-    # Check if Unity Hub is installed
-    $unityHub = "${env:LocalAppData}\UnityHub\Unity Hub.exe"
-    if (-not (Test-Path $unityHub)) {
-        Install-UnityHub -InstallPath $InstallPath
+    # Validate Unity version
+    if (-not (Test-UnityVersion -Version $Version)) {
+        throw "Invalid Unity version: $Version"
     }
 
-    Write-Host "Installing Unity Editor version $Version..."
-
-    # Create installation directory
-    if (-not (Test-Path $InstallPath)) {
-        New-Item -ItemType Directory -Force -Path $InstallPath
+    # Ensure Unity Hub is installed
+    $unityHubPath = Get-UnityHubPath
+    
+    if (-not $unityHubPath) {
+        throw "Unity Hub is not installed. Please install Unity Hub before proceeding."
     }
 
-    # Prepare modules list
-    $moduleArgs = @()
+    # Validate modules
+    $validModules = @(
+        "windows-mono",
+        "windows-il2cpp",
+        "universal-windows-platform-mono",
+        "android",
+        "android-sdk-ndk-tools",
+        "ios",
+        "webgl",
+        "linux-mono",
+        "mac-mono"
+    )
+
     foreach ($module in $Modules) {
-        $moduleArgs += "--module"
-        $moduleArgs += $module
+        if ($validModules -notcontains $module) {
+            throw "Invalid module: $module. Valid modules are: $($validModules -join ', ')"
+        }
     }
 
-    if ($IncludeAndroid) {
-        $moduleArgs += "--module"
-        $moduleArgs += "android"
+    $changeSet = Get-UnityChangeset -Version $Version
+
+    if (-not $changeSet) {
+        throw "Failed to validate Unity version: $Version"
     }
 
-    if ($IncludeUWP) {
-        $moduleArgs += "--module"
-        $moduleArgs += "uwp"
-        $moduleArgs += "--module"
-        $moduleArgs += "uwp-support"
-    }
-
-    # Install Unity Editor
-    $unityHubArgs = @(
+    Write-Host "Chocolatey installation failed, falling back to Unity Hub CLI..."
+    # Install editor using Unity Hub CLI
+    $editorArgs = @(
         "--headless",
         "install",
         "--version", $Version,
-        "--childModules",
-        "--installPath", $InstallPath
-    ) + $moduleArgs
+        "--changeset", $changeSet,
+        "--module", ($Modules -join " ")
+    )
 
-    Start-Process -FilePath $unityHub -ArgumentList $unityHubArgs -Wait -NoNewWindow
+    if ($InstallPath) {
+        $editorArgs += "--path"
+        $editorArgs += $InstallPath
+    }
+
+    Write-Host "Running Unity Hub with args: $($editorArgs -join ' ')"
+    $process = Start-Process -FilePath $unityHubPath -ArgumentList $editorArgs -NoNewWindow -Wait -PassThru
+    if ($process.ExitCode -ne 0) {
+        throw "Unity Editor installation failed with exit code: $($process.ExitCode)"
+    }
+
+    # Verify installation
+    $editorPath = Join-Path $InstallPath $Version
+    if (-not (Test-Path $editorPath)) {
+        throw "Unity Editor installation failed - path not found: $editorPath"
+    }
+
+    Write-Host "Unity Editor $Version installed successfully at $editorPath"
+    return $editorPath
+}
+
+function Get-UnityEditorPath {
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$Version
+    )
+
+    $unityEditorPath = "C:/BuildTools/UnityEditor/$Version"
+    if (-not (Test-Path $unityEditorPath)) {
+        throw "Unity Editor not found at $unityEditorPath"
+    }
+
+    return $unityEditorPath
+}
+
+function Get-UnityHubPath {
+    $unityHubPath = "C:/Program Files/Unity Hub/Unity Hub.exe"
+    if (Test-Path $unityHubPath) {
+        return $unityHubPath
+    }
+    
+    return $null
 }

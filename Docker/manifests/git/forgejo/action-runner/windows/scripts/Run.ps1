@@ -6,7 +6,6 @@
 # Enable strict error handling
 $ErrorActionPreference = 'Stop'
 
-
 # Import helper scripts
 $helpersPath = Join-Path $PSScriptRoot "helpers"
 . (Join-Path $helpersPath "LogHelpers.ps1")
