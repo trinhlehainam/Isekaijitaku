@@ -22,9 +22,3 @@ function Install-CommonTools {
         choco install $tool -y --no-progress
     }
 }
-
-function Clear-TempFiles {
-    Write-Host "Cleaning temporary files..."
-    Remove-Item -Path (Join-Path $env:TEMP "*") -Force -Recurse -ErrorAction SilentlyContinue
-    Start-Process "choco-cleaner" -ArgumentList @("--dummy") -NoNewWindow -Wait
-}

@@ -303,6 +303,78 @@ The following components are installed by default:
 .\Install-BuildPrerequisites.ps1 -NodeVersion "18"
 ```
 
+## Visual Studio Build Tools Components
+
+The build environment includes Visual Studio Build Tools with various components organized by development type. The installation process supports both fresh installations and modifications of existing installations.
+
+### Core Components (Always Installed)
+- MSBuild and core build tools
+- C++ build tools
+- .NET Desktop build tools
+- Rust MSVC toolchain support
+- Windows 11 SDK
+
+### Unity Development Components
+- C++ build tools for Unity
+- .NET MAUI build tools for cross-platform development
+- Universal Windows Platform build tools
+
+### Android Development Components
+- Mobile development with .NET
+- Android SDK setup
+- Android NDK (R23C)
+
+### UWP Development Components
+- Universal Windows Platform build tools
+- Windows 11 SDK
+
+### Installation and Modification
+
+The installation process automatically detects if Visual Studio is already installed:
+- For fresh installations, it performs a complete installation with selected components
+- For existing installations, it modifies the installation to add new components
+
+```powershell
+# Fresh installation with Unity and Android support
+./Install-BuildPrerequisites.ps1 -InstallOptions @("Unity", "Android")
+
+# Add UWP support to existing installation
+./Install-BuildPrerequisites.ps1 -InstallOptions @("UWP")
+```
+
+### Component Organization
+
+Components are organized in a structured hashtable for better maintainability:
+
+```powershell
+$vsComponents = @{
+    Core = @(
+        "Microsoft.VisualStudio.Workload.MSBuild",
+        "Microsoft.VisualStudio.Workload.VCTools",
+        "Microsoft.VisualStudio.Workload.ManagedDesktopBuildTools",
+        "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",
+        "Microsoft.VisualStudio.Component.Windows11SDK.22621"
+    )
+    Unity = @(
+        "Microsoft.VisualStudio.Workload.VCTools",
+        "Microsoft.VisualStudio.Workload.XamarinBuildTools",
+        "Microsoft.VisualStudio.Workload.UniversalBuildTools"
+    )
+    # ... other component groups
+}
+```
+
+Core components are always installed, while additional components are added based on the specified installation options. The installation process uses a HashSet to ensure no duplicate components are installed.
+
+### Installation Path Structure
+
+```
+C:/BuildTools/
+├── VisualStudio/        # Visual Studio Build Tools
+├── Unity/              # Unity installation
+└── Android/            # Android SDK and tools
+```
+
 ## Unity Development Support
 
 The runner includes support for Unity development through Unity Hub CLI. The installation process is managed by helper scripts that handle both Unity Hub and Unity Editor installation.

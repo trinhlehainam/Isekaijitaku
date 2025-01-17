@@ -9,7 +9,7 @@
 param(
     [string]$VSBuildToolsVersion = "17",
     [string]$WindowsSDKVersion = "20348",
-    [string[]]$InstallOptions = @()
+    [string]$Options
 )
 
 # Stop on first error
@@ -29,26 +29,85 @@ $helpersPath = Join-Path $scriptPath "helpers"
 . (Join-Path $helpersPath "InstallHelpers.ps1")
 . (Join-Path $helpersPath "VisualStudioHelpers.ps1")
 
-# Valid installation options
-$ValidOptions = @(
-    "Unity",
-    "Android",
-    "UWP"
-)
+
+# Parse installation options
+$parsedOptions = $Options -split ","
 
 # Validate installation options
-foreach ($option in $InstallOptions) {
-    if ($ValidOptions -notcontains $option) {
+$validOptions = @("Unity", "Rust", "Node")
+foreach ($option in $parsedOptions) {
+    if ($validOptions -notcontains $option) {
         throw "Invalid installation option: $option. Valid options are: $($ValidOptions -join ', ')"
     }
 }
-function Start-ProcessSafe {
-    param ([string] $Cmd, [string[]] $Argv)
-    Write-Log "Executing command: $Cmd $Argv"
-    $process = Start-Process -NoNewWindow -PassThru -Wait -FilePath $Cmd -ArgumentList $Argv
-    if ($process.ExitCode -ne 0) {
-        throw "Exit code: $($process.ExitCode)"
+
+# Define Visual Studio workloads and components
+$vsWorkloadsAndComponents = @{
+    # Core components required for all builds
+    Core = @(
+        # MSBuild and core build tools
+        "Microsoft.VisualStudio.Workload.MSBuild",
+        # C++ build tools
+        "Microsoft.VisualStudio.Workload.VCTools",
+        # .NET Desktop build tools
+        "Microsoft.VisualStudio.Workload.ManagedDesktopBuildTools"
+    )
+    
+    Rust = @(
+        # Required for Rust MSVC toolchain
+        "Microsoft.VisualStudio.Component.VC.Tools.x86.x64"
+        "Microsoft.VisualStudio.Component.Windows11SDK.22621"
+    )
+    
+    # Node.js development tools
+    Node = @(
+        "Microsoft.VisualStudio.Workload.NodeBuildTools"
+    )
+
+    # Unity development components
+    Unity = @(
+        # C++ build tools for Unity
+        "Microsoft.VisualStudio.Workload.VCTools",
+        # .NET MAUI build tools for cross-platform development
+        "Microsoft.VisualStudio.Workload.XamarinBuildTools",
+        # Universal Windows Platform build tools
+        "Microsoft.VisualStudio.Workload.UniversalBuildTools"
+    )
+}
+
+# Initialize workloads and components list
+$finalWorkloadsAndComponents = New-Object System.Collections.Generic.HashSet[string]
+
+# Always add core and Rust components
+$vsWorkloadsAndComponents.Core | ForEach-Object { $finalWorkloadsAndComponents.Add($_) | Out-Null }
+$vsWorkloadsAndComponents.Rust | ForEach-Object { $finalWorkloadsAndComponents.Add($_) | Out-Null }
+
+# Add components based on installation options
+foreach ($option in $parsedOptions) {
+    if ($vsWorkloadsAndComponents.ContainsKey($option)) {
+        Write-Log "Including $option development components..."
+        $vsWorkloadsAndComponents[$option] | ForEach-Object { $finalWorkloadsAndComponents.Add($_) | Out-Null }
     }
+}
+
+# Create installation directory
+$installPath = "C:/BuildTools"
+if (-not (Test-Path $installPath)) {
+    New-Item -ItemType Directory -Force -Path $installPath
+}
+
+# Install Visual Studio Build Tools with selected components
+Write-Log "Installing Visual Studio Build Tools..."
+Install-VisualStudio `
+    -InstallPath "$installPath/VisualStudio" `
+    -Version $VSBuildToolsVersion `
+    -WorkloadsAndComponents $finalWorkloadsAndComponents
+
+# Install VSSetup module if not already installed
+if (-not (Get-Module -ListAvailable -Name VSSetup)) {
+    Write-Host "Installing VSSetup module..."
+    Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
+    Install-Module VSSetup -Scope CurrentUser -Force
 }
 
 # Install Chocolatey if not already installed
@@ -61,6 +120,15 @@ if (Get-Command "choco" -ErrorAction SilentlyContinue) {
 }
 
 # Install the chocolatey packages we need
+function Start-ProcessSafe {
+    param ([string] $cmd, [string[]] $argv)
+    Write-Log "Executing command: $cmd $argv"
+    $process = Start-Process -NoNewWindow -PassThru -Wait -FilePath $cmd -ArgumentList $argv
+    if ($process.ExitCode -ne 0) {
+        throw "Exit code: $($process.ExitCode)"
+    }
+}
+
 Start-ProcessSafe "choco" @("install", "--no-progress", "-y", "git.install", "--version=2.43.0", "--params", @'
 "'/GitOnlyOnPath /NoAutoCrlf /WindowsTerminal /NoShellIntegration /NoCredentialManager'`"
 '@)
@@ -81,94 +149,18 @@ foreach ($package in $chocoPackages) {
     Start-ProcessSafe "choco" $params
 }
 
-# Rust-specific Components
-# https://rust-lang.github.io/rustup/installation/windows-msvc.html
-$vsComponentsRust = @(
-    "Microsoft.VisualStudio.Component.VC.Tools.x86.x64",  # Required for Rust MSVC toolchain
-    "Microsoft.VisualStudio.Component.Windows11SDK.22621"
-)
-
-# Unity Build Components
-$vsComponentsUnity = @(
-    # Build modern C++ apps for Windows using tools of your choice, including MSVC, Clang, CMake, or MSBuild.
-    "Microsoft.VisualStudio.Workload.VCTools",
-    # Build Android, iOS, Windows, and Mac apps from a single codebase using C# with .NET MAUI.
-    "Microsoft.VisualStudio.Workload.XamarinBuildTools",
-    # Build applications for the Windows platform using WinUI with C# or optionally C++.
-    "Microsoft.VisualStudio.Workload.UniversalBuildTools"
-)
-
-# Core Workloads
-$vsWorkloadsAndComponentsCore = @(
-    "Microsoft.VisualStudio.Workload.MSBuild",
-    "Microsoft.VisualStudio.Workload.VCTools",
-    "Microsoft.VisualStudio.Workload.ManagedDesktopBuildTools"
-)
-
-$vsWorkloadsAndComponents = @()
-
-# Always include base components and workloads
-@($vsComponentsRust, $vsWorkloadsAndComponentsCore) | ForEach-Object {
-    $componentSet = $_
-    foreach ($component in $componentSet) {
-        if ($vsWorkloadsAndComponents -notcontains $component) {
-            $vsWorkloadsAndComponents += $component
-        }
-    }
-}
-
-# Add optional components based on InstallOptions array
-if ($InstallOptions -contains "Unity") {
-    Write-Log "Including Unity development components..."
-    foreach ($component in $vsComponentsUnity) {
-        if ($vsWorkloadsAndComponents -notcontains $component) {
-            $vsWorkloadsAndComponents += $component
-        }
-    }
-}
-
-if ($InstallOptions -contains "Android") {
-    Write-Log "Including Android development components..."
-    foreach ($component in $vsComponentsAndroid) {
-        if ($vsWorkloadsAndComponents -notcontains $component) {
-            $vsWorkloadsAndComponents += $component
-        }
-    }
-}
-
-if ($InstallOptions -contains "UWP") {
-    Write-Log "Including UWP development components..."
-    foreach ($component in $vsComponentsUWP) {
-        if ($vsWorkloadsAndComponents -notcontains $component) {
-            $vsWorkloadsAndComponents += $component
-        }
-    }
-}
-
-$InstallPath = "C:\BuildTools"
-# Create BuildTools directory
-if (-not (Test-Path $InstallPath)) {
-    New-Item -ItemType Directory -Force -Path $InstallPath
-}
-
-# Install VS Build Tools with required components
-Install-VisualStudio `
-    -InstallerPath $InstallPath `
-    -Version "17.0" `
-    -WorkloadsAndComponents $vsWorkloadsAndComponents
-
 # Install Rust (default)
-./Install-Rust.ps1 -InstallPath $InstallPath
+./Install-Rust.ps1 -InstallPath $installPath
 
 # Install Node.js and pnpm (default)
-./Install-NodeJS.ps1 -InstallPath $InstallPath
+./Install-NodeJS.ps1 -InstallPath $installPath
 
-if ($InstallOptions -contains "Unity") {
+if ($parsedOptions -contains "Unity") {
     Write-Log "Installing Unity..."
     . (Join-Path $helpersPath "UnityInstallHelpers.ps1")
-    Install-UnityEditor -Version "2022.3.16f1" -InstallPath (Join-Path $InstallPath "Unity") `
-        -IncludeAndroid:($InstallOptions -contains "Android") `
-        -IncludeUWP:($InstallOptions -contains "UWP")
+    Install-UnityEditor -Version "2022.3.16f1" -InstallPath (Join-Path $installPath "Unity") `
+        -IncludeAndroid:($parsedOptions -contains "Android") `
+        -IncludeUWP:($parsedOptions -contains "UWP")
 }
 
 Start-ProcessSafe "choco-cleaner" @("--dummy")
