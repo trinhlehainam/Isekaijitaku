@@ -11,21 +11,32 @@ param(
     [string[]]$InstallOptions = @()
 )
 
-# Valid installation options
-$ValidOptions = @(
-    "Unity",
-    "Android",
-    "UWP"
-)
-
 # Stop on first error
 $ErrorActionPreference = "Stop"
+
+# Install VSSetup module if not already installed
+if (-not (Get-Module -ListAvailable -Name VSSetup)) {
+    Write-Host "Installing VSSetup module..."
+    Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
+    Install-Module VSSetup -Scope CurrentUser -Force
+}
+
+# Import VSSetup module
+Import-Module VSSetup
 
 # Import helpers scripts
 $scriptPath = Split-Path -Parent $PSScriptRoot
 $helpersPath = Join-Path $scriptPath "helpers"
 . (Join-Path $helpersPath "LogHelpers.ps1")
 . (Join-Path $helpersPath "InstallHelpers.ps1")
+. (Join-Path $helpersPath "VisualStudioHelpers.ps1")
+
+# Valid installation options
+$ValidOptions = @(
+    "Unity",
+    "Android",
+    "UWP"
+)
 
 # Validate installation options
 foreach ($option in $InstallOptions) {
@@ -128,7 +139,7 @@ $vsWorkloads = @(
 $vsComponents = @()
 
 # Always include base components
-@($vsComponentsCpp, $vsComponentsRust, $vsComponentsDotNet) | ForEach-Object {
+@($vsComponentsRust, $vsComponentsDotNet) | ForEach-Object {
     $componentSet = $_
     foreach ($component in $componentSet) {
         if ($vsComponents -notcontains $component) {

@@ -3,13 +3,13 @@
 function Install-VisualStudio {
     param (
         [string]$InstallPath,
-        [string]$Version,
-        [string[]]$Components,
-        [string[]]$Workloads
+        [string]$Version = "17.0",
+        [string[]]$Workloads = @(),
+        [string[]]$Components = @()
     )
 
     Write-Host "Installing Visual Studio Build Tools..."
-    
+
     # Download VS Build Tools installer
     $bootstrapperUrl="https://aka.ms/vs/17/release/vs_buildtools.exe"
     $bootstrapperFilePath = Invoke-DownloadWithRetry $bootstrapperUrl
@@ -41,10 +41,45 @@ function Install-VisualStudio {
     }
 
     # Install Visual Studio Build Tools
+    Write-Host "Installing Visual Studio Build Tools and components..."
     $process = Start-Process -FilePath $bootstrapperFilePath -ArgumentList $installArgs -NoNewWindow -Wait -PassThru
     if ($process.ExitCode -ne 0) {
         throw "Visual Studio Build Tools installation failed with exit code: $($process.ExitCode)"
     }
+
+    # Verify installation
+    if (-not (Test-VisualStudioInstalled -Version $Version)) {
+        throw "Visual Studio installation verification failed"
+    }
+
+    Write-Host "Visual Studio Build Tools installation completed successfully"
+}
+
+function Get-VisualStudioPath {
+    param (
+        [string]$Version = "17.0"
+    )
+
+    $vsInstance = Get-VSSetupInstance | 
+        Where-Object { $_.InstallationVersion.StartsWith($Version) } |
+        Sort-Object -Property InstallationVersion -Descending |
+        Select-Object -First 1
+
+    if (-not $vsInstance) {
+        throw "Visual Studio $Version is not installed"
+    }
+
+    return $vsInstance.InstallationPath
+}
+
+function Test-VisualStudioInstalled {
+    param (
+        [string]$Version = "17.0"
+    )
+
+    return $null -ne (Get-VSSetupInstance | 
+        Where-Object { $_.InstallationVersion.StartsWith($Version) } |
+        Select-Object -First 1)
 }
 
 function Get-VisualStudioInstance {
@@ -57,7 +92,7 @@ function Get-VisualStudioInstance {
         using the Get-VSSetupInstance cmdlet.
         It searches for both regular and preview versions
         of Visual Studio and returns the first instance found.
-    #>
+    #>;
 
     # Use -Prerelease and -All flags to make sure that Preview versions of VS are found correctly
     $vsInstance = Get-VSSetupInstance -Prerelease -All | Where-Object { $_.DisplayName -match "Visual Studio" } | Select-Object -First 1
@@ -74,7 +109,7 @@ function Get-VisualStudioComponents {
         by filtering the packages returned by Get-VisualStudioInstance cmdlet.
         It filters the packages based on their type, sorts them by Id and Version,
         and excludes packages with GUID-like Ids.
-    #>
+    #>;
 
     (Get-VisualStudioInstance).Packages `
     | Where-Object type -in 'Component', 'Workload' `
@@ -105,7 +140,7 @@ function Get-VsixInfoFromMarketplace {
         Get-VsixInfoFromMarketplace -Name "ProBITools.MicrosoftReportProjectsforVisualStudio2022"
         Retrieves information about the "ProBITools.MicrosoftReportProjectsforVisualStudio2022" extension
         from the Visual Studio Marketplace.
-    #>
+    #>;
 
     Param
     (
@@ -179,7 +214,7 @@ function Install-VSIXFromFile {
     .EXAMPLE
         Install-VSIXFromFile -FilePath "C:\Extensions\MyExtension.vsix" -Retries 10
         Installs the VSIX file located at "C:\Extensions\MyExtension.vsix" with 10 retries in case of failure.
-    #>
+    #>;
     Param
     (
         [Parameter(Mandatory = $true)]
@@ -242,7 +277,7 @@ function Install-VSIXFromUrl {
     .EXAMPLE
         Install-VSIXFromUrl -Url "https://example.com/extension.vsix" -Retries 10
         Downloads and installs the VSIX file from the specified URL with 10 retries.
-    #>
+    #>;
 
     Param
     (
@@ -272,7 +307,7 @@ function Get-VSExtensionVersion {
     .EXAMPLE
         Get-VSExtensionVersion -packageName "MyExtensionPackage"
         Retrieves the version of the extension package named "MyExtensionPackage" for Visual Studio.
-    #>
+    #>;
     Param
     (
         [Parameter(Mandatory = $true)]

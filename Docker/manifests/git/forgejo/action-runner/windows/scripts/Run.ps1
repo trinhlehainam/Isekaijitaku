@@ -6,6 +6,7 @@
 # Enable strict error handling
 $ErrorActionPreference = 'Stop'
 
+
 # Import helper scripts
 $helpersPath = Join-Path $PSScriptRoot "helpers"
 . (Join-Path $helpersPath "LogHelpers.ps1")
@@ -170,8 +171,12 @@ Write-Log "Starting Gitea Runner initialization..."
 Test-Environment
 Register-Runner
 
-Remove-Module "LogHelpers"
-Remove-Module "CertificateHelpers"
+# Install VSSetup module if not already installed
+if (-not (Get-Module -ListAvailable -Name VSSetup)) {
+    Write-Host "Installing VSSetup module..."
+    Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
+    Install-Module VSSetup -Scope CurrentUser -Force
+}
 Import-Module (Join-Path $helpersPath "ImageHelpers.psm1")
 
 Write-Log "Starting runner daemon..."
