@@ -57,10 +57,6 @@ COPY scripts/ C:\\ProgramData\\GiteaActRunner\\scripts/
 
 WORKDIR C:\\ProgramData\\GiteaActRunner
 
-ENTRYPOINT ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "C:\\ProgramData\\GiteaActRunner\\scripts\\Run.ps1"]
-
 # Install build prerequisites
 ARG INSTALL_OPTIONS=""
-RUN $env:INSTALL_OPTIONS = $env:INSTALL_OPTIONS -split ',' | Where-Object { $_ }; \
-    & /GiteaRunner/scripts/build/Install-BuildPrerequisites.ps1 \
-        -InstallOptions $env:INSTALL_OPTIONS \
+RUN powershell -NoProfile -ExecutionPolicy Bypass -File C:\ProgramData\GiteaActRunner\scripts\Install-BuildPrerequisites.ps1 -InstallOptions $env:INSTALL_OPTIONS

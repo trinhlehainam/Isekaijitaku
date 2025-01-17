@@ -22,7 +22,7 @@ function Install-UnityEditor {
     param (
         [Parameter(Mandatory=$true)]
         [string]$Version,
-        [string]$InstallPath = "C:/BuildTools/Unity",
+        [string]$InstallPath = "C:/BuildTools/Unity-Editor",
         [string[]]$Modules = @("windows-mono", "windows-il2cpp"),
         [switch]$IncludeAndroid,
         [switch]$IncludeUWP
@@ -71,5 +71,3 @@ function Install-UnityEditor {
 
     Start-Process -FilePath $unityHub -ArgumentList $unityHubArgs -Wait -NoNewWindow
 }
-
-Export-ModuleMember -Function Install-UnityHub, Install-UnityEditor

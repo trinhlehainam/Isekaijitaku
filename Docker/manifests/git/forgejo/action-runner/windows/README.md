@@ -301,6 +301,77 @@ The following components are installed by default:
 .\Install-BuildPrerequisites.ps1 -NodeVersion "18"
 ```
 
+## Helper Scripts
+
+The runner uses a modular helper script system located in the `scripts/helpers` directory:
+
+### Core Helpers
+
+1. **ImageHelper.ps1**
+   - Core image setup and tool installation functions
+   - Environment initialization
+   - Tool installation methods:
+     - Visual Studio Build Tools
+     - Node.js and pnpm
+     - Rust toolchain
+     - Android SDK
+     - Common development tools
+
+2. **ImageHelper.psm1**
+   - PowerShell module loader
+   - Imports and exports all helper functions
+   - Manages dependencies between helper scripts
+
+3. **UnityInstallHelper.psm1**
+   - Unity-specific installation functions
+   - Unity Hub installation and configuration
+   - Unity Editor installation with modules
+
+### Available Functions
+
+#### Image Setup
+```powershell
+# Initialize build environment
+Initialize-BuildEnvironment -InstallPath "C:/BuildTools"
+
+# Install Visual Studio
+Install-VisualStudio -InstallPath $path -Version "17" -Components $components -Workloads $workloads
+
+# Install Node.js
+Install-NodeJs -InstallPath $path -Version "22" -InstallPnpm
+
+# Install Rust
+Install-Rust -InstallPath $path -Toolchain "stable" -Profile "minimal"
+
+# Install Android SDK
+Install-AndroidSDK -InstallPath $path
+
+# Install Unity
+Install-UnityEditor -Version "2022.3.16f1" -InstallPath $path -IncludeAndroid -IncludeUWP
+```
+
+#### Environment Management
+```powershell
+# Install common tools
+Install-CommonTools -Tools @("git", "cmake")
+
+# Clean temporary files
+Clear-TempFiles
+```
+
+### Directory Structure
+
+The build tools are organized in a standard directory structure under `C:/BuildTools`:
+```
+C:/BuildTools/
+├── VS/              # Visual Studio Build Tools
+├── Unity/           # Unity Editor and Hub
+├── Android/         # Android SDK and NDK
+├── Node/            # Node.js and npm/pnpm
+├── Rust/            # Rust toolchain
+└── Tools/           # Common development tools
+```
+
 ## Build Capabilities
 
 The runner is equipped with comprehensive build tools and SDKs to support various development scenarios:

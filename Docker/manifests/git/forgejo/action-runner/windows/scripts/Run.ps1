@@ -6,11 +6,10 @@
 # Enable strict error handling
 $ErrorActionPreference = 'Stop'
 
-# Import helper modules
+# Import helper scripts
 $helpersPath = Join-Path $PSScriptRoot "helpers"
-Import-Module (Join-Path $helpersPath "ImageHelper.psm1")
-Import-Module (Join-Path $helpersPath "LogHelper.psm1")
-Import-Module (Join-Path $helpersPath "CertificateHelper.psm1")
+. (Join-Path $helpersPath "LogHelper.ps1")
+. (Join-Path $helpersPath "CertificateHelper.ps1")
 
 function Test-Environment {
     Write-Log "Checking environment variables..."
@@ -170,6 +169,10 @@ if ($env:EXTRA_CERT_FILES) {
 Write-Log "Starting Gitea Runner initialization..."
 Test-Environment
 Register-Runner
+
+Remove-Module "LogHelper"
+Remove-Module "CertificateHelper"
+Import-Module (Join-Path $helpersPath "ImageHelper.psm1")
 
 Write-Log "Starting runner daemon..."
 Start-Runner

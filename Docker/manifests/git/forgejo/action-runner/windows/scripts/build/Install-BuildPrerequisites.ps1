@@ -8,7 +8,7 @@
 param(
     [string]$VSBuildToolsVersion = "17",
     [string]$WindowsSDKVersion = "20348",
-    [string[]]$InstallOptions = @(),
+    [string[]]$InstallOptions = @()
 )
 
 # Valid installation options
@@ -21,10 +21,11 @@ $ValidOptions = @(
 # Stop on first error
 $ErrorActionPreference = "Stop"
 
-# Import modules
-$scriptPath = Split-Path -Parent $MyInvocation.MyCommand.Path
-$helpersPath = Join-Path $scriptPath ".." "helpers"
-Import-Module (Join-Path $helpersPath "LogHelper.psm1")
+# Import helpers scripts
+$scriptPath = Split-Path -Parent $PSScriptRoot
+$helpersPath = Join-Path $scriptPath "helpers"
+. (Join-Path $helpersPath "LogHelper.ps1")
+. (Join-Path $helpersPath "InstallHelpers.ps1")
 
 # Validate installation options
 foreach ($option in $InstallOptions) {
@@ -42,16 +43,7 @@ function Start-ProcessSafe {
     }
 }
 
-# Install Chocolatey if not installed
-if (Get-Command "choco" -ErrorAction SilentlyContinue) {
-    Write-Log "Chocolatey is already installed"
-} else {
-    Write-Log "Installing Chocolatey..."
-    # NOTE: ExecutionPolicy already set to Bypass in the Dockerfile when running this script
-    # Set-ExecutionPolicy Bypass -Scope Process -Force;
-    [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072;
-    Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
-}
+Install-Chocolatey
 
 # Base C++ Development Components (Required for Rust)
 $vsComponentsCpp = @(
@@ -161,7 +153,7 @@ $InstallPath = "C:\BuildTools"
 
 # Install Visual Studio Build Tools
 Write-Log "Installing Visual Studio Build Tools..."
-$vsInstallerPath = "$InstallPath\Microsoft Visual Studio\Installer"
+$vsInstallerPath = "$InstallPath\Installer"
 
 # Create Installer directory and add to PATH
 if (-not (Test-Path $vsInstallerPath)) {

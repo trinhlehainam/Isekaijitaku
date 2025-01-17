@@ -1,6 +1,3 @@
-# Import LogHelper module
-Import-Module (Join-Path $PSScriptRoot "LogHelper.psm1")
-
 function Get-CertificatePaths {
     param (
         [string]$PathList
