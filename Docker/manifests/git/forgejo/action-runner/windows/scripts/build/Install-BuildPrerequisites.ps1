@@ -25,9 +25,8 @@ if (-not (Get-Module -ListAvailable -Name VSSetup)) {
 # Import helpers scripts
 $scriptPath = Split-Path -Parent $PSScriptRoot
 $helpersPath = Join-Path $scriptPath "helpers"
-. (Join-Path $helpersPath "LogHelpers.ps1")
-. (Join-Path $helpersPath "InstallHelpers.ps1")
-. (Join-Path $helpersPath "VisualStudioHelpers.ps1")
+. "$helpersPath/LogHelpers.ps1"
+. "$helpersPath/InstallHelpers.ps1"
 
 
 # Parse installation options
@@ -98,10 +97,10 @@ if (-not (Test-Path $installPath)) {
 
 # Install Visual Studio Build Tools with selected components
 Write-Log "Installing Visual Studio Build Tools..."
-Install-VisualStudio `
-    -InstallPath "$installPath/VisualStudio" `
-    -Version $VSBuildToolsVersion `
-    -WorkloadsAndComponents $finalWorkloadsAndComponents
+. "$helpersPath/VisualStudioHelpers.ps1"
+if (-not (Install-VisualStudio -InstallPath $installPath -Version $VSBuildToolsVersion -WorkloadsAndComponents $finalWorkloadsAndComponents)) {
+    throw "Visual Studio Build Tools installation failed" 
+}
 
 # Install VSSetup module if not already installed
 if (-not (Get-Module -ListAvailable -Name VSSetup)) {
@@ -150,17 +149,15 @@ foreach ($package in $chocoPackages) {
 }
 
 # Install Rust (default)
-./Install-Rust.ps1 -InstallPath $installPath
+. "$PSScriptRoot/Install-Rust.ps1" -InstallPath $installPath
 
 # Install Node.js and pnpm (default)
-./Install-NodeJS.ps1 -InstallPath $installPath
+. "$PSScriptRoot/Install-NodeJS.ps1" -InstallPath $installPath
 
 if ($parsedOptions -contains "Unity") {
     Write-Log "Installing Unity..."
-    . (Join-Path $helpersPath "UnityInstallHelpers.ps1")
-    Install-UnityEditor -Version "2022.3.16f1" -InstallPath (Join-Path $installPath "Unity") `
-        -IncludeAndroid:($parsedOptions -contains "Android") `
-        -IncludeUWP:($parsedOptions -contains "UWP")
+    . "$helpersPath/UnityInstallHelpers.ps1"
+    Install-UnityEditor -Version "2022.3.16f1" -InstallPath (Join-Path $installPath "Unity") -Modules @("windows-mono", "universal-windows-platform-mono")
 }
 
 Start-ProcessSafe "choco-cleaner" @("--dummy")

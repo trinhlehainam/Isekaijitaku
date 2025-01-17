@@ -148,7 +148,7 @@ function Invoke-DownloadWithRetry {
         if ([String]::IsNullOrEmpty($fileName)) {
             $fileName = [System.IO.Path]::GetRandomFileName()
         }
-        $Path = Join-Path -Path "${env:TEMP_DIR}" -ChildPath $fileName
+        $Path = Join-Path -Path "${env:TEMP}" -ChildPath $fileName
     }
 
     Write-Host "Downloading package from $Url to $Path..."

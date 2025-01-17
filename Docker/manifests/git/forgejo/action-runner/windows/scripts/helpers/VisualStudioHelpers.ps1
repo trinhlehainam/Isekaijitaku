@@ -10,12 +10,12 @@ function Install-VisualStudio {
     Write-Host "Installing Visual Studio Build Tools..."
 
     # Get VS installation information
-    $vsInstallation = Get-VisualStudioPath -Version $Version
+    # $vsInstallation = Get-VisualStudioPath -Version $Version
     
-    if ($vsInstallation) {
-        Write-Host "Visual Studio Build Tools $Version is already installed at $vsInstallation"
-        return $false
-    }
+    # if ($vsInstallation) {
+    #     Write-Host "Visual Studio Build Tools $Version is already installed at $vsInstallation"
+    #     return $false
+    # }
 
     # Prepare common installation arguments
     $installArgs = @(
@@ -39,7 +39,7 @@ function Install-VisualStudio {
 
     # Download VS Build Tools installer
     $bootstrapperUrl="https://aka.ms/vs/17/release/vs_buildtools.exe"
-    $bootstrapperFilePath = Invoke-DownloadWithRetry $bootstrapperUrl
+    $bootstrapperFilePath = (Invoke-DownloadWithRetry $bootstrapperUrl)
 
     # Install or modify Visual Studio Build Tools
     Write-Host "Workloads and Components to install/modify: $($WorkloadsAndComponents -join ', ')"
@@ -66,8 +66,7 @@ function Get-VisualStudioPath {
     )
 
     $vsInstance = Get-VSSetupInstance | 
-        Where-Object { $_.InstallationVersion.StartsWith($Version) } |
-        Sort-Object -Property InstallationVersion -Descending |
+        Where-Object { $_.InstallationVersion.Major -eq $Version } |
         Select-Object -First 1
 
     if (-not $vsInstance) {
@@ -84,6 +83,6 @@ function Test-VisualStudioInstalled {
     )
 
     return $null -ne (Get-VSSetupInstance | 
-        Where-Object { $_.InstallationVersion.StartsWith($Version) } |
+        Where-Object { $_.InstallationVersion.Major -eq $Version } |
         Select-Object -First 1)
 }
