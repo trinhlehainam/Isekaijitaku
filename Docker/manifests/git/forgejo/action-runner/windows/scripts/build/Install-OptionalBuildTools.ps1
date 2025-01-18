@@ -1,8 +1,13 @@
 param(
-    [string]$VSBuildToolsVersion = "17",
-    [string]$WindowsSDKVersion = "20348",
+    [Parameter(Mandatory=$false)]
+    [AllowEmptyString()]
     [string]$Options
 )
+
+if ($Options -eq $null -or $Options -eq "") {
+    Write-Host "No options specified"
+    exit 0
+}
 
 # Stop on first error
 $ErrorActionPreference = "Stop"
@@ -56,8 +61,9 @@ if (-not (Test-Path $installPath)) {
 # Install Visual Studio Build Tools with selected components
 Write-Host "Installing Visual Studio Build Tools..."
 if ($finalWorkloadsAndComponents.Count -ne 0) {
+    $VSBuildToolsVersion = "17"
     . "$helpersPath/VisualStudioHelpers.ps1"
-    if (-not (Install-VisualStudio -InstallPath $installPath -Version $VSBuildToolsVersion -WorkloadsAndComponents $finalWorkloadsAndComponents)) {
+    if (-not (Install-VisualStudioBuildTools -InstallPath $installPath -Version $VSBuildToolsVersion -WorkloadsAndComponents $finalWorkloadsAndComponents)) {
         throw "Visual Studio Build Tools installation failed" 
     }
 }
@@ -66,7 +72,7 @@ if ($parsedOptions -contains "Unity") {
     Write-Host "Installing Unity..."
     . "$helpersPath/UnityInstallHelpers.ps1"
     # TEST: Install Unity Editor version "2021.3.8f1"
-    Install-UnityEditor -Version "2019.4.24f1" -InstallPath (Join-Path $installPath "Unity") -Modules @("windows-mono", "universal-windows-platform-mono")
+    Install-UnityEditor -Version "2019.4.24f1" -InstallPath (Join-Path $installPath "Unity") -Modules @("windows")
 }
 
 Write-Host "Optional build tools installation completed successfully!"

@@ -6,7 +6,6 @@
 # - Docker Windows Server Core Dockerfile: https://github.com/docker-library/docker/blob/master/27/windows/windowsservercore-ltsc2022/Dockerfile
 # - GameCI Docker Images: https://hub.docker.com/r/unityci/hub/tags
 
-# ARG WINDOWS_IMAGE="mcr.microsoft.com/windows/servercore:ltsc2022"
 ARG WINDOWS_IMAGE="unityci/hub:windows-3.1.0"
 FROM ${WINDOWS_IMAGE}
 
@@ -57,7 +56,14 @@ RUN \
         throw \
     }
 
-COPY ["scripts", "C:/Program Files/GiteaActRunner/scripts"]
+COPY ["scripts/build/Install-PrerequisiteBuildTools.ps1", \
+    "scripts/build/Install-Rust.ps1", \
+    "scripts/build/Install-NodeJS.ps1", \
+    "C:/Program Files/GiteaActRunner/scripts/build/"]
+
+COPY ["scripts/helpers/InstallHelpers.ps1", \
+    "scripts/helpers/VisualStudioHelpers.ps1", \
+    "C:/Program Files/GiteaActRunner/scripts/helpers/"]
 
 WORKDIR C:\\ProgramData\\GiteaActRunner
 
@@ -68,6 +74,7 @@ RUN $scriptPath = ('{0}\GiteaActRunner\scripts' -f $env:ProgramFiles); \
     powershell -NoProfile -ExecutionPolicy Bypass -File "$scriptPath\build\Install-PrerequisiteBuildTools.ps1"
 
 # Install optional build tools
-ARG INSTALL_OPTIONS=""
+ARG INSTALL_OPTIONS
+COPY ["scripts", "C:/Program Files/GiteaActRunner/scripts"]
 RUN $scriptPath = ('{0}\GiteaActRunner\scripts' -f $env:ProgramFiles); \
     powershell -NoProfile -ExecutionPolicy Bypass -File "$scriptPath\build\Install-OptionalBuildTools.ps1" -Options $env:INSTALL_OPTIONS

@@ -1,6 +1,11 @@
-# Ref: https://github.com/actions/runner-images/blob/main/images/windows/scripts/helpers/VisualStudioHelpers.ps1
+# References: 
+# - [VisualStudioHelpers.ps1](https://github.com/actions/runner-images/blob/main/images/windows/scripts/helpers/VisualStudioHelpers.ps1)
+# - [Visual Studio Build Tools Command Line Documentation](https://learn.microsoft.com/en-us/visualstudio/install/use-command-line-parameters-to-install-visual-studio?view=vs-2022)
+# - [Visual Studio Build Tools Workload Component IDs](https://github.com/MicrosoftDocs/visualstudio-docs/blob/main/docs/install/includes/vs-2022/workload-component-id-vs-build-tools.md)
+# - [Visual Studio Community Workload Component IDs](https://github.com/MicrosoftDocs/visualstudio-docs/blob/main/docs/install/includes/vs-2022/workload-component-id-vs-community.md)
+# - [Visual Studio Command Line Parameters Examples](https://learn.microsoft.com/en-us/visualstudio/install/command-line-parameter-examples?view=vs-2022)
 
-function Install-VisualStudio {
+function Install-VisualStudioBuildTools {
     param (
         [string]$InstallPath,
         [string]$Version = "17",
@@ -10,26 +15,27 @@ function Install-VisualStudio {
     Write-Host "Installing Visual Studio Build Tools..."
 
     # Get VS installation information
-    # $vsInstallation = Get-VisualStudioPath -Version $Version
+    $vsInstallation = Get-VisualStudioBuildToolsPath -Version $Version
     
-    # if ($vsInstallation) {
-    #     Write-Warning "Visual Studio Build Tools $Version is already installed at $vsInstallation"
-    #     return $false
-    # }
-
     # Prepare common installation arguments
-    $installArgs = @(
+    $commonArgs = @(
         "--quiet",
         "--wait",
         "--norestart",
         "--nocache",
-        "--installPath", $InstallPath,
         "--channelUri", "https://aka.ms/vs/$Version/release/channel",
         "--installChannelUri", "https://aka.ms/vs/$Version/release/channel",
         "--channelId", "VisualStudio.$Version.Release",
         "--productId", "Microsoft.VisualStudio.Product.BuildTools",
         "--locale", "en-US"
     )
+    
+    if ($vsInstallation) {
+        $installArgs = @("modify", "--installPath", $vsInstallation)
+    } else {
+        $installArgs = @("--installPath", $InstallPath)
+    }
+    $installArgs += $commonArgs
 
     # Add workloads and components to installation arguments
     foreach ($id in $WorkloadsAndComponents) {
@@ -51,8 +57,8 @@ function Install-VisualStudio {
     }
 
     # Verify installation
-    if (-not (Test-VisualStudioInstalled -Version $Version)) {
-        Write-Warning "Visual Studio installation verification failed"
+    if (-not (Test-VisualStudioBuildToolsInstalled -Version $Version)) {
+        Write-Warning "Visual Studio Build Tools installation verification failed"
         return $false
     }
 
@@ -60,29 +66,41 @@ function Install-VisualStudio {
     return $true
 }
 
-function Get-VisualStudioPath {
+function Get-VisualStudioBuildToolsPath {
     param (
         [string]$Version = "17"
     )
 
-    $vsInstance = Get-VSSetupInstance | 
-        Where-Object { $_.InstallationVersion.Major -eq $Version } |
-        Select-Object -First 1
+    $vsInstance = Get-VisualStudioBuildToolsInstances -Version $Version | Select-Object -First 1
 
     if (-not $vsInstance) {
-        Write-Warning "Visual Studio $Version is not installed"
+        Write-Warning "Visual Studio Build Tools x64 version $Version is not installed"
         return $null
     }
 
+    Write-Host ("{0} is installed at {1}" -f $vsInstance.DisplayName, $vsInstance.InstallationPath)
     return $vsInstance.InstallationPath
 }
 
-function Test-VisualStudioInstalled {
+function Test-VisualStudioBuildToolsInstalled {
     param (
         [string]$Version = "17"
     )
 
-    return $null -ne (Get-VSSetupInstance | 
-        Where-Object { $_.InstallationVersion.Major -eq $Version } |
-        Select-Object -First 1)
+    return $null -ne (Get-VisualStudioBuildToolsInstances -Version $Version | Select-Object -First 1)
+}
+
+function Get-VisualStudioBuildToolsInstances {
+    param (
+        [string]$Version = "17"
+    )
+    
+    $vsInstances = Get-VSSetupInstance
+    
+    Write-Host "Visual Studio instances:"
+    foreach ($instance in $vsInstances)  {
+        Write-Host "$($instance.DisplayName) in path: $($instance.InstallationPath)"
+    }
+
+    return $vsInstances | Where-Object { $_.InstallationVersion.Major -eq $Version -and $_.DisplayName -match "Build Tools" -and $_.InstallationPath -notmatch "Program Files \(x86\)" }
 }
