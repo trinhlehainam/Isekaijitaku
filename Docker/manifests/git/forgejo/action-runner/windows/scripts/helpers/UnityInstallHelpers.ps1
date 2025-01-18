@@ -55,10 +55,13 @@ function Install-UnityEditor {
     }
 
     # Validate modules
+    # https://docs.unity3d.com/hub/manual/HubCLI.html#available-modules
     $validModules = @(
+        "windows",
         "windows-mono",
-        "windows-il2cpp",
-        "universal-windows-platform-mono",
+        "universal-windows-platform",
+        "uwp-il2cpp",
+        "uwp-.net",
         "android",
         "android-sdk-ndk-tools",
         "ios",
@@ -80,8 +83,17 @@ function Install-UnityEditor {
     }
 
     Write-Host "Chocolatey installation failed, falling back to Unity Hub CLI..."
+
+    if ($InstallPath) {
+        if (-not (Set-UnityEditorInstallPath -Path $InstallPath)) {
+            throw "Failed to set Unity Hub install path to $InstallPath"
+        }
+    }
+
     # Install editor using Unity Hub CLI
-    $editorArgs = @(
+    # https://docs.unity3d.com/hub/manual/HubCLI.html#install-unity-editors
+    $installArgs = @(
+        "--"
         "--headless",
         "install",
         "--version", $Version,
@@ -89,13 +101,8 @@ function Install-UnityEditor {
         "--module", ($Modules -join " ")
     )
 
-    if ($InstallPath) {
-        $editorArgs += "--path"
-        $editorArgs += $InstallPath
-    }
-
-    Write-Host "Running Unity Hub with args: $($editorArgs -join ' ')"
-    $process = Start-Process -FilePath $unityHubPath -ArgumentList $editorArgs -NoNewWindow -Wait -PassThru
+    Write-Host "Running Unity Hub with args: $($installArgs -join ' ')"
+    $process = Start-Process -FilePath $unityHubPath -ArgumentList $installArgs -NoNewWindow -Wait -PassThru
     if ($process.ExitCode -ne 0) {
         throw "Unity Editor installation failed with exit code: $($process.ExitCode)"
     }
@@ -107,6 +114,36 @@ function Install-UnityEditor {
 
     Write-Host "Unity Editor $Version installed successfully at $editorPath"
     return $editorPath
+}
+
+function Set-UnityEditorInstallPath {
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$Path
+    )
+    Write-Host "Starting to set Unity Hub install path to: $Path"
+
+    $unityHubPath = Get-UnityHubPath
+    if (-not $unityHubPath) {
+        Write-Warning "Unity Hub is not installed. Please install Unity Hub before proceeding."
+        return $false
+    }
+
+    $installArgs = @(
+        "--"
+        "--headless",
+        "install-path",
+        "--set", $Path
+    )
+
+    $process = Start-Process -FilePath $unityHubPath -ArgumentList $installArgs -NoNewWindow -Wait -PassThru
+    if ($process.ExitCode -ne 0) {
+        Write-Warning "Failed to set Unity Hub install path: $($process.ExitCode)"
+        return $false
+    }
+    
+    Write-Host "Successfully set Unity Hub install path to: $Path"
+    return $true
 }
 
 function Get-UnityEditorPath {
@@ -129,10 +166,11 @@ function Get-UnityEditorPath {
 }
 
 function Get-UnityHubPath {
-    $unityHubPath = "C:/Program Files/Unity Hub/Unity Hub.exe"
-    if (Test-Path $unityHubPath) {
-        return $unityHubPath
+    $unityHubPath = "$env:ProgramFiles/Unity Hub/Unity Hub.exe"
+    if (-not (Test-Path $unityHubPath)) {
+        Write-Warning "Unity Hub not found at $unityHubPath"
+        return $null
     }
     
-    return $null
+    return $unityHubPath
 }

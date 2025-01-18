@@ -27,7 +27,6 @@ $scriptPath = Split-Path -Parent $PSScriptRoot
 $helpersPath = Join-Path $scriptPath "helpers"
 . "$helpersPath/InstallHelpers.ps1"
 
-
 # Parse installation options
 $parsedOptions = $Options -split ","
 
@@ -41,7 +40,7 @@ foreach ($option in $parsedOptions) {
 
 # Define Visual Studio workloads and components
 $vsWorkloadsAndComponents = @{
-    # Core components required for all builds
+    # Core components required for builds C++ and .NET applications
     Core = @(
         # MSBuild and core build tools
         "Microsoft.VisualStudio.Workload.MSBuild",
@@ -51,8 +50,8 @@ $vsWorkloadsAndComponents = @{
         "Microsoft.VisualStudio.Workload.ManagedDesktopBuildTools"
     )
     
+    # Required for Rust MSVC toolchain
     Rust = @(
-        # Required for Rust MSVC toolchain
         "Microsoft.VisualStudio.Component.VC.Tools.x86.x64"
         "Microsoft.VisualStudio.Component.Windows11SDK.22621"
     )

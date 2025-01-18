@@ -18,7 +18,7 @@ Expand-Archive -Path $zipPath -DestinationPath $installPath
 # Rename extracted folder
 $currentNodePath = "$installPath/node-v${Version}-win-x64"
 if (-not (Test-Path $currentNodePath)) {
-    Write-Log "Could not find $currentNodePath after extraction"
+    Write-Host "Could not find $currentNodePath after extraction"
     exit 1
 }
 Rename-Item $currentNodePath $nodePath
@@ -30,6 +30,6 @@ Remove-Item $zipPath
 $env:Path += ";$nodePath"
 
 if ($InstallPnpm) {
-    Write-Log "Installing pnpm..."
+    Write-Host "Installing pnpm..."
     corepack enable pnpm
 }
