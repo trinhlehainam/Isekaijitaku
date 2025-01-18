@@ -21,7 +21,7 @@ $vsWorkloadsAndComponents = @{
     # Core components required for builds C++ and .NET applications
     Core = @(
         # MSBuild and core build tools
-        "Microsoft.VisualStudio.Workload.MSBuild",
+        "Microsoft.VisualStudio.Workload.MSBuildTools",
         # C++ build tools
         "Microsoft.VisualStudio.Workload.VCTools",
         # .NET Desktop build tools
