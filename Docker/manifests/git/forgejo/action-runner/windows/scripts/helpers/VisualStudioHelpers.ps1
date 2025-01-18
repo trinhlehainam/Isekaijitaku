@@ -109,5 +109,5 @@ function Get-VisualStudioInstancePackageIds {
         [string]$Version
     )
     # https://stackoverflow.com/a/50983068
-    return (Select-VSSetupInstance -Instance $Instance).Packages | Select-Object -ExpandProperty "Id"
+    return (Select-VSSetupInstance -Instance $Instance -Product *).Packages | Select-Object -ExpandProperty "Id"
 }
