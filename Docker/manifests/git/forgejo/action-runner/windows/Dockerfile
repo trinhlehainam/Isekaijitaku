@@ -63,7 +63,11 @@ WORKDIR C:\\ProgramData\\GiteaActRunner
 
 ENTRYPOINT ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "C:\\Program Files\\GiteaActRunner\\scripts\\Run.ps1"]
 
-# Install build prerequisites
+# Install prerequisite build tools
+RUN $scriptPath = ('{0}\GiteaActRunner\scripts' -f $env:ProgramFiles); \
+    powershell -NoProfile -ExecutionPolicy Bypass -File "$scriptPath\build\Install-PrerequisiteBuildTools.ps1"
+
+# Install optional build tools
 ARG INSTALL_OPTIONS=""
 RUN $scriptPath = ('{0}\GiteaActRunner\scripts' -f $env:ProgramFiles); \
-    powershell -NoProfile -ExecutionPolicy Bypass -File "$scriptPath\build\Install-BuildPrerequisites.ps1" -Options $env:INSTALL_OPTIONS
+    powershell -NoProfile -ExecutionPolicy Bypass -File "$scriptPath\build\Install-OptionalBuildTools.ps1" -Options $env:INSTALL_OPTIONS

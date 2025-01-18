@@ -3,7 +3,7 @@
 function Install-VisualStudio {
     param (
         [string]$InstallPath,
-        [string]$Version = "17.0",
+        [string]$Version = "17",
         [string[]]$WorkloadsAndComponents = @()
     )
 
