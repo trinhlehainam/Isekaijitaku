@@ -74,7 +74,7 @@ function Get-VisualStudioBuildToolsPath {
     $vsInstance = Get-VisualStudioBuildToolsInstances -Version $Version | Select-Object -First 1
 
     if (-not $vsInstance) {
-        Write-Warning "Visual Studio Build Tools x64 version $Version is not installed"
+        Write-Warning "Visual Studio Build Tools version $Version is not installed"
         return $null
     }
 
@@ -102,5 +102,7 @@ function Get-VisualStudioBuildToolsInstances {
         Write-Host "$($instance.DisplayName) in path: $($instance.InstallationPath)"
     }
 
-    return $vsInstances | Where-Object { $_.InstallationVersion.Major -eq $Version -and $_.DisplayName -match "Build Tools" -and $_.InstallationPath -notmatch "Program Files \(x86\)" }
+    # https://github.com/jberezanski/ChocolateyPackages/issues/126
+    # Visual Studio 2022 Build Tools default installation path is C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools
+    return $vsInstances | Where-Object { $_.InstallationVersion.Major -eq $Version -and $_.DisplayName -match "Build Tools" }
 }
