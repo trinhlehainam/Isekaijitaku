@@ -73,8 +73,13 @@ function Install-VisualStudioBuildTools {
     
     # Verify package IDs
     $packageIds = Get-VisualStudioInstancePackageIds -Instance $vsInstance -Version $Version
+    if (-not $packageIds) {
+        Write-Warning "Visual Studio Build Tools package IDs not found after installation/modification"
+        return $false
+    }
+
     foreach ($id in $WorkloadsAndComponents) {
-        if ($null -eq $id -or -not $packageIds.Contains($id)) {
+        if (-not $packageIds.Contains($id)) {
             Write-Warning "Visual Studio Build Tools installation/modification verification package ID $id not found"
             return $false
         }
