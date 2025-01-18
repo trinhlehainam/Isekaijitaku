@@ -8,21 +8,36 @@
 function Install-VisualStudioBuildTools {
     param (
         [string]$InstallPath,
-        [string]$Version = "17",
+        [string]$Version="17",
         [string[]]$WorkloadsAndComponents = @()
     )
 
     Write-Host "Installing Visual Studio Build Tools..."
 
-    # Get VS installation information
-    $vsInstallation = Get-VisualStudioBuildToolsPath -Version $Version
-    
+    $finalWorkloadsAndComponents = New-Object System.Collections.Generic.HashSet[string]
+    foreach ($id in $WorkloadsAndComponents) {
+        $finalWorkloadsAndComponents.Add($id) | Out-Null
+    }
+
+    $vsInstance = Get-VisualStudioBuildToolsInstances -Version $Version | Select-Object -First 1
+    if ($vsInstance) {
+        Write-Host "Visual Studio Build Tools $Version is already installed at $($vsInstance.InstallationPath)"
+        Write-Host "Use installation path $($vsInstance.InstallationPath) to modify the installation"
+        $InstallPath = $vsInstance.InstallationPath
+        
+        $packageIds = Get-VisualStudioInstancePackageIds -Instance $vsInstance -Version $Version
+        foreach ($id in $packageIds) {
+            $finalWorkloadsAndComponents.Add($id) | Out-Null
+        }
+    }
+
     # Prepare common installation arguments
-    $commonArgs = @(
+    $installArgs = @(
         "--quiet",
         "--wait",
         "--norestart",
         "--nocache",
+        "--installPath", $InstallPath,
         "--channelUri", "https://aka.ms/vs/$Version/release/channel",
         "--installChannelUri", "https://aka.ms/vs/$Version/release/channel",
         "--channelId", "VisualStudio.$Version.Release",
@@ -30,13 +45,6 @@ function Install-VisualStudioBuildTools {
         "--locale", "en-US"
     )
     
-    if ($vsInstallation) {
-        $installArgs = @("modify", "--installPath", $vsInstallation)
-    } else {
-        $installArgs = @("--installPath", $InstallPath)
-    }
-    $installArgs += $commonArgs
-
     # Add workloads and components to installation arguments
     foreach ($id in $WorkloadsAndComponents) {
         $installArgs += "--add"
@@ -52,47 +60,33 @@ function Install-VisualStudioBuildTools {
     
     $process = Start-Process -FilePath $bootstrapperFilePath -ArgumentList $installArgs -NoNewWindow -Wait -PassThru
     if ($process.ExitCode -ne 0) {
-        Write-Warning "Visual Studio Build Tools installation/modification failed with exit code: $($process.ExitCode)"
+        Write-Warning "Visual Studio Build Tools installation/modification failed"
         return $false
     }
 
-    # Verify installation
-    if (-not (Test-VisualStudioBuildToolsInstalled -Version $Version)) {
-        Write-Warning "Visual Studio Build Tools installation verification failed"
+    # Verify installation path
+    $vsInstance = Get-VisualStudioBuildToolsInstances -Version $Version | Select-Object -First 1
+    if (-not $vsInstance) {
+        Write-Warning "Visual Studio Build Tools installation/modification verification failed"
         return $false
+    }
+    
+    # Verify package IDs
+    $packageIds = Get-VisualStudioInstancePackageIds -Instance $vsInstance -Version $Version
+    foreach ($id in $packageIds) {
+        if (-not $finalWorkloadsAndComponents.Contains($id)) {
+            Write-Warning "Visual Studio Build Tools installation/modification verification failed"
+            return $false
+        }
     }
 
     Write-Host "Visual Studio Build Tools installation/modification completed successfully"
     return $true
 }
 
-function Get-VisualStudioBuildToolsPath {
-    param (
-        [string]$Version = "17"
-    )
-
-    $vsInstance = Get-VisualStudioBuildToolsInstances -Version $Version | Select-Object -First 1
-
-    if (-not $vsInstance) {
-        Write-Warning "Visual Studio Build Tools version $Version is not installed"
-        return $null
-    }
-
-    Write-Host ("{0} is installed at {1}" -f $vsInstance.DisplayName, $vsInstance.InstallationPath)
-    return $vsInstance.InstallationPath
-}
-
-function Test-VisualStudioBuildToolsInstalled {
-    param (
-        [string]$Version = "17"
-    )
-
-    return $null -ne (Get-VisualStudioBuildToolsInstances -Version $Version | Select-Object -First 1)
-}
-
 function Get-VisualStudioBuildToolsInstances {
     param (
-        [string]$Version = "17"
+        [string]$Version
     )
     
     $vsInstances = Get-VSSetupInstance
@@ -105,4 +99,15 @@ function Get-VisualStudioBuildToolsInstances {
     # https://github.com/jberezanski/ChocolateyPackages/issues/126
     # Visual Studio 2022 Build Tools default installation path is C:\Program Files (x86)\Microsoft Visual Studio\2022\BuildTools
     return $vsInstances | Where-Object { $_.InstallationVersion.Major -eq $Version -and $_.DisplayName -match "Build Tools" }
+}
+
+function Get-VisualStudioInstancePackageIds {
+    param (
+        [Parameter(Mandatory=$true)]
+        [Microsoft.VisualStudio.Setup.Instance]$Instance,
+        [Parameter(Mandatory=$true)]
+        [string]$Version
+    )
+    # https://stackoverflow.com/a/50983068
+    return (Select-VSSetupInstance -Instance $Instance).Packages | Select-Object -ExpandProperty "Id"
 }
