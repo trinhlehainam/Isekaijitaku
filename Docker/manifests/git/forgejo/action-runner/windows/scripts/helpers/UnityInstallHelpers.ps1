@@ -43,7 +43,7 @@ function Install-UnityEditor {
     )
 
     # Validate Unity version
-    if (-not (Test-UnityVersion -Version $Version)) {
+    if (-not (Get-UnityChangeSet -Version $Version)) {
         throw "Invalid Unity version: $Version"
     }
 

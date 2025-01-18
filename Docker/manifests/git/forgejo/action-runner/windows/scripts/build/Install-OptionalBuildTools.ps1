@@ -35,7 +35,7 @@ $vsWorkloadsAndComponents = @{
         # C++ build tools for Unity
         "Microsoft.VisualStudio.Workload.VCTools",
         # .NET MAUI build tools for cross-platform development
-        "Microsoft.VisualStudio.Workload.XamarinBuildTools",
+        # "Microsoft.VisualStudio.Workload.XamarinBuildTools",
         # Universal Windows Platform build tools
         "Microsoft.VisualStudio.Workload.UniversalBuildTools"
     )
@@ -72,7 +72,12 @@ if ($parsedOptions -contains "Unity") {
     Write-Host "Installing Unity..."
     . "$helpersPath/UnityInstallHelpers.ps1"
     # TEST: Install Unity Editor version "2021.3.8f1"
-    Install-UnityEditor -Version "2019.4.24f1" -InstallPath (Join-Path $installPath "Unity") -Modules @("windows")
+    Install-UnityEditor -Version "2019.4.24f1" -InstallPath (Join-Path $installPath "Unity") -Modules @("universal-windows-platform", "uwp-il2cpp")
+}
+
+$process=Start-Process -FilePath "choco-cleaner" -ArgumentList "--dummy" -NoNewWindow -Wait -PassThru
+if ($process.ExitCode -ne 0) {
+    throw "choco-cleaner failed with exit code: $($process.ExitCode)"
 }
 
 Write-Host "Optional build tools installation completed successfully!"

@@ -27,7 +27,9 @@ Rename-Item $currentNodePath $nodePath
 Remove-Item $zipPath
 
 # Add Node binaries to the path
-$env:Path += ";$nodePath"
+$newPath = ("{0};{1}" -f $nodePath, $env:Path)
+[Environment]::SetEnvironmentVariable("Path", $newPath, [EnvironmentVariableTarget]::Machine)
+Update-Environment
 
 if ($InstallPnpm) {
     Write-Host "Installing pnpm..."
