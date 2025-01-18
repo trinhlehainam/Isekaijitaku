@@ -73,6 +73,11 @@ function Install-VisualStudioBuildTools {
     
     # Verify package IDs
     $packageIds = Get-VisualStudioInstancePackageIds -Instance $vsInstance -Version $Version
+    if ($null -eq $packageIds -or $packageIds.Count -ne $finalWorkloadsAndComponents.Count) {
+        Write-Warning "Visual Studio Build Tools installation/modification verification failed"
+        return $false
+    }
+    
     foreach ($id in $packageIds) {
         if (-not $finalWorkloadsAndComponents.Contains($id)) {
             Write-Warning "Visual Studio Build Tools installation/modification verification failed"
