@@ -8,13 +8,13 @@ function Get-UnityChangeSet {
 
     # Check if Node.js is installed
     if (-not (Get-Command "node" -ErrorAction SilentlyContinue)) {
-        Write-Host "Node.js is required but not installed. Please install Node.js before proceeding."
+        Write-Warning "Node.js is required but not installed. Please install Node.js before proceeding."
         return $null
     }
 
     # Check if npx is available
     if (-not (Get-Command "npx" -ErrorAction SilentlyContinue)) {
-        Write-Host "npx is required but not installed. Please install npx using 'npm install -g npx' before proceeding."
+        Write-Warning "npx is required but not installed. Please install npx using 'npm install -g npx' before proceeding."
         return $null
     }
 
@@ -33,15 +33,6 @@ function Get-UnityChangeSet {
     
     return $null
 }
-
-function Test-Chocolatey {
-    if (-not (Get-Command "choco" -ErrorAction SilentlyContinue)) {
-        Write-Host "Chocolatey is required but not installed. Please install Chocolatey before proceeding."
-        return $false
-    }
-    return $true
-}
-
 
 function Install-UnityEditor {
     param (
@@ -110,8 +101,7 @@ function Install-UnityEditor {
     }
 
     # Verify installation
-    $editorPath = Join-Path $InstallPath $Version
-    if (-not (Test-Path $editorPath)) {
+    if (-not (Get-UnityEditorPath -Version $Version)) {
         throw "Unity Editor installation failed - path not found: $editorPath"
     }
 
@@ -127,8 +117,13 @@ function Get-UnityEditorPath {
 
     $unityEditorPath = "C:/BuildTools/UnityEditor/$Version"
     if (-not (Test-Path $unityEditorPath)) {
-        throw "Unity Editor not found at $unityEditorPath"
+        Write-Warning "Unity Editor not found at $unityEditorPath"
+        [Environment]::SetEnvironmentVariable("UNITY_EDITOR", $null, [EnvironmentVariableTarget]::Machine)
+        return $null
     }
+    
+    # Set UNITY_EDITOR environment variable to machine to use GameCI actions
+    [Environment]::SetEnvironmentVariable("UNITY_EDITOR", $unityEditorPath, [EnvironmentVariableTarget]::Machine)
 
     return $unityEditorPath
 }

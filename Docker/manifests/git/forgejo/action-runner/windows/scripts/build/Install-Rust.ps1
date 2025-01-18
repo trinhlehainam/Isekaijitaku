@@ -44,3 +44,6 @@ if (-not (Test-IsWin25)) {
     # Cleanup Cargo crates cache
     Remove-Item "${env:CARGO_HOME}\registry\*" -Recurse -Force
 }
+
+# Remove rustup-init.exe
+Remove-Item $rustupPath

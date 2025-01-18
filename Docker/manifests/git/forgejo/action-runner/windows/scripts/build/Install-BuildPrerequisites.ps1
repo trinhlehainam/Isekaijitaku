@@ -25,7 +25,6 @@ if (-not (Get-Module -ListAvailable -Name VSSetup)) {
 # Import helpers scripts
 $scriptPath = Split-Path -Parent $PSScriptRoot
 $helpersPath = Join-Path $scriptPath "helpers"
-. "$helpersPath/LogHelpers.ps1"
 . "$helpersPath/InstallHelpers.ps1"
 
 
@@ -58,12 +57,12 @@ $vsWorkloadsAndComponents = @{
         "Microsoft.VisualStudio.Component.Windows11SDK.22621"
     )
     
-    # Node.js development tools
+    # Node.js build tools
     Node = @(
         "Microsoft.VisualStudio.Workload.NodeBuildTools"
     )
 
-    # Unity development components
+    # Unity build components
     Unity = @(
         # C++ build tools for Unity
         "Microsoft.VisualStudio.Workload.VCTools",
@@ -84,7 +83,7 @@ $vsWorkloadsAndComponents.Rust | ForEach-Object { $finalWorkloadsAndComponents.A
 # Add components based on installation options
 foreach ($option in $parsedOptions) {
     if ($vsWorkloadsAndComponents.ContainsKey($option)) {
-        Write-Log "Including $option development components..."
+        Write-Host "Including $option development components..."
         $vsWorkloadsAndComponents[$option] | ForEach-Object { $finalWorkloadsAndComponents.Add($_) | Out-Null }
     }
 }
@@ -96,7 +95,7 @@ if (-not (Test-Path $installPath)) {
 }
 
 # Install Visual Studio Build Tools with selected components
-Write-Log "Installing Visual Studio Build Tools..."
+Write-Host "Installing Visual Studio Build Tools..."
 . "$helpersPath/VisualStudioHelpers.ps1"
 if (-not (Install-VisualStudio -InstallPath $installPath -Version $VSBuildToolsVersion -WorkloadsAndComponents $finalWorkloadsAndComponents)) {
     throw "Visual Studio Build Tools installation failed" 
@@ -118,16 +117,16 @@ if (Get-Command "choco" -ErrorAction SilentlyContinue) {
     Invoke-Expression ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
 }
 
-# Install the chocolatey packages we need
 function Start-ProcessSafe {
     param ([string] $cmd, [string[]] $argv)
-    Write-Log "Executing command: $cmd $argv"
+    Write-Host "Executing command: $cmd $argv"
     $process = Start-Process -NoNewWindow -PassThru -Wait -FilePath $cmd -ArgumentList $argv
     if ($process.ExitCode -ne 0) {
         throw "Exit code: $($process.ExitCode)"
     }
 }
 
+# Install the chocolatey packages we need
 Start-ProcessSafe "choco" @("install", "--no-progress", "-y", "git.install", "--version=2.43.0", "--params", @'
 "'/GitOnlyOnPath /NoAutoCrlf /WindowsTerminal /NoShellIntegration /NoCredentialManager'`"
 '@)
@@ -138,9 +137,9 @@ Update-Environment
 Start-ProcessSafe "git" @("config", "--system", "--unset", "credential.helper")
 
 # Install additional dependencies via Chocolatey
-Write-Log "Installing additional build dependencies..."
+Write-Host "Installing additional build dependencies..."
 $chocoPackages = @(
-    "cmake"
+    "choco-cleaner"
 )
 
 foreach ($package in $chocoPackages) {
@@ -155,15 +154,16 @@ foreach ($package in $chocoPackages) {
 . "$PSScriptRoot/Install-NodeJS.ps1" -InstallPath $installPath
 
 if ($parsedOptions -contains "Unity") {
-    Write-Log "Installing Unity..."
+    Write-Host "Installing Unity..."
     . "$helpersPath/UnityInstallHelpers.ps1"
-    Install-UnityEditor -Version "2022.3.16f1" -InstallPath (Join-Path $installPath "Unity") -Modules @("windows-mono", "universal-windows-platform-mono")
+    # TEST: Install Unity Editor version "2021.3.8f1"
+    Install-UnityEditor -Version "2019.4.24f1" -InstallPath (Join-Path $installPath "Unity") -Modules @("windows-mono", "universal-windows-platform-mono")
 }
 
 Start-ProcessSafe "choco-cleaner" @("--dummy")
 
 # Clean up temp directory
-Write-Log "Cleaning up temporary files..."
+Write-Host "Cleaning up temporary files..."
 Remove-Item -Path (Join-Path $env:TEMP "*") -Force -Recurse -ErrorAction SilentlyContinue
 
 Write-Host "Installation completed successfully!"

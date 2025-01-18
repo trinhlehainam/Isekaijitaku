@@ -2,9 +2,11 @@
 # - Gitea Runner: https://gitea.com/gitea/act_runner
 # - Gitea Runner Dockerfile: https://gitea.com/gitea/act_runner/src/branch/main/Dockerfile
 # - Windows Server Core: https://hub.docker.com/r/microsoft/windows-servercore
+# - Windows SDK Server Core: https://github.com/dotnet/dotnet-docker/blob/main/README.sdk.md
 # - Docker Windows Server Core Dockerfile: https://github.com/docker-library/docker/blob/master/27/windows/windowsservercore-ltsc2022/Dockerfile
 # - GameCI Docker Images: https://hub.docker.com/r/unityci/hub/tags
 
+# ARG WINDOWS_IMAGE="mcr.microsoft.com/windows/servercore:ltsc2022"
 ARG WINDOWS_IMAGE="unityci/hub:windows-3.1.0"
 FROM ${WINDOWS_IMAGE}
 
@@ -62,6 +64,6 @@ WORKDIR C:\\ProgramData\\GiteaActRunner
 ENTRYPOINT ["powershell", "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", "C:\\Program Files\\GiteaActRunner\\scripts\\Run.ps1"]
 
 # Install build prerequisites
-ARG INSTALL_OPTIONS="Rust,Node,Unity"
+ARG INSTALL_OPTIONS=""
 RUN $scriptPath = ('{0}\GiteaActRunner\scripts' -f $env:ProgramFiles); \
     powershell -NoProfile -ExecutionPolicy Bypass -File "$scriptPath\build\Install-BuildPrerequisites.ps1" -Options $env:INSTALL_OPTIONS

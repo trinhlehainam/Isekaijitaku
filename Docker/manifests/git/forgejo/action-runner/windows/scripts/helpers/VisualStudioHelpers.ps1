@@ -13,7 +13,7 @@ function Install-VisualStudio {
     # $vsInstallation = Get-VisualStudioPath -Version $Version
     
     # if ($vsInstallation) {
-    #     Write-Host "Visual Studio Build Tools $Version is already installed at $vsInstallation"
+    #     Write-Warning "Visual Studio Build Tools $Version is already installed at $vsInstallation"
     #     return $false
     # }
 
@@ -46,13 +46,13 @@ function Install-VisualStudio {
     
     $process = Start-Process -FilePath $bootstrapperFilePath -ArgumentList $installArgs -NoNewWindow -Wait -PassThru
     if ($process.ExitCode -ne 0) {
-        Write-Host "Visual Studio Build Tools installation/modification failed with exit code: $($process.ExitCode)"
+        Write-Warning "Visual Studio Build Tools installation/modification failed with exit code: $($process.ExitCode)"
         return $false
     }
 
     # Verify installation
     if (-not (Test-VisualStudioInstalled -Version $Version)) {
-        Write-Host "Visual Studio installation verification failed"
+        Write-Warning "Visual Studio installation verification failed"
         return $false
     }
 
@@ -70,7 +70,7 @@ function Get-VisualStudioPath {
         Select-Object -First 1
 
     if (-not $vsInstance) {
-        Write-Host "Visual Studio $Version is not installed"
+        Write-Warning "Visual Studio $Version is not installed"
         return $null
     }
 
