@@ -21,12 +21,89 @@ Due to these limitations, we recommend two approaches:
 
 This repository contains the Dockerfile and configuration for running Gitea Action Runner on Windows containers, which will be fully functional once container support is improved.
 
+## Directory Structure
+
+```
+windows/
+├── Dockerfile              # Container definition using unityci/hub:windows base image
+├── docker-compose.yaml     # Docker Compose configuration
+├── README.md              # This documentation
+├── runner/                # Runner-specific files
+└── scripts/               # Installation and configuration scripts
+    ├── Run.ps1            # Main entry point script
+    ├── build/             # Build tool installation scripts
+    │   ├── Install-NodeJS.ps1
+    │   ├── Install-OptionalBuildTools.ps1
+    │   ├── Install-PrerequisiteBuildTools.ps1
+    │   └── Install-Rust.ps1
+    └── helpers/           # Helper functions and utilities
+        ├── CertificateHelpers.ps1
+        ├── ImageHelpers.ps1
+        ├── ImageHelpers.psm1
+        ├── InstallHelpers.ps1
+        ├── LogHelpers.ps1
+        ├── UnityInstallHelpers.ps1
+        └── VisualStudioHelpers.ps1
+```
+
+## Features
+
+### Development Environments
+
+The container supports multiple development environments:
+
+1. **Unity Development**
+   - Unity Hub and Editor installation
+   - Visual Studio Build Tools with Unity workload
+   - .NET and C++ development tools
+
+2. **Rust Development**
+   - Rust toolchain installation
+   - MSVC build tools
+   - Windows SDK components
+
+3. **Node.js Development**
+   - Node.js runtime
+   - npm package manager
+   - Build tools for native modules
+
+### Installation Options
+
+The build environment is customizable through installation options:
+
+```powershell
+# Available options: Unity, Rust, Node
+-Options "Unity,Rust,Node"
+```
+
+### Visual Studio Components
+
+The build environment includes Visual Studio Build Tools with components organized by development type:
+
+#### Core Components (Always Installed)
+- MSBuild and core build tools
+- C++ build tools
+- .NET Desktop build tools
+
+#### Rust Components
+- MSVC toolchain
+- Windows 11 SDK
+
+#### Node.js Components
+- Node.js build tools
+- Native module build support
+
+#### Unity Components
+- C++ build tools for Unity
+- .NET MAUI build tools
+- Universal Windows Platform build tools
+
 ## Base Image
 
-The runner uses our custom Windows base image (`Manifests/Docker/manifests/windows/Dockerfile`) which provides:
-- Windows Server Core LTSC 2022
-- Common development tools and utilities
-- Pre-configured environment for Windows containers
+The container uses `unityci/hub:windows-3.1.0` as the base image, which provides:
+- Windows Server Core base
+- Unity Hub pre-installed
+- Essential build tools
 
 ## Quick Start
 
@@ -433,8 +510,7 @@ Install-UnityEditor `
     )
 
 # Get Unity installation paths
-$hubPath = Get-UnityHubPath -InstallPath "C:/BuildTools/Unity"
-$editorPath = Get-UnityEditorPath -Version "2022.3.16f1" -InstallPath "C:/BuildTools/Unity/Editor"
+$unityEditorPath = Get-UnityEditorPath -Version "2022.3.16f1" -InstallPath "C:/BuildTools/Unity/Editor"
 
 # Validate Unity version
 Test-UnityVersion -Version "2022.3.16f1"
@@ -589,6 +665,468 @@ The runner is equipped with comprehensive build tools and SDKs to support variou
 - Visual C++ Redistributables
 - Windows SDK components
 
+## Example Actions
+
+Here are some example workflows that demonstrate how to use the Windows runner:
+
+### Environment Testing
+
+```yaml
+name: Windows Runner Environment Test
+on: 
+  workflow_dispatch:  # Manual trigger
+  schedule:
+    - cron: '0 0 * * 0'  # Weekly on Sunday
+
+jobs:
+  test-environment:
+    runs-on: windows
+    
+    steps:
+      - name: System Information
+        run: |
+          systeminfo | Select-String "OS Name", "OS Version", "System Type"
+          Write-Host "PowerShell Version: $($PSVersionTable.PSVersion)"
+          Write-Host "Available RAM: $((Get-CimInstance Win32_PhysicalMemory | Measure-Object -Property capacity -Sum).sum /1gb)GB"
+          
+      - name: Test Visual Studio Environment
+        run: |
+          Write-Host "Visual Studio Installation:"
+          Get-VSSetupInstance
+          
+          Write-Host "`nMSBuild Version:"
+          msbuild -version
+          
+          Write-Host "`nInstalled Workloads:"
+          (Get-VSSetupInstance | Select-VSSetupInstance -Product *).Packages | Select-Object -ExpandProperty "Id"
+          
+      - name: Test .NET Environment
+        run: |
+          Write-Host ".NET SDKs:"
+          dotnet --list-sdks
+          
+          Write-Host "`n.NET Runtimes:"
+          dotnet --list-runtimes
+          
+      - name: Test Unity Environment
+        run: |
+          $unityEditorPath = "C:/BuildTools/UnityEditor/2019.4.24f1/Editor/Unity.exe"
+          if (Test-Path $unityEditorPath) {
+              Write-Host "Unity Editor found at: $unityEditorPath"
+              & $unityEditorPath -version
+          } else {
+              Write-Error "Unity Editor not found!"
+          }
+          
+      - name: Test Node.js Environment
+        run: |
+          Write-Host "Node.js Version:"
+          node --version
+          
+          Write-Host "`nnpm Version:"
+          npm --version
+          
+          Write-Host "`nGlobal npm packages:"
+          npm list -g --depth=0
+          
+      - name: Test Rust Environment
+        run: |
+          Write-Host "Rust Version:"
+          rustc --version
+          
+          Write-Host "`nCargo Version:"
+          cargo --version
+          
+          Write-Host "`nInstalled Components:"
+          rustup component list --installed
+          
+      - name: Test Build Tools
+        run: |
+          Write-Host "Chocolatey Version:"
+          choco --version
+          
+          Write-Host "`nGit Version:"
+          git --version
+          
+          Write-Host "`nCMake Version:"
+          cmake --version
+          
+          Write-Host "`nNinja Version:"
+          ninja --version
+          
+      - name: Test Environment Variables
+        run: |
+          $envVars = @(
+              'VSINSTALLPATH',
+              'UNITY_EDITOR',
+              'RUSTUP_HOME',
+              'CARGO_HOME',
+              'RUNNER_TEMP',
+              'RUNNER_WORKSPACE'
+          )
+          
+          foreach ($var in $envVars) {
+              $value = [Environment]::GetEnvironmentVariable($var)
+              Write-Host "${var}: $value"
+          }
+          
+      - name: Test Disk Space
+        run: |
+          Get-Volume | Where-Object { $_.DriveLetter } | 
+          Format-Table -AutoSize DriveLetter, FileSystemLabel, 
+          @{Name='Size(GB)';Expression={[math]::Round($_.Size/1GB,2)}}, 
+          @{Name='FreeSpace(GB)';Expression={[math]::Round($_.SizeRemaining/1GB,2)}}
+          
+      - name: Test ImageHelpers Module
+        run: |
+          # Import ImageHelpers module
+          $modulePath = Join-Path $env:RUNNER_WORKSPACE "scripts\helpers\ImageHelpers.psm1"
+          Import-Module $modulePath -Force
+          
+          Write-Host "Testing Install-Binary function..."
+          try {
+              # Test downloading and installing a small utility
+              Install-Binary -Url "https://github.com/stedolan/jq/releases/download/jq-1.6/jq-win64.exe" `
+                           -Type "EXE" `
+                           -InstallArgs @("/VERYSILENT") `
+                           -ExpectedSHA256Sum "a51d36968dcbdeabb3142c6f5cf9b401a65dc3a095f3144bd0c118d5bb192753"
+              Write-Host "Install-Binary test passed"
+          } catch {
+              Write-Error "Install-Binary test failed: $_"
+          }
+          
+          Write-Host "`nTesting Unity installation functions..."
+          try {
+              $unityVersion = "2019.4.24f1"
+              $changeSet = Get-UnityChangeSet -Version $unityVersion
+              if ($changeSet) {
+                  Write-Host "Get-UnityChangeSet test passed for version $unityVersion (ChangeSet: $changeSet)"
+              } else {
+                  Write-Error "Get-UnityChangeSet test failed for version $unityVersion"
+              }
+              
+              $editorPath = Get-UnityEditorPath -Version $unityVersion
+              if ($editorPath) {
+                  Write-Host "Get-UnityEditorPath test passed (Path: $editorPath)"
+              } else {
+                  Write-Error "Get-UnityEditorPath test failed"
+              }
+          } catch {
+              Write-Error "Unity installation functions test failed: $_"
+          }
+          
+          Write-Host "`nTesting Visual Studio functions..."
+          try {
+              $vsInstance = Get-VisualStudioBuildToolsInstances -Version "17"
+              if ($vsInstance) {
+                  Write-Host "Get-VisualStudioBuildToolsInstances test passed"
+                  Write-Host "Installation Path: $($vsInstance.InstallationPath)"
+                  
+                  $packageIds = Get-VisualStudioInstancePackageIds -Instance $vsInstance -PackageType "Workload"
+                  Write-Host "Installed Workloads: $($packageIds -join ', ')"
+              } else {
+                  Write-Error "Get-VisualStudioBuildToolsInstances test failed"
+              }
+          } catch {
+              Write-Error "Visual Studio functions test failed: $_"
+          }
+          
+          Write-Host "`nTesting helper functions..."
+          try {
+              # Test download with retry
+              $testFile = Join-Path $env:TEMP "test.txt"
+              Invoke-DownloadWithRetry -Url "https://raw.githubusercontent.com/actions/runner-images/main/README.md" `
+                                     -Path $testFile
+              if (Test-Path $testFile) {
+                  Write-Host "Invoke-DownloadWithRetry test passed"
+                  Remove-Item $testFile -Force
+              }
+              
+              # Test environment update
+              Update-Environment
+              Write-Host "Update-Environment test passed"
+              
+              # Test script block retry
+              $result = Invoke-ScriptBlockWithRetry -ScriptBlock { 
+                  return "Test successful" 
+              } -RetryCount 3
+              if ($result -eq "Test successful") {
+                  Write-Host "Invoke-ScriptBlockWithRetry test passed"
+              }
+          } catch {
+              Write-Error "Helper functions test failed: $_"
+          }
+          
+      - name: Generate Environment Report
+        run: |
+          $report = @{
+              Timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+              OS = (Get-CimInstance Win32_OperatingSystem).Caption
+              PowerShell = $PSVersionTable.PSVersion.ToString()
+              DotNet = (dotnet --version)
+              Node = (node --version)
+              Rust = (rustc --version)
+              Unity = if (Test-Path "C:/BuildTools/UnityEditor/2019.4.24f1/Editor/Unity.exe") { "2019.4.24f1" } else { "Not Found" }
+              VisualStudio = (Get-VSSetupInstance | ForEach-Object { $_.DisplayName } | Join-String -Separator ", ")
+          }
+          
+          $report | ConvertTo-Json | Out-File environment-report.json
+          
+      - name: Upload Environment Report
+        uses: actions/upload-artifact@v3
+        with:
+          name: environment-report
+          path: environment-report.json
+```
+
+This workflow will:
+1. Check system information and available resources
+2. Verify Visual Studio installation and components
+3. Test .NET environment and available SDKs
+4. Verify Unity Editor installation
+5. Check Node.js and npm configuration
+6. Test Rust toolchain and components
+7. Verify build tools installation
+8. Check environment variables
+9. Test available disk space
+10. Test ImageHelpers module
+11. Generate and upload a JSON report of the environment
+
+You can run this workflow:
+- Manually through the Actions tab
+- Automatically on a weekly schedule
+- As part of your CI/CD pipeline to verify the environment before builds
+
+The environment report artifact will help you:
+- Track changes in the runner environment over time
+- Debug issues related to tool versions
+- Ensure all required components are properly installed
+- Document the exact state of the runner for reproducibility
+
+### .NET Build and Test
+
+```yaml
+name: .NET Build and Test
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: windows
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '7.0.x'
+          
+      - name: Restore dependencies
+        run: dotnet restore
+        
+      - name: Build
+        run: dotnet build --no-restore --configuration Release
+        
+      - name: Test
+        run: dotnet test --no-build --configuration Release
+
+      - name: Publish
+        run: dotnet publish --no-build --configuration Release --output ./publish
+        
+      - name: Upload artifact
+        uses: actions/upload-artifact@v3
+        with:
+          name: webapp
+          path: ./publish
+```
+
+### Unity Build
+
+```yaml
+name: Unity Build
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: windows
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Cache Library folder
+        uses: actions/cache@v3
+        with:
+          path: Library
+          key: Library-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
+          restore-keys: |
+            Library-
+            
+      - name: Build Unity Project
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        run: |
+          # Unity is pre-installed in the runner
+          & "C:/BuildTools/UnityEditor/2019.4.24f1/Editor/Unity.exe" `
+            -quit `
+            -batchmode `
+            -nographics `
+            -silent-crashes `
+            -logFile `
+            -projectPath . `
+            -executeMethod BuildScript.Build `
+            -buildTarget StandaloneWindows64 `
+            -buildPath ./Build/Windows
+            
+      - name: Upload build
+        uses: actions/upload-artifact@v3
+        with:
+          name: WindowsBuild
+          path: Build/Windows
+```
+
+### Node.js with Native Modules
+
+```yaml
+name: Node.js Native Build
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: windows
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18.x'
+          
+      - name: Install dependencies
+        run: |
+          npm config set msvs_version 2022
+          npm install --build-from-source
+          
+      - name: Build
+        run: npm run build
+        
+      - name: Test
+        run: npm test
+        
+      - name: Package
+        run: npm pack
+        
+      - name: Upload package
+        uses: actions/upload-artifact@v3
+        with:
+          name: package
+          path: "*.tgz"
+```
+
+### Rust Project
+
+```yaml
+name: Rust Build
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: windows
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Install latest rust toolchain
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: stable
+          default: true
+          override: true
+          
+      - name: Build
+        uses: actions-rs/cargo@v1
+        with:
+          command: build
+          args: --release --all-features
+          
+      - name: Run tests
+        uses: actions-rs/cargo@v1
+        with:
+          command: test
+          args: --all-features
+          
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: windows-release
+          path: target/release/*.exe
+```
+
+### Visual Studio C++ Project
+
+```yaml
+name: VS C++ Build
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: windows
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Add MSBuild to PATH
+        uses: microsoft/setup-msbuild@v1
+        
+      - name: Build Solution
+        run: |
+          msbuild /p:Configuration=Release /p:Platform=x64 YourSolution.sln
+          
+      - name: Run Tests
+        run: |
+          cd x64/Release
+          ./YourTests.exe
+          
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: binaries
+          path: x64/Release/*.exe
+```
+
+## Environment Variables
+
+The following environment variables can be used in your workflows:
+
+- `UNITY_EDITOR`: Path to Unity Editor (e.g., `C:/BuildTools/UnityEditor/2019.4.24f1/Editor/Unity.exe`)
+- `VSINSTALLPATH`: Path to Visual Studio installation
+- `RUSTUP_HOME`: Rust installation directory
+- `CARGO_HOME`: Cargo home directory
+- `NODE_PATH`: Node.js installation directory
+
+## Notes on Windows Paths
+
+When working with paths in Windows runners:
+
+1. Use forward slashes (`/`) or escaped backslashes (`\\`) in YAML
+2. Use PowerShell style paths in PowerShell scripts
+3. Environment variables use Windows style paths with backslashes
+
+Example path usage:
+```yaml
+- name: Example Path Usage
+  run: |
+    # PowerShell style
+    $unityPath = "C:\BuildTools\UnityEditor"
+    
+    # YAML style
+    path: C:/BuildTools/UnityEditor
+    # or
+    path: C:\\BuildTools\\UnityEditor
+```
+
 ## Commands
 
 ### Build and Run
@@ -662,3 +1200,11 @@ docker compose logs --tail=100
 
 # View logs for specific time
 docker compose logs --since 30m
+
+```
+
+## References
+
+- [Visual Studio Build Tools Documentation](https://learn.microsoft.com/en-us/visualstudio/install/use-command-line-parameters-to-install-visual-studio)
+- [Unity CI Docker Images](https://hub.docker.com/r/unityci/hub/tags)
+- [Gitea Actions Documentation](https://docs.gitea.io/en-us/actions/)
