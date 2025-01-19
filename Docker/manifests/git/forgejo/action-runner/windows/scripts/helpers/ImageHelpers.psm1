@@ -15,9 +15,12 @@ Export-ModuleMember -Function @(
 . $PSScriptRoot\UnityInstallHelpers.ps1
 Export-ModuleMember -Function @(
     'Install-UnityEditor'
+    'Install-UnityEditorModules'
     'Get-UnityChangeSet'
     'Get-UnityEditorPath'
     'Get-UnityHubPath'
+    'Get-UnityEditorInstallPath'
+    'Get-InstalledUnityEditorVersions'
 )
 
 # Export functions from VisualStudioHelpers.ps1

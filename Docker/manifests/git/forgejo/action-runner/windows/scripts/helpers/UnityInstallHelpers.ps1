@@ -49,12 +49,6 @@ function Install-UnityEditor {
         return $false
     }
 
-    # Validate Unity version
-    if (-not (Get-UnityChangeSet -Version $Version)) {
-        Write-Error "Invalid Unity version: $Version"
-        return $false
-    }
-
     # Validate modules
     # https://docs.unity3d.com/hub/manual/HubCLI.html#available-modules
     $validModules = @(
@@ -78,29 +72,42 @@ function Install-UnityEditor {
         }
     }
 
-    $changeSet = Get-UnityChangeSet -Version $Version
-
-    if (-not $changeSet) {
-        Write-Error "Failed to validate Unity version: $Version"
-        return $false
+    if (Get-InstalledUnityEditorVersions | Where-Object { $_ -eq $Version }) {
+        if (-not (Install-UnityEditorModules -Version $Version -Modules $Modules)) { 
+            return $false 
+        }
     }
+    else {
+        # Validate Unity version
+        if (-not (Get-UnityChangeSet -Version $Version)) {
+            Write-Error "Invalid Unity version: $Version"
+            return $false
+        }
 
-    # Install editor using Unity Hub CLI
-    # https://docs.unity3d.com/hub/manual/HubCLI.html#install-unity-editors
-    $installArgs = @(
-        "--"
-        "--headless",
-        "install",
-        "--version", $Version,
-        "--changeset", $changeSet,
-        "--module", ($Modules -join " ")
-    )
+        $changeSet = Get-UnityChangeSet -Version $Version
 
-    Write-Host "Running Unity Hub with args: $($installArgs -join ' ')"
-    $process = Start-Process -FilePath $unityHubPath -ArgumentList $installArgs -NoNewWindow -Wait -PassThru
-    if ($process.ExitCode -ne 0) {
-        Write-Error "Unity Editor installation failed with exit code: $($process.ExitCode)"
-        return $false
+        if (-not $changeSet) {
+            Write-Error "Failed to validate Unity version: $Version"
+            return $false
+        }
+
+        # Install editor using Unity Hub CLI
+        # https://docs.unity3d.com/hub/manual/HubCLI.html#install-unity-editors
+        $installArgs = @(
+            "--"
+            "--headless",
+            "install",
+            "--version", $Version,
+            "--changeset", $changeSet,
+            "--module", ($Modules -join " ")
+        )
+
+        Write-Host "Running Unity Hub with args: $($installArgs -join ' ')"
+        $process = Start-Process -FilePath $unityHubPath -ArgumentList $installArgs -NoNewWindow -Wait -PassThru
+        if ($process.ExitCode -ne 0) {
+            Write-Error "Unity Editor installation failed with exit code: $($process.ExitCode)"
+            return $false
+        }
     }
 
     # Verify installation
@@ -160,8 +167,8 @@ function Get-UnityEditorPath {
         [string]$Version
     )
 
-    $unityEditorPath = "C:/BuildTools/UnityEditor/$Version"
-    if (-not (Test-Path $unityEditorPath)) {
+    $unityEditorPath = Get-UnityEditorInstallPath
+    if (-not $unityEditorPath) {
         Write-Error "Unity Editor not found at $unityEditorPath"
         [Environment]::SetEnvironmentVariable("UNITY_EDITOR", $null, [EnvironmentVariableTarget]::Machine)
         return $null
@@ -181,4 +188,82 @@ function Get-UnityHubPath {
     }
     
     return $unityHubPath
+}
+
+function Get-InstalledUnityEditorVersions {
+    $unityEditorPath = Get-UnityEditorInstallPath
+    if (-not $unityEditorPath) {
+        Write-Error "Unity Editor is not installed. Please install Unity Editor before proceeding."
+        return $null
+    }
+    $versions = Get-ChildItem -Path $unityEditorPath -Directory | ForEach-Object { $_.Name }
+    return $versions
+}
+
+function Get-UnityEditorInstallPath {
+    $unityHubPath = Get-UnityHubPath
+    if (-not $unityHubPath) {
+        Write-Error "Unity Hub is not installed. Please install Unity Hub before proceeding."
+        return $null
+    }
+
+    $params = @(
+        "--"
+        "--headless",
+        "install-path"
+        "--get"
+    )
+    $tempStdOut = New-TemporaryFile
+    $process = Start-Process -FilePath $unityHubPath -ArgumentList $params -RedirectStandardOutput $tempStdOut -NoNewWindow -Wait -PassThru
+    if ($process.ExitCode -ne 0) {
+        Write-Error "Failed to get Unity Hub install path: $($process.ExitCode)"
+        return $null
+    }
+
+    $installPath = Get-Content -Path $tempStdOut.FullName -Raw 
+    return $installPath.Trim()
+}
+
+function Install-UnityEditorModules {
+    param (
+        [Parameter(Mandatory = $true)]
+        [string]$Version,
+        [Parameter(Mandatory = $true)]
+        [string[]]$Modules
+    )
+    Write-Host "Starting to install Unity Editor modules: $Modules"
+    
+    $unityHubPath = Get-UnityHubPath
+    if (-not $unityHubPath) {
+        Write-Error "Unity Hub is not installed. Please install Unity Hub before proceeding."
+        return $false
+    }
+
+    if ($null -eq $Modules -or $Modules.Count -eq 0) {
+        Write-Error "No modules specified to install"
+        return $false
+    }
+    
+    $unityEditorPath = Get-UnityEditorPath -Version $Version
+    if (-not $unityEditorPath) {
+        Write-Error "Unity Editor not found at $unityEditorPath"
+        return $false
+    }
+    
+    $installArgs = @(
+        "--"
+        "--headless",
+        "install-modules",
+        "--version", $Version,
+        "--module", ($Modules -join " ")
+    )
+
+    $process = Start-Process -FilePath $unityHubPath -ArgumentList $installArgs -NoNewWindow -Wait -PassThru
+    if ($process.ExitCode -ne 0) {
+        Write-Error "Unity Editor modules installation failed with exit code: $($process.ExitCode)"
+        return $false
+    }
+    
+    Write-Host "Successfully installed Unity Editor modules: $Modules"
+    return $true
 }
