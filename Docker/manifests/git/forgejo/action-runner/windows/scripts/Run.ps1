@@ -147,16 +147,6 @@ function Register-Runner {
     }
 }
 
-function Start-Runner {
-    $params = @("daemon")
-    if ($env:CONFIG_FILE) {
-        Write-Log "Using custom config file: $env:CONFIG_FILE"
-        $params += @("--config", $env:CONFIG_FILE)
-    }
-
-    & act_runner @params
-}
-
 # Install custom certificates if specified
 if ($env:EXTRA_CERT_FILES) {
     Write-Log "Installing custom certificates from paths: $env:EXTRA_CERT_FILES"
@@ -176,11 +166,16 @@ if (-not (Get-Module -ListAvailable -Name VSSetup)) {
     Install-Module VSSetup -Scope CurrentUser -Force
 }
 
+Write-Log "Starting runner daemon..."
+$params = @("daemon")
+if ($env:CONFIG_FILE) {
+    Write-Log "Using custom config file: $env:CONFIG_FILE"
+    $params += @("--config", $env:CONFIG_FILE)
+}
+
 # Remove unused modules to avoid child process can access them
 Remove-Module -ModuleInfo $helpersModule
-
 # Import Image Helpers for Runner Process
 Import-Module (Join-Path $helpersPath "ImageHelpers.psm1")
 
-Write-Log "Starting runner daemon..."
-Start-Runner
+& act_runner @params
