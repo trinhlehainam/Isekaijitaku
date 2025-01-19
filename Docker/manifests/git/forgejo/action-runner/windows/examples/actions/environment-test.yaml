@@ -13,7 +13,138 @@ jobs:
         run: |
           systeminfo | Select-String "OS Name", "OS Version", "System Type"
           Write-Host "PowerShell Version: $($PSVersionTable.PSVersion)"
+          $cpuInfo = Get-CimInstance Win32_Processor
+          Write-Host "CPU Name: $($cpuInfo.Name)"
+          Write-Host "CPU Architecture: $($cpuInfo.Architecture)"
+          Write-Host "Number of CPUs: $($cpuInfo.NumberOfCores)"
+          Write-Host "Number of Logical CPUs: $($cpuInfo.NumberOfLogicalProcessors)"
           Write-Host "Available RAM: $((Get-CimInstance Win32_PhysicalMemory | Measure-Object -Property capacity -Sum).sum /1gb)GB"
+
+      - name: Test Disk Space
+        run: |
+          Get-Volume | Where-Object { $_.DriveLetter } | 
+          Format-Table -AutoSize DriveLetter, FileSystemLabel, 
+          @{Name='Size(GB)';Expression={[math]::Round($_.Size/1GB,2)}}, 
+          @{Name='FreeSpace(GB)';Expression={[math]::Round($_.SizeRemaining/1GB,2)}}
+          
+      - name: Test Environment Variables
+        run: |
+          $envVars = @(
+              'UNITY_EDITOR',
+              'RUSTUP_HOME',
+              'CARGO_HOME',
+              'NODE_EXTRA_CA_CERTS',
+              'RUNNER_TEMP'
+          )
+          
+          foreach ($var in $envVars) {
+              $value = [Environment]::GetEnvironmentVariable($var)
+              Write-Host "${var}: $value"
+          }
+          
+      - name: Test ImageHelpers Module Functions
+        run: |
+          Write-Host "Testing ImageHelpers Module Functions..."
+          
+          function Test-ImageHelpers {
+              try {
+                  Write-Host "`nTesting ImageHelpers Functions:"
+                  
+                  $testUrl = "https://raw.githubusercontent.com/actions/runner-images/main/README.md"
+                  $testPath = Join-Path $env:TEMP "test-download.txt"
+                  
+                  Write-Host "Testing Invoke-DownloadWithRetry..."
+                  Invoke-DownloadWithRetry -Url $testUrl -Path $testPath
+                  if (Test-Path $testPath) {
+                      Write-Host "[OK] Invoke-DownloadWithRetry"
+                      Remove-Item $testPath -Force
+                  }
+                  
+                  $jqPath = Join-Path $env:TEMP "jq.exe"
+                  Invoke-DownloadWithRetry -Url "https://github.com/stedolan/jq/releases/download/jq-1.6/jq-win64.exe" -Path $jqPath
+                  if (Test-Path $jqPath) {
+                      Test-FileChecksum -Path $jqPath -ExpectedSHA256Sum "a51d36968dcbdeabb3142c6f5cf9b401a65dc3a095f3144bd0c118d5bb192753"
+                      Write-Host "[OK] Test-FileChecksum"
+                      Remove-Item $jqPath -Force
+                  }
+                  
+                  Update-Environment
+                  Write-Host "[OK] Update-Environment"
+                  return $true
+              }
+              catch {
+                  Write-Error -Message "ImageHelpers test failed: $_"
+                  return $false
+              }
+          }
+
+          function Test-UnityHelpers {
+              try {
+                  Write-Host "`nTesting UnityInstallHelpers Functions:"
+                  
+                  $unityVersions = Get-InstalledUnityEditorVersions
+                  if (-not $unityVersions -or $unityVersions.Count -eq 0) {
+                      Write-Host "[FAILED] Get-InstalledUnityEditorVersions: $unityVersions"
+                      return $false
+                  }
+                  
+                  foreach ($unityVersion in $unityVersions) {
+                      Write-Host "[OK] Get-InstalledUnityEditorVersions: $unityVersion"
+                      $changeSet = Get-UnityChangeSet -Version $unityVersion
+                      if ($changeSet) {
+                          Write-Host "[OK] Get-UnityChangeSet: $changeSet"
+                      }
+                      $editorPath = Get-UnityEditorPath -Version $unityVersion
+                      if ($editorPath) {
+                          Write-Host "[OK] Get-UnityEditorPath: $editorPath"
+                      }
+                  }
+                  
+                  return $true
+              }
+              catch {
+                  Write-Error -Message "UnityHelpers test failed: $_"
+                  return $false
+              }
+          }
+
+          function Test-VSHelpers {
+              try {
+                  Write-Host "`nTesting VisualStudioHelpers Functions:"
+                  
+                  $vsInstance = (Get-VisualStudioBuildToolsInstances -Version 17 | Select-Object -First 1)
+                  if ($vsInstance) {
+                      Write-Host "[OK] Get-VisualStudioBuildToolsInstances"
+                      Write-Host "Found VS instance: $vsInstance"
+                  }
+                  
+                  $packageIds = Get-VisualStudioInstancePackageIds -Instance $vsInstance
+                  if ($packageIds) {
+                      Write-Host "[OK] Get-VisualStudioInstancePackageIds"
+                      Write-Host "Found package IDs:"
+                      Write-Host ("{0}" -f ($packageIds -join "`n"))
+                  }
+                  
+                  return $true
+              }
+              catch {
+                  Write-Error -Message "VSHelpers test failed: $_"
+                  return $false
+              }
+          }
+
+          # Run all tests
+          $testResults = @(
+              Test-ImageHelpers
+              Test-UnityHelpers
+              Test-VSHelpers
+          )
+
+          # Check if any test failed
+          if ($testResults -contains $false) {
+              Write-Error "One or more tests failed"
+              exit 1
+          }
           
       - name: Test Visual Studio Environment
         run: |
@@ -36,12 +167,26 @@ jobs:
           
       - name: Test Unity Environment
         run: |
-          $unityEditorPath = "C:/BuildTools/UnityEditor/2019.4.24f1/Editor/Unity.exe"
-          if (Test-Path $unityEditorPath) {
-              Write-Host "Unity Editor found at: $unityEditorPath"
-              & $unityEditorPath -version
+          $unityHubPath = Get-UnityHubPath
+          if ($unityHubPath) {
+              Write-Host "Unity Hub found at: $unityHubPath"
           } else {
+              Write-Error "Unity Hub not found!"
+              exit 1
+          }
+          
+          $installedUnityEditorVersions = Get-InstalledUnityEditorVersions
+          if (-not $installedUnityEditorVersions -or $installedUnityEditorVersions.Count -eq 0) {
               Write-Error "Unity Editor not found!"
+              exit 1
+          }
+
+          foreach ($version in $installedUnityEditorVersions) {
+              Write-Host "Unity Editor Version: $version"
+              $editorPath = Get-UnityEditorPath -Version $version
+              if ($editorPath) {
+                  Write-Host "Editor Path: $editorPath"
+              }
           }
           
       - name: Test Node.js Environment
@@ -115,6 +260,7 @@ jobs:
                   }
               }
           }
+
       - name: Test Build Tools
         run: |
           Write-Host "Chocolatey Version:"
@@ -128,124 +274,6 @@ jobs:
           
           Write-Host "`nNinja Version:"
           ninja --version
-          
-      - name: Test Environment Variables
-        run: |
-          $envVars = @(
-              'UNITY_EDITOR',
-              'RUSTUP_HOME',
-              'CARGO_HOME',
-              'NODE_EXTRA_CA_CERTS',
-              'RUNNER_TEMP'
-          )
-          
-          foreach ($var in $envVars) {
-              $value = [Environment]::GetEnvironmentVariable($var)
-              Write-Host "${var}: $value"
-          }
-          
-      - name: Test Disk Space
-        run: |
-          Get-Volume | Where-Object { $_.DriveLetter } | 
-          Format-Table -AutoSize DriveLetter, FileSystemLabel, 
-          @{Name='Size(GB)';Expression={[math]::Round($_.Size/1GB,2)}}, 
-          @{Name='FreeSpace(GB)';Expression={[math]::Round($_.SizeRemaining/1GB,2)}}
-          
-      - name: Test ImageHelpers Module Functions
-        run: |
-          Write-Host "Testing ImageHelpers Module Functions..."
-          
-          function Test-InstallHelpers {
-              try {
-                  Write-Host "`nTesting InstallHelpers Functions:"
-                  
-                  $testUrl = "https://raw.githubusercontent.com/actions/runner-images/main/README.md"
-                  $testPath = Join-Path $env:TEMP "test-download.txt"
-                  
-                  Write-Host "Testing Invoke-DownloadWithRetry..."
-                  Invoke-DownloadWithRetry -Url $testUrl -Path $testPath
-                  if (Test-Path $testPath) {
-                      Write-Host "[OK] Invoke-DownloadWithRetry"
-                      Remove-Item $testPath -Force
-                  }
-                  
-                  $jqPath = Join-Path $env:TEMP "jq.exe"
-                  Invoke-DownloadWithRetry -Url "https://github.com/stedolan/jq/releases/download/jq-1.6/jq-win64.exe" -Path $jqPath
-                  if (Test-Path $jqPath) {
-                      Test-FileChecksum -Path $jqPath -ExpectedSHA256Sum "a51d36968dcbdeabb3142c6f5cf9b401a65dc3a095f3144bd0c118d5bb192753"
-                      Write-Host "[OK] Test-FileChecksum"
-                      Remove-Item $jqPath -Force
-                  }
-                  
-                  Update-Environment
-                  Write-Host "[OK] Update-Environment"
-                  return $true
-              }
-              catch {
-                  Write-Error -Message "InstallHelpers test failed: $_"
-                  return $false
-              }
-          }
-
-          function Test-UnityHelpers {
-              try {
-                  Write-Host "`nTesting UnityInstallHelpers Functions:"
-                  
-                  $unityVersion = "2019.4.24f1"
-                  $changeSet = Get-UnityChangeSet -Version $unityVersion
-                  if ($changeSet) {
-                      Write-Host "[OK] Get-UnityChangeSet: $changeSet"
-                  }
-                  
-                  $editorPath = Get-UnityEditorPath -Version $unityVersion
-                  if ($editorPath) {
-                      Write-Host "[OK] Get-UnityEditorPath: $editorPath"
-                  }
-                  return $true
-              }
-              catch {
-                  Write-Error -Message "UnityHelpers test failed: $_"
-                  return $false
-              }
-          }
-
-          function Test-VSHelpers {
-              try {
-                  Write-Host "`nTesting VisualStudioHelpers Functions:"
-                  
-                  $vsInstance = (Get-VisualStudioBuildToolsInstances -Version 17 | Select-Object -First 1)
-                  if ($vsInstance) {
-                      Write-Host "[OK] Get-VisualStudioBuildToolsInstances"
-                      Write-Host "Found VS instance: $vsInstance"
-                  }
-                  
-                  $packageIds = Get-VisualStudioInstancePackageIds -Instance $vsInstance
-                  if ($packageIds) {
-                      Write-Host "[OK] Get-VisualStudioInstancePackageIds"
-                      Write-Host "Found package IDs:"
-                      Write-Host ("{0}" -f ($packageIds -join "`n"))
-                  }
-                  
-                  return $true
-              }
-              catch {
-                  Write-Error -Message "VSHelpers test failed: $_"
-                  return $false
-              }
-          }
-
-          # Run all tests
-          $testResults = @(
-              Test-InstallHelpers
-              Test-UnityHelpers
-              Test-VSHelpers
-          )
-
-          # Check if any test failed
-          if ($testResults -contains $false) {
-              Write-Error "One or more tests failed"
-              exit 1
-          }
           
       - name: Generate Environment Report
         run: |
