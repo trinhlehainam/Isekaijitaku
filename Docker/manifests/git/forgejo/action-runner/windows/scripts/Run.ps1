@@ -177,6 +177,11 @@ if ($env:CONFIG_FILE) {
 Remove-Module -ModuleInfo $helpersModule
 
 # Install ImageHelpers module if not already installed
+# References:
+# - PowerShell Module Installation: https://learn.microsoft.com/en-us/powershell/scripting/developer/module/installing-a-powershell-module
+# - Module Path Locations: https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_psmodulepath
+# - Module Building Basics: https://powershellexplained.com/2017-05-27-Powershell-module-building-basics
+# - Installing Custom-Module with Install-Module: https://stackoverflow.com/a/65872546
 $moduleName = "ImageHelpers"
 $installedModule = Get-Module -Name $moduleName -ListAvailable
 

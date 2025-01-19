@@ -61,22 +61,67 @@ The runner uses several PowerShell modules to manage the build environment:
 
 #### ImageHelpers Module
 
-The `ImageHelpers` module provides core functionality for managing the Windows build environment. The module is installed in the user's PowerShell modules directory (`$home\Documents\PowerShell\Modules\ImageHelpers`) and includes:
+The `ImageHelpers` module provides core functionality for managing the Windows build environment. The module follows PowerShell's module installation conventions:
 
-- `ImageHelpers.psd1` - Module manifest defining metadata
-- `ImageHelpers.psm1` - Core module implementation
-- `InstallHelpers.ps1` - Installation helper functions
-- `UnityInstallHelpers.ps1` - Unity-specific installation helpers
-- `VisualStudioHelpers.ps1` - Visual Studio installation helpers
+##### Module Structure
+```
+ImageHelpers/              # Module folder (must match module name)
+├── ImageHelpers.psd1      # Module manifest (required for module discovery)
+├── ImageHelpers.psm1      # Core module implementation
+├── InstallHelpers.ps1     # Installation helper functions
+├── UnityInstallHelpers.ps1 # Unity-specific helpers
+└── VisualStudioHelpers.ps1 # Visual Studio helpers
+```
 
-Module installation process:
-1. Checks if module is already installed by looking for it in `Get-Module -ListAvailable`
-2. Locates user's PowerShell module directory from `$env:PSModulePath`
-3. Creates `ImageHelpers` directory in the module path if it doesn't exist
-4. Copies required module files to the installation directory
-5. Module becomes available for all PowerShell sessions
+##### Installation Paths
+PowerShell modules can be installed in two scopes, with corresponding paths:
 
-Note: Some helper scripts (CertificateHelpers, LogHelpers, ImageRunSetupHelpers) are kept separate and not included in the module as they are specific to the runner setup process.
+- **AllUsers** scope (requires admin privileges)
+  - Path: `$env:ProgramFiles\PowerShell\Modules`
+  - Available to all users on the machine
+  - Used when running as administrator
+
+- **CurrentUser** scope (no admin required)
+  - Path: `$home\Documents\PowerShell\Modules`
+  - Available only to the current user
+  - Used when running without admin privileges
+
+For more information about module paths, see [Understanding the PowerShell Module Path](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_psmodulepath).
+
+##### Module Installation Process
+1. Checks if module is already installed using `Get-Module -ListAvailable`
+2. Determines installation scope based on admin privileges:
+   - If running as admin → AllUsers scope
+   - If running as normal user → CurrentUser scope
+3. Creates `ImageHelpers` directory in the appropriate module path
+4. Copies module files, excluding runner-specific helpers:
+   - Excluded: `ImageRunSetupHelpers.psm1`, `LogHelpers.ps1`, `CertificateHelpers.ps1`
+   - Included: All other .ps1 and .psm1 files
+
+For details about module installation, see [Installing a PowerShell Module](https://learn.microsoft.com/en-us/powershell/scripting/developer/module/installing-a-powershell-module).
+
+##### Module Requirements
+1. Module folder name must match module name (`ImageHelpers`)
+2. Module manifest (.psd1) must be present and properly configured
+3. Module path must be in `$env:PSModulePath` for PowerShell to find it
+
+For more information about module manifests, see:
+- [How to Write a PowerShell Module Manifest](https://learn.microsoft.com/en-us/powershell/scripting/developer/module/how-to-write-a-powershell-module-manifest)
+- [PowerShell Module Building Basics](https://powershellexplained.com/2017-05-27-Powershell-module-building-basics)
+
+##### Verifying Installation
+To verify the module is properly installed:
+```powershell
+# List available modules
+Get-Module -Name ImageHelpers -ListAvailable
+
+# Check module import
+Import-Module ImageHelpers -Verbose
+```
+
+For troubleshooting module installation issues, see:
+- [PowerShell Module Troubleshooting](https://learn.microsoft.com/en-us/powershell/scripting/developer/module/troubleshooting-module-installation)
+- [Understanding Module Commands](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_modules)
 
 ## Features
 
@@ -845,3 +890,9 @@ docker compose logs --since 30m
 - [Visual Studio Build Tools Documentation](https://learn.microsoft.com/en-us/visualstudio/install/use-command-line-parameters-to-install-visual-studio)
 - [Unity CI Docker Images](https://hub.docker.com/r/unityci/hub/tags)
 - [Gitea Actions Documentation](https://docs.gitea.io/en-us/actions/)
+- [Understanding the PowerShell Module Path](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_psmodulepath)
+- [Installing a PowerShell Module](https://learn.microsoft.com/en-us/powershell/scripting/developer/module/installing-a-powershell-module)
+- [How to Write a PowerShell Module Manifest](https://learn.microsoft.com/en-us/powershell/scripting/developer/module/how-to-write-a-powershell-module-manifest)
+- [PowerShell Module Building Basics](https://powershellexplained.com/2017-05-27-Powershell-module-building-basics)
+- [PowerShell Module Troubleshooting](https://learn.microsoft.com/en-us/powershell/scripting/developer/module/troubleshooting-module-installation)
+- [Understanding Module Commands](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_modules)
