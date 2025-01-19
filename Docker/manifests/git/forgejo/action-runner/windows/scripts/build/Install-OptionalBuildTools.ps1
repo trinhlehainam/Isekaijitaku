@@ -72,7 +72,7 @@ if ($parsedOptions -contains "Unity") {
     Write-Host "Installing Unity..."
     . "$helpersPath/UnityInstallHelpers.ps1"
     # TEST: Install Unity Editor version "2021.3.8f1"
-    Install-UnityEditor -Version "2019.4.24f1" -InstallPath (Join-Path $installPath "Unity") -Modules @("universal-windows-platform", "uwp-il2cpp")
+    Install-UnityEditor -Version "2019.4.24f1" -InstallPath (Join-Path $installPath "UnityEditor") -Modules @("universal-windows-platform", "uwp-il2cpp")
 }
 
 $process=Start-Process -FilePath "choco-cleaner" -ArgumentList "--dummy" -NoNewWindow -Wait -PassThru

@@ -176,6 +176,8 @@ if (-not (Get-Module -ListAvailable -Name VSSetup)) {
     Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
     Install-Module VSSetup -Scope CurrentUser -Force
 }
+
+# Import Image Helpers for Runner Process
 Import-Module (Join-Path $helpersPath "ImageHelpers.psm1")
 
 Write-Log "Starting runner daemon..."

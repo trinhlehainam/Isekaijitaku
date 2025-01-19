@@ -38,20 +38,24 @@ function Install-UnityEditor {
     param (
         [Parameter(Mandatory = $true)]
         [string]$Version,
-        [string]$InstallPath = "C:/BuildTools/Unity/Editor",
+        [string]$InstallPath = "C:/BuildTools/UnityEditor",
         [string[]]$Modules = @("windows-mono", "universal-windows-platform-mono")
     )
-
-    # Validate Unity version
-    if (-not (Get-UnityChangeSet -Version $Version)) {
-        throw "Invalid Unity version: $Version"
-    }
 
     # Ensure Unity Hub is installed
     $unityHubPath = Get-UnityHubPath
     
     if (-not $unityHubPath) {
         throw "Unity Hub is not installed. Please install Unity Hub before proceeding."
+    }
+
+    if (-not (Set-UnityEditorInstallPath -Path $InstallPath)) {
+        throw "Failed to set Unity Hub install path to $InstallPath"
+    }
+
+    # Validate Unity version
+    if (-not (Get-UnityChangeSet -Version $Version)) {
+        throw "Invalid Unity version: $Version"
     }
 
     # Validate modules
@@ -80,14 +84,6 @@ function Install-UnityEditor {
 
     if (-not $changeSet) {
         throw "Failed to validate Unity version: $Version"
-    }
-
-    Write-Host "Chocolatey installation failed, falling back to Unity Hub CLI..."
-
-    if ($InstallPath) {
-        if (-not (Set-UnityEditorInstallPath -Path $InstallPath)) {
-            throw "Failed to set Unity Hub install path to $InstallPath"
-        }
     }
 
     # Install editor using Unity Hub CLI
@@ -127,6 +123,17 @@ function Set-UnityEditorInstallPath {
     if (-not $unityHubPath) {
         Write-Warning "Unity Hub is not installed. Please install Unity Hub before proceeding."
         return $false
+    }
+    
+    # Create directory if it doesn't exist
+    if (-not (Test-Path -Path $Path)) {
+        New-Item -ItemType Directory -Force -Path $Path
+        if (Test-Path -Path $Path) {
+            Write-Host "Created directory: $Path"
+        } else {
+            Write-Warning "Failed to create directory: $Path"
+            return $false
+        }
     }
 
     $installArgs = @(
