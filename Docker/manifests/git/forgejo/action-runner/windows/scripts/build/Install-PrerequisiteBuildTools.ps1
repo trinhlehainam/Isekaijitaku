@@ -93,7 +93,9 @@ Start-ProcessSafe "git" @("config", "--system", "--unset", "credential.helper")
 # Install additional dependencies via Chocolatey
 Write-Host "Installing additional build dependencies..."
 $chocoPackages = @(
-    "choco-cleaner"
+    "choco-cleaner",
+    "cmake",
+    "ninja"
 )
 
 foreach ($package in $chocoPackages) {

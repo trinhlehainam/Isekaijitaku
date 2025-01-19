@@ -208,11 +208,16 @@ function Expand-7ZipArchive {
         [char] $ExtractMethod = "x"
     )
 
+    if (-not (Get-Command -Name "7z.exe" -ErrorAction SilentlyContinue)) {
+        Write-Error "7-Zip is not installed. Please install 7-Zip and try again."
+        exit 1
+    }
+
     Write-Host "Expand archive '$PATH' to '$DestinationPath' directory"
     7z.exe $ExtractMethod "$Path" -o"$DestinationPath" -y | Out-Null
 
     if ($LASTEXITCODE -ne 0) {
-        Write-Host "There is an error during expanding '$Path' to '$DestinationPath' directory"
+        Write-Error "There is an error during expanding '$Path' to '$DestinationPath' directory"
         exit 1
     }
 }

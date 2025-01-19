@@ -25,6 +25,11 @@ if ($LASTEXITCODE -ne 0) {
 # Add Rust binaries to the path
 $newPath = ("{0}\bin;{1}" -f $env:CARGO_HOME, $env:Path)
 [Environment]::SetEnvironmentVariable("Path", $newPath, [EnvironmentVariableTarget]::Machine)
+
+# Add Rustup and cargo home environment variables
+[Environment]::SetEnvironmentVariable("RUSTUP_HOME", $env:RUSTUP_HOME, [EnvironmentVariableTarget]::Machine)
+[Environment]::SetEnvironmentVariable("CARGO_HOME", $env:CARGO_HOME, [EnvironmentVariableTarget]::Machine)
+
 Update-Environment
 
 # Add i686 target for building 32-bit binaries

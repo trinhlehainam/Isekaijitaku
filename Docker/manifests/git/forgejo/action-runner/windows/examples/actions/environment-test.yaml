@@ -219,7 +219,8 @@ jobs:
                   $packageIds = Get-VisualStudioInstancePackageIds -Instance $vsInstance
                   if ($packageIds) {
                       Write-Host "[OK] Get-VisualStudioInstancePackageIds"
-                      Write-Host "Found package IDs: $($packageIds -join '`n')"
+                      Write-Host "Found package IDs:"
+                      Write-Host ("{0}" -f ($packageIds -join "`n"))
                   }
                   
                   return $true
@@ -252,8 +253,8 @@ jobs:
               DotNet = (dotnet --version)
               Node = (node --version)
               Rust = (rustc --version)
-              Unity = if (Test-Path "C:/BuildTools/UnityEditor/2019.4.24f1/Editor/Unity.exe") { "2019.4.24f1" } else { "Not Found" }
-              VisualStudio = (Get-VSSetupInstance | ForEach-Object { $_.DisplayName } | Join-String -Separator ", ")
+              Unity = Get-UnityEditorPath -Version "2019.4.24f1"
+              VisualStudio = (Get-VSSetupInstance | ForEach-Object { $_.DisplayName }) -join ", "
               ImageHelpersModules = @{
                   ModuleVersion = (Get-Module ImageHelpers).Version.ToString()
                   Functions = @(Get-Command -Module ImageHelpers | Select-Object -ExpandProperty Name)
