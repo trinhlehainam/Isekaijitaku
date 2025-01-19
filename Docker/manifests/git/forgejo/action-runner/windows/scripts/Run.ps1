@@ -170,7 +170,7 @@ if ($env:CONFIG_FILE) {
 if (-not (Get-Module -ListAvailable -Name VSSetup)) {
     Write-Log "Installing VSSetup module..."
     Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
-    Install-Module VSSetup -Scope CurrentUser -Force
+    Install-Module VSSetup -RequiredVersion 2.2.16 -Scope CurrentUser -Force
 }
 
 # Remove unused modules to avoid child process can access them
@@ -187,7 +187,7 @@ $installedModule = Get-Module -Name $moduleName -ListAvailable
 
 if (-not $installedModule) {
     # Get user's PowerShell module directory
-    $userModulePath = ($env:PSModulePath -split ';' | Where-Object { $_ -like "$home*" }) | Select-Object -First 1
+    $userModulePath = ($env:PSModulePath -split ';' | Where-Object { $_ -like "$HOME*" }) | Select-Object -First 1
     $moduleInstallPath = Join-Path $userModulePath $moduleName
     
     # Create module directory if it doesn't exist

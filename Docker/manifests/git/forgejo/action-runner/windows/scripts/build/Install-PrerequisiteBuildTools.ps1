@@ -8,7 +8,7 @@ $ErrorActionPreference = "Stop"
 if (-not (Get-Module -ListAvailable -Name VSSetup)) {
     Write-Host "Installing VSSetup module..."
     Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
-    Install-Module VSSetup -Scope CurrentUser -Force
+    Install-Module VSSetup -RequiredVersion 2.2.16 -Scope CurrentUser -Force
 }
 
 # Import helpers scripts
