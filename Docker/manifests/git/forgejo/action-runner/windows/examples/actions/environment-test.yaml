@@ -133,7 +133,10 @@ jobs:
         run: |
           $envVars = @(
               'UNITY_EDITOR',
-              'RUNNER_TEMP',
+              'RUSTUP_HOME',
+              'CARGO_HOME',
+              'NODE_EXTRA_CA_CERTS',
+              'RUNNER_TEMP'
           )
           
           foreach ($var in $envVars) {

@@ -392,10 +392,21 @@ The certificates are handled in two ways:
 1. **Windows Certificate Store**: Certificates are installed to the system's certificate store for general use.
 
 2. **Node.js Certificate Handling**: Since Node.js doesn't use the Windows Certificate Store ([nodejs/node#51537](https://github.com/nodejs/node/issues/51537)), the runner:
-   - Combines all certificates from `EXTRA_CERT_FILES` into a single file
-   - Places this file in the Node.js installation directory as `extra-ca-certs.crt`
+   - Creates a fresh `extra-ca-certs.crt` file in the Node.js installation directory
+   - Concatenates all certificates from `EXTRA_CERT_FILES` into this file
    - Sets `NODE_EXTRA_CA_CERTS` environment variable to point to this file
-   - This ensures Node.js tools (npm, yarn, etc.) can access secure endpoints using the custom certificates
+
+This approach ensures:
+- Clean certificate state on each container restart
+- No duplicate certificates from previous runs
+- All certificates are properly formatted
+- Node.js tools (npm, yarn, etc.) can access secure endpoints using the certificates
+
+The certificate handling is performed by the `Install-NodeExtraCaCerts` function in `CertificateHelpers.ps1`, which:
+1. Validates Node.js installation
+2. Processes certificate paths
+3. Creates a fresh certificate file
+4. Updates system environment variables
 
 ### Build Examples
 
@@ -658,9 +669,7 @@ The following modules can be specified in the `-Modules` parameter:
 ### Installation Paths
 
 ```
-C:/BuildTools/Unity/                  # Unity Hub installation
-└── Unity Hub.exe                     # Unity Hub executable
-C:/BuildTools/Unity/Editor/           # Unity Editor installation
+C:/BuildTools/UnityEditor/           # Unity Editor installation
 └── [VERSION]/                        # Editor version-specific files
     ├── Editor/                       # Unity Editor
     └── modules/                      # Installed modules
@@ -708,20 +717,8 @@ Install-NodeJs -InstallPath $path -Version "22" -InstallPnpm
 # Install Rust
 Install-Rust -InstallPath $path -Toolchain "stable" -Profile "minimal"
 
-# Install Android SDK
-Install-AndroidSDK -InstallPath $path
-
 # Install Unity
 Install-UnityEditor -Version "2022.3.16f1" -InstallPath $path -Modules @("windows-mono", "universal-windows-platform-mono")
-```
-
-#### Environment Management
-```powershell
-# Install common tools
-Install-CommonTools -Tools @("git", "cmake")
-
-# Clean temporary files
-Clear-TempFiles
 ```
 
 ### Directory Structure
@@ -729,9 +726,7 @@ Clear-TempFiles
 The build tools are organized in a standard directory structure under `C:/BuildTools`:
 ```
 C:/BuildTools/
-├── VS/              # Visual Studio Build Tools
-├── Unity/           # Unity Editor and Hub
-├── Android/         # Android SDK and NDK
+├── UnityEditor/     # Unity Editor and Hub
 ├── Node/            # Node.js and npm/pnpm
 ├── Rust/            # Rust toolchain
 └── Tools/           # Common development tools
@@ -831,10 +826,8 @@ Each workflow is documented and includes best practices for Windows runners. See
 The following environment variables can be used in your workflows:
 
 - `UNITY_EDITOR`: Path to Unity Editor (e.g., `C:/BuildTools/UnityEditor/2019.4.24f1/Editor/Unity.exe`)
-- `VSINSTALLPATH`: Path to Visual Studio installation
 - `RUSTUP_HOME`: Rust installation directory
 - `CARGO_HOME`: Cargo home directory
-- `NODE_PATH`: Node.js installation directory
 
 ## Notes on Windows Paths
 

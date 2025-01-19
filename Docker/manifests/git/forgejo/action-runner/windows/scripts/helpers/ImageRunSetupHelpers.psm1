@@ -9,5 +9,6 @@ Export-ModuleMember -Function @(
 Export-ModuleMember -Function @(
     'Get-CertificatePaths',
     'Install-Certificate',
-    'Install-Certificates'
+    'Install-Certificates',
+    'Install-NodeExtraCaCerts'
 )

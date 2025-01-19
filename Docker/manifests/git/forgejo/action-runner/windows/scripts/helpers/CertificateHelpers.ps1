@@ -101,23 +101,42 @@ function Install-NodeExtraCaCerts {
     
     # Get all certificates from the list
     $certPaths = Get-CertificatePaths -PathList $CertFiles
-
     if ($certPaths.Count -eq 0) {
         Write-Log "No valid certificate files found"
         return $true
     }
 
-    # Add all certificates to one file
-    $certs = $certPaths -join "`n"
-    
-    # Get Node.js executable path and create a extra-ca-certs file
-    $extraCaCertsPath = "$([System.IO.Path]::GetDirectoryName($nodePath))\extra-ca-certs.crt"
-    New-Item -Path $extraCaCertsPath -ItemType File -Force | Out-Null
-    Set-Content -Path $extraCaCertsPath -Value $certs
+    # Get Node.js directory and extra-ca-certs file path
+    $nodeDir = [System.IO.Path]::GetDirectoryName($nodePath)
+    $extraCaCertsPath = Join-Path $nodeDir "extra-ca-certs\root_ca.crt"
 
-    # Add extra-ca-certs.crt to NODE_EXTRA_CA_CERTS environment variable
-    $env:NODE_EXTRA_CA_CERTS = $extraCaCertsPath
-    [Environment]::SetEnvironmentVariable("NODE_EXTRA_CA_CERTS", $env:NODE_EXTRA_CA_CERTS, "Machine")
-    Write-Log "Added extra-ca-certs.crt to NODE_EXTRA_CA_CERTS environment variable"
-    return $true
+    if (-not (Test-Path $extraCaCertsPath)) {
+        New-Item -ItemType Directory -Path (Split-Path $extraCaCertsPath) -Force | Out-Null
+    }
+
+    try {
+        # Create fresh certificate file by concatenating all certificates
+        $certContents = @()
+        foreach ($certPath in $certPaths) {
+            Write-Log "Reading certificate from $certPath"
+            $content = Get-Content -Path $certPath -Raw -ErrorAction Stop
+            $certContents += $content
+        }
+        
+        # Write certificates to file with proper line endings
+        Write-Log "Writing certificates to $extraCaCertsPath"
+        $combinedCerts = $certContents -join "`n"
+        Set-Content -Path $extraCaCertsPath -Value $combinedCerts -Force -ErrorAction Stop -NoNewline
+        
+        # Set environment variable
+        $env:NODE_EXTRA_CA_CERTS = $extraCaCertsPath
+        [Environment]::SetEnvironmentVariable("NODE_EXTRA_CA_CERTS", $extraCaCertsPath, "Machine")
+        Write-Log "Set NODE_EXTRA_CA_CERTS to $extraCaCertsPath"
+        
+        return $true
+    }
+    catch {
+        Write-Error "Failed to process certificates: $_"
+        return $false
+    }
 }
