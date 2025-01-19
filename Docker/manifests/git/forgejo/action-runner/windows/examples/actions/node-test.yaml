@@ -1,0 +1,46 @@
+name: Node.js Build and Test
+on: [push, pull_request]
+
+jobs:
+  build:
+    runs-on: windows
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Setup Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: '18.x'
+          cache: 'npm'
+          
+      - name: Install dependencies
+        run: |
+          npm config set msvs_version 2022
+          npm ci
+          
+      - name: Lint
+        run: |
+          npm run lint
+          
+      - name: Type Check
+        run: |
+          npm run type-check
+          
+      - name: Test
+        run: |
+          npm run test
+          
+      - name: Build
+        run: |
+          npm run build
+          
+      - name: Package
+        run: |
+          npm pack
+          
+      - name: Upload package
+        uses: actions/upload-artifact@v3
+        with:
+          name: package
+          path: "*.tgz"

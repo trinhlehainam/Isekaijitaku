@@ -1,0 +1,254 @@
+name: Windows Runner Environment Test
+on: 
+  workflow_dispatch:  # Manual trigger
+  schedule:
+    - cron: '0 0 * * 0'  # Weekly on Sunday
+
+jobs:
+  test-environment:
+    runs-on: windows
+    
+    steps:
+      - name: System Information
+        run: |
+          systeminfo | Select-String "OS Name", "OS Version", "System Type"
+          Write-Host "PowerShell Version: $($PSVersionTable.PSVersion)"
+          Write-Host "Available RAM: $((Get-CimInstance Win32_PhysicalMemory | Measure-Object -Property capacity -Sum).sum /1gb)GB"
+          
+      - name: Test Visual Studio Environment
+        run: |
+          Write-Host "Visual Studio Installation:"
+          Get-VSSetupInstance
+          
+          Write-Host "`nMSBuild Version:"
+          msbuild -version
+          
+          Write-Host "`nInstalled Workloads:"
+          (Get-VSSetupInstance | Select-VSSetupInstance -Product *).Packages | Select-Object -ExpandProperty "Id"
+          
+      - name: Test .NET Environment
+        run: |
+          Write-Host ".NET SDKs:"
+          dotnet --list-sdks
+          
+          Write-Host "`n.NET Runtimes:"
+          dotnet --list-runtimes
+          
+      - name: Test Unity Environment
+        run: |
+          $unityEditorPath = "C:/BuildTools/UnityEditor/2019.4.24f1/Editor/Unity.exe"
+          if (Test-Path $unityEditorPath) {
+              Write-Host "Unity Editor found at: $unityEditorPath"
+              & $unityEditorPath -version
+          } else {
+              Write-Error "Unity Editor not found!"
+          }
+          
+      - name: Test Node.js Environment
+        run: |
+          Write-Host "Node.js Version:"
+          node --version
+          
+          Write-Host "`nnpm Version:"
+          npm --version
+          
+          Write-Host "`nGlobal npm packages:"
+          npm list -g --depth=0
+          
+      - name: Test Rust Environment
+        run: |
+          Write-Host "Setting up Rust environment..."
+          
+          # Check if rustup is installed
+          if (-not (Get-Command rustup -ErrorAction SilentlyContinue)) {
+              Write-Error "rustup is not installed. Please install Rust toolchain first."
+              exit 1
+          }
+          
+          # Install and set default toolchain if not configured
+          $defaultToolchain = rustup default
+          if ($LASTEXITCODE -ne 0) {
+              Write-Host "No default toolchain found. Installing stable toolchain..."
+              rustup toolchain install stable
+              rustup default stable
+              
+              # Verify installation
+              $defaultToolchain = rustup default
+              if ($LASTEXITCODE -ne 0) {
+                  Write-Error "Failed to set up default toolchain"
+                  exit 1
+              }
+          }
+          Write-Host "Default toolchain: $defaultToolchain"
+          
+          Write-Host "`nRust Version:"
+          rustc --version
+          
+          Write-Host "`nCargo Version:"
+          cargo --version
+          
+          Write-Host "`nInstalled Components:"
+          rustup component list --installed
+          
+          Write-Host "`nInstalled Targets:"
+          $installedTargets = @(rustup target list --installed)
+          Write-Host $installedTargets
+          
+          Write-Host "`nAvailable Targets:"
+          $allTargets = @(rustup target list)
+          Write-Host $allTargets
+          
+          # Ensure required targets are installed
+          $requiredTargets = @(
+              "x86_64-pc-windows-msvc",
+              "i686-pc-windows-msvc"
+          )
+          
+          foreach ($target in $requiredTargets) {
+              if ($installedTargets -notcontains $target) {
+                  Write-Host "`nInstalling target: $target"
+                  rustup target add $target
+                  if ($LASTEXITCODE -eq 0) {
+                      $installedTargets += $target
+                  } else {
+                      Write-Warning "Failed to install target: $target"
+                  }
+              }
+          }
+      - name: Test Build Tools
+        run: |
+          Write-Host "Chocolatey Version:"
+          choco --version
+          
+          Write-Host "`nGit Version:"
+          git --version
+          
+          Write-Host "`nCMake Version:"
+          cmake --version
+          
+          Write-Host "`nNinja Version:"
+          ninja --version
+          
+      - name: Test Environment Variables
+        run: |
+          $envVars = @(
+              'UNITY_EDITOR',
+              'RUNNER_TEMP',
+          )
+          
+          foreach ($var in $envVars) {
+              $value = [Environment]::GetEnvironmentVariable($var)
+              Write-Host "${var}: $value"
+          }
+          
+      - name: Test Disk Space
+        run: |
+          Get-Volume | Where-Object { $_.DriveLetter } | 
+          Format-Table -AutoSize DriveLetter, FileSystemLabel, 
+          @{Name='Size(GB)';Expression={[math]::Round($_.Size/1GB,2)}}, 
+          @{Name='FreeSpace(GB)';Expression={[math]::Round($_.SizeRemaining/1GB,2)}}
+          
+      - name: Test ImageHelpers Module Functions
+        run: |
+          Write-Host "Testing ImageHelpers Module Functions..."
+          
+          # Test module import
+          Write-Host "`nTesting Module Import:"
+          Get-Module -ListAvailable -Name ImageHelpers | Format-Table Name, Version, Path
+          Import-Module ImageHelpers
+          Write-Host "Available Functions:"
+          Get-Command -Module ImageHelpers | Format-Table Name, CommandType
+          
+          # Test InstallHelpers functions
+          Write-Host "`nTesting InstallHelpers Functions:"
+          try {
+              $testUrl = "https://raw.githubusercontent.com/actions/runner-images/main/README.md"
+              $testPath = Join-Path $env:TEMP "test-download.txt"
+              
+              Write-Host "Testing Invoke-DownloadWithRetry..."
+              Invoke-DownloadWithRetry -Url $testUrl -Path $testPath
+              if (Test-Path $testPath) {
+                  Write-Host "✓ Invoke-DownloadWithRetry: Success"
+                  Remove-Item $testPath -Force
+              }
+              
+              Write-Host "`nTesting Test-FileChecksum..."
+              $null = Invoke-DownloadWithRetry -Url "https://github.com/stedolan/jq/releases/download/jq-1.6/jq-win64.exe" -Path "$env:TEMP\jq.exe"
+              Test-FileChecksum -Path "$env:TEMP\jq.exe" -ExpectedSHA256Sum "a51d36968dcbdeabb3142c6f5cf9b401a65dc3a095f3144bd0c118d5bb192753"
+              Write-Host "✓ Test-FileChecksum: Success"
+              Remove-Item "$env:TEMP\jq.exe" -Force
+              
+              Write-Host "`nTesting Update-Environment..."
+              Update-Environment
+              Write-Host "✓ Update-Environment: Success"
+          } catch {
+              Write-Error "InstallHelpers Functions Test Failed: $_"
+          }
+          
+          # Test UnityInstallHelpers functions
+          Write-Host "`nTesting UnityInstallHelpers Functions:"
+          try {
+              $unityVersion = "2019.4.24f1"
+              Write-Host "Testing Get-UnityChangeSet..."
+              $changeSet = Get-UnityChangeSet -Version $unityVersion
+              if ($changeSet) {
+                  Write-Host "✓ Get-UnityChangeSet: Success (ChangeSet: $changeSet)"
+              }
+              
+              Write-Host "`nTesting Get-UnityEditorPath..."
+              $editorPath = Get-UnityEditorPath -Version $unityVersion
+              if ($editorPath) {
+                  Write-Host "✓ Get-UnityEditorPath: Success (Path: $editorPath)"
+              }
+              
+              Write-Host "`nTesting Get-UnityHubPath..."
+              $hubPath = Get-UnityHubPath
+              if ($hubPath) {
+                  Write-Host "✓ Get-UnityHubPath: Success (Path: $hubPath)"
+              }
+          } catch {
+              Write-Error "UnityInstallHelpers Functions Test Failed: $_"
+          }
+          
+          # Test VisualStudioHelpers functions
+          Write-Host "`nTesting VisualStudioHelpers Functions:"
+          try {
+              Write-Host "Testing Get-VisualStudioBuildToolsInstances..."
+              $vsInstance = Get-VisualStudioBuildToolsInstances -Version "17"
+              if ($vsInstance) {
+                  Write-Host "✓ Get-VisualStudioBuildToolsInstances: Success"
+                  Write-Host "  Installation Path: $($vsInstance.InstallationPath)"
+                  
+                  Write-Host "`nTesting Get-VisualStudioInstancePackageIds..."
+                  $packageIds = Get-VisualStudioInstancePackageIds -Instance $vsInstance -PackageType "Workload"
+                  Write-Host "✓ Get-VisualStudioInstancePackageIds: Success"
+                  Write-Host "  Installed Workloads: $($packageIds -join ', ')"
+              }
+          } catch {
+              Write-Error "VisualStudioHelpers Functions Test Failed: $_"
+          }
+          
+      - name: Generate Environment Report
+        run: |
+          $report = @{
+              Timestamp = Get-Date -Format "yyyy-MM-dd HH:mm:ss"
+              OS = (Get-CimInstance Win32_OperatingSystem).Caption
+              PowerShell = $PSVersionTable.PSVersion.ToString()
+              DotNet = (dotnet --version)
+              Node = (node --version)
+              Rust = (rustc --version)
+              Unity = if (Test-Path "C:/BuildTools/UnityEditor/2019.4.24f1/Editor/Unity.exe") { "2019.4.24f1" } else { "Not Found" }
+              VisualStudio = (Get-VSSetupInstance | ForEach-Object { $_.DisplayName } | Join-String -Separator ", ")
+              ImageHelpersModules = @{
+                  ModuleVersion = (Get-Module ImageHelpers).Version.ToString()
+                  Functions = @(Get-Command -Module ImageHelpers | Select-Object -ExpandProperty Name)
+              }
+          }
+          
+          $report | ConvertTo-Json -Depth 10 | Out-File environment-report.json
+          
+      - name: Upload Environment Report
+        uses: actions/upload-artifact@v3
+        with:
+          name: environment-report
+          path: environment-report.json

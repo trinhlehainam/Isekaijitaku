@@ -1,0 +1,79 @@
+name: Unity Build and Test
+on: [push, pull_request]
+
+jobs:
+  test:
+    runs-on: windows
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Cache Library folder
+        uses: actions/cache@v3
+        with:
+          path: Library
+          key: Library-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
+          restore-keys: |
+            Library-
+            
+      - name: Run Unity Tests
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        run: |
+          # Unity is pre-installed in the runner
+          & "C:/BuildTools/UnityEditor/2019.4.24f1/Editor/Unity.exe" `
+            -batchmode `
+            -nographics `
+            -silent-crashes `
+            -logFile `
+            -projectPath . `
+            -runTests `
+            -testPlatform PlayMode `
+            -testResults test-results.xml
+            
+      - name: Upload test results
+        uses: actions/upload-artifact@v3
+        with:
+          name: Test Results
+          path: test-results.xml
+          
+  build:
+    needs: test
+    runs-on: windows
+    
+    steps:
+      - uses: actions/checkout@v4
+      
+      - name: Cache Library folder
+        uses: actions/cache@v3
+        with:
+          path: Library
+          key: Library-${{ hashFiles('Assets/**', 'Packages/**', 'ProjectSettings/**') }}
+          restore-keys: |
+            Library-
+            
+      - name: Build Unity Project
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        run: |
+          # Unity is pre-installed in the runner
+          & "C:/BuildTools/UnityEditor/2019.4.24f1/Editor/Unity.exe" `
+            -quit `
+            -batchmode `
+            -nographics `
+            -silent-crashes `
+            -logFile `
+            -projectPath . `
+            -executeMethod BuildScript.Build `
+            -buildTarget StandaloneWindows64 `
+            -buildPath ./Build/Windows
+            
+      - name: Upload build
+        uses: actions/upload-artifact@v3
+        with:
+          name: WindowsBuild
+          path: Build/Windows
