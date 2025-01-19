@@ -94,8 +94,7 @@ Start-ProcessSafe "git" @("config", "--system", "--unset", "credential.helper")
 Write-Host "Installing additional build dependencies..."
 $chocoPackages = @(
     "choco-cleaner",
-    "cmake",
-    "ninja"
+    "7zip.install"
 )
 
 foreach ($package in $chocoPackages) {
@@ -105,10 +104,10 @@ foreach ($package in $chocoPackages) {
 
 Update-Environment
 
-# Install Rust (default)
+# Install Rust
 . "$PSScriptRoot/Install-Rust.ps1" -InstallPath $installPath
 
-# Install Node.js and pnpm (default)
+# Install Node.js and pnpm
 . "$PSScriptRoot/Install-NodeJS.ps1" -InstallPath $installPath
 
 Start-ProcessSafe "choco-cleaner" @("--dummy")

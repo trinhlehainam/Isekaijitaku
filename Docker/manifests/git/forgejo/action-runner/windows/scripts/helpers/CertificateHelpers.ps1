@@ -85,3 +85,39 @@ function Install-Certificates {
 
     return $success
 }
+
+# https://github.com/nodejs/node/issues/51537
+function Install-NodeExtraCaCerts {
+    param (
+        [string]$CertFiles
+    )
+    
+    $nodePath = Get-Command "node" -ErrorAction SilentlyContinue | Select-Object -ExpandProperty Path
+    # Check if Node.js is installed
+    if (-not $nodePath) {
+        Write-Log "Node.js is not installed"
+        return $true
+    }
+    
+    # Get all certificates from the list
+    $certPaths = Get-CertificatePaths -PathList $CertFiles
+
+    if ($certPaths.Count -eq 0) {
+        Write-Log "No valid certificate files found"
+        return $true
+    }
+
+    # Add all certificates to one file
+    $certs = $certPaths -join "`n"
+    
+    # Get Node.js executable path and create a extra-ca-certs file
+    $extraCaCertsPath = "$([System.IO.Path]::GetDirectoryName($nodePath))\extra-ca-certs.crt"
+    New-Item -Path $extraCaCertsPath -ItemType File -Force | Out-Null
+    Set-Content -Path $extraCaCertsPath -Value $certs
+
+    # Add extra-ca-certs.crt to NODE_EXTRA_CA_CERTS environment variable
+    $env:NODE_EXTRA_CA_CERTS = $extraCaCertsPath
+    [Environment]::SetEnvironmentVariable("NODE_EXTRA_CA_CERTS", $env:NODE_EXTRA_CA_CERTS, "Machine")
+    Write-Log "Added extra-ca-certs.crt to NODE_EXTRA_CA_CERTS environment variable"
+    return $true
+}

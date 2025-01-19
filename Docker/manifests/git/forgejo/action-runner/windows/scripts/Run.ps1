@@ -150,9 +150,15 @@ function Register-Runner {
 # Install custom certificates if specified
 if ($env:EXTRA_CERT_FILES) {
     Write-Log "Installing custom certificates from paths: $env:EXTRA_CERT_FILES"
-        if (-not (Install-Certificates -CertFiles $env:EXTRA_CERT_FILES)) {
-            Write-Error-Log-And-Throw "Failed to install one or more custom certificates"
-        }
+    if (-not (Install-Certificates -CertFiles $env:EXTRA_CERT_FILES)) {
+        Write-Error-Log-And-Throw "Failed to install one or more custom certificates"
+    }
+    # Because Node.js doesn't use Windows CA certificates by default
+    # we need to manually install extra certificates to Node.js
+    # https://github.com/nodejs/node/issues/51537
+    if (-not (Install-NodeExtraCaCerts -CertFiles $env:EXTRA_CERT_FILES)) {
+        Write-Error-Log-And-Throw "Failed to install one or more custom certificates to Node.js"
+    }
 }
 
 Write-Log "Starting Gitea Runner initialization..."

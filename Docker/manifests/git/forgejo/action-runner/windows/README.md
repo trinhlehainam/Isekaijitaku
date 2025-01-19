@@ -70,7 +70,8 @@ ImageHelpers/              # Module folder (must match module name)
 ├── ImageHelpers.psm1      # Core module implementation
 ├── InstallHelpers.ps1     # Installation helper functions
 ├── UnityInstallHelpers.ps1 # Unity-specific helpers
-└── VisualStudioHelpers.ps1 # Visual Studio helpers
+├── VisualStudioHelpers.ps1 # Visual Studio helpers
+└── CertificateHelpers.ps1  # Certificate management
 ```
 
 ##### Installation Paths
@@ -148,7 +149,8 @@ ImageHelpers/              # Module folder (must match module name)
 ├── ImageHelpers.psm1      # Core module implementation
 ├── InstallHelpers.ps1     # Installation helper functions
 ├── UnityInstallHelpers.ps1 # Unity-specific helpers
-└── VisualStudioHelpers.ps1 # Visual Studio helpers
+├── VisualStudioHelpers.ps1 # Visual Studio helpers
+└── CertificateHelpers.ps1  # Certificate management
 ```
 
 ## Features
@@ -376,6 +378,24 @@ The certificate installation process:
 5. Provides detailed logging for each certificate installation
 6. Continues processing remaining paths if one fails
 7. Returns non-zero exit code if any certificate fails to install
+
+### Node.js Certificate Handling
+
+The runner also supports installing custom certificates for Node.js through the `EXTRA_CERT_FILES` environment variable. This is useful for environments with internal Certificate Authorities (CAs).
+
+```powershell
+$env:EXTRA_CERT_FILES = "C:\certs\internal-ca.crt;C:\certs\other-ca.crt"
+```
+
+The certificates are handled in two ways:
+
+1. **Windows Certificate Store**: Certificates are installed to the system's certificate store for general use.
+
+2. **Node.js Certificate Handling**: Since Node.js doesn't use the Windows Certificate Store ([nodejs/node#51537](https://github.com/nodejs/node/issues/51537)), the runner:
+   - Combines all certificates from `EXTRA_CERT_FILES` into a single file
+   - Places this file in the Node.js installation directory as `extra-ca-certs.crt`
+   - Sets `NODE_EXTRA_CA_CERTS` environment variable to point to this file
+   - This ensures Node.js tools (npm, yarn, etc.) can access secure endpoints using the custom certificates
 
 ### Build Examples
 
@@ -843,11 +863,11 @@ Example path usage:
 
 ```powershell
 # Build with specific version
-docker compose build --build-arg GITEA_RUNNER_VERSION=0.2.11
+docker compose build --build-arg gitea_runner_version=0.2.11
 
 # Build with specific version and tag
 docker compose build \
-    --build-arg GITEA_RUNNER_VERSION=0.2.11 \
+    --build-arg gitea_runner_version=0.2.11 \
     --build-arg WINDOWS_IMAGE=your-registry/your-custom-windows-image:1.0.0 \
     gitea-runner
 
