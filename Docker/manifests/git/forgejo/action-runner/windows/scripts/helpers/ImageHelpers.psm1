@@ -1,31 +1,27 @@
-
-. $PSScriptRoot\ImageHelper.ps1
-
-. $PSScriptRoot\InstallHelpers.psm1
+# Export functions from InstallHelpers.ps1
+. $PSScriptRoot\InstallHelpers.ps1
 Export-ModuleMember -Function @(
-    "Install-Binary"
-    "Invoke-DOwnloadWithRetry"
-    "Test-IsWin19"
-    "Test-IsWin22"
-    "Test-IsWin25"
-    "Expand-7ZipArchive"
-    "Test-FileSignature"
-    "Test-FileChecksum"
-    "Update-Environment"
-    "Get-ChecksumFromUrl"
+    'Install-Binary'
+    'Invoke-DownloadWithRetry'
+    'Invoke-ScriptBlockWithRetry'
+    'Test-FileSignature'
+    'Test-FileChecksum'
+    'Update-Environment'
 )
 
-. $PSScriptRoot\UnityInstallHelper.psm1
+# Export functions from UnityInstallHelpers.ps1
+. $PSScriptRoot\UnityInstallHelpers.ps1
 Export-ModuleMember -Function @(
-    "Install-UnityEditor"
-    "Get-UnityChangeSet"
-    "Get-UnityEditorPath"
-    "Get-UnityHubPath"
+    'Install-UnityEditor'
+    'Get-UnityChangeSet'
+    'Get-UnityEditorPath'
+    'Get-UnityHubPath'
 )
 
-. $PSScriptRoot\VisualStudioHelpers.psm1
+# Export functions from VisualStudioHelpers.ps1
+. $PSScriptRoot\VisualStudioHelpers.ps1
 Export-ModuleMember -Function @(
-    "Install-VisualStudio"
-    "Get-VisualStudioPath"
-    "Get-VisualStudioInstancePackageIds"
+    'Install-VisualStudioBuildTools'
+    'Get-VisualStudioBuildToolsInstances'
+    'Get-VisualStudioInstancePackageIds'
 )

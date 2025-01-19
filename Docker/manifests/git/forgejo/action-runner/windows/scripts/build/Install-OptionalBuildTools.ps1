@@ -1,10 +1,10 @@
 param(
-    [Parameter(Mandatory=$false)]
+    [Parameter(Mandatory = $false, Position=0)]
     [AllowEmptyString()]
     [string]$Options
 )
 
-if ($Options -eq $null -or $Options -eq "") {
+if ([string]::IsNullOrEmpty($Options)) {
     Write-Host "No options specified"
     exit 0
 }
@@ -72,12 +72,19 @@ if ($parsedOptions -contains "Unity") {
     Write-Host "Installing Unity..."
     . "$helpersPath/UnityInstallHelpers.ps1"
     # TEST: Install Unity Editor version "2021.3.8f1"
-    Install-UnityEditor -Version "2019.4.24f1" -InstallPath (Join-Path $installPath "UnityEditor") -Modules @("universal-windows-platform", "uwp-il2cpp")
+    if (-not (Install-UnityEditor -Version "2019.4.24f1" -InstallPath (Join-Path $installPath "UnityEditor") -Modules @("universal-windows-platform", "uwp-il2cpp")))
+    {
+        throw "Unity installation failed"
+    }
 }
 
 $process=Start-Process -FilePath "choco-cleaner" -ArgumentList "--dummy" -NoNewWindow -Wait -PassThru
 if ($process.ExitCode -ne 0) {
     throw "choco-cleaner failed with exit code: $($process.ExitCode)"
 }
+
+# Clean up temp directory
+Write-Host "Cleaning up temporary files..."
+Remove-Item -Path (Join-Path $env:TEMP "*") -Force -Recurse -ErrorAction SilentlyContinue
 
 Write-Host "Optional build tools installation completed successfully!"

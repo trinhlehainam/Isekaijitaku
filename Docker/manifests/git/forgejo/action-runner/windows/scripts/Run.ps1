@@ -8,8 +8,7 @@ $ErrorActionPreference = 'Stop'
 
 # Import helper scripts
 $helpersPath = Join-Path $PSScriptRoot "helpers"
-. (Join-Path $helpersPath "LogHelpers.ps1")
-. (Join-Path $helpersPath "CertificateHelpers.ps1")
+$helpersModule = Import-Module "$helpersPath\ImageRunSetupHelpers.psm1" -PassThru
 
 function Test-Environment {
     Write-Log "Checking environment variables..."
@@ -176,6 +175,9 @@ if (-not (Get-Module -ListAvailable -Name VSSetup)) {
     Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
     Install-Module VSSetup -Scope CurrentUser -Force
 }
+
+# Remove unused modules to avoid child process can access them
+Remove-Module -ModuleInfo $helpersModule
 
 # Import Image Helpers for Runner Process
 Import-Module (Join-Path $helpersPath "ImageHelpers.psm1")

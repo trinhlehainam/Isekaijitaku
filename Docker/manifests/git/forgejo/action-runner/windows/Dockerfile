@@ -77,4 +77,4 @@ RUN $scriptPath = ('{0}\GiteaActRunner\scripts' -f $env:ProgramFiles); \
 ARG INSTALL_OPTIONS
 COPY ["scripts", "C:/Program Files/GiteaActRunner/scripts"]
 RUN $scriptPath = ('{0}\GiteaActRunner\scripts' -f $env:ProgramFiles); \
-    powershell -NoProfile -ExecutionPolicy Bypass -File "$scriptPath\build\Install-OptionalBuildTools.ps1" -Options $env:INSTALL_OPTIONS
+    powershell -NoProfile -ExecutionPolicy Bypass -File "$scriptPath\build\Install-OptionalBuildTools.ps1" $env:INSTALL_OPTIONS
