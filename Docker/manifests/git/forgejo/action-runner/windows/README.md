@@ -123,6 +123,34 @@ For troubleshooting module installation issues, see:
 - [PowerShell Module Troubleshooting](https://learn.microsoft.com/en-us/powershell/scripting/developer/module/troubleshooting-module-installation)
 - [Understanding Module Commands](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_modules)
 
+## Dependencies
+
+### PowerShell Modules
+The ImageHelpers module has the following module dependencies that will be automatically installed when importing the module:
+
+- **VSSetup** (v2.2.16 or later): Required for Visual Studio tools detection and management.
+
+To install the module and its dependencies:
+```powershell
+Install-Module ImageHelpers -Scope CurrentUser
+```
+
+PowerShell will automatically handle the installation of required modules when you import ImageHelpers:
+```powershell
+Import-Module ImageHelpers
+```
+
+### Module Structure
+The ImageHelpers module consists of several PowerShell scripts:
+```
+ImageHelpers/              # Module folder (must match module name)
+├── ImageHelpers.psd1      # Module manifest (required for module discovery)
+├── ImageHelpers.psm1      # Core module implementation
+├── InstallHelpers.ps1     # Installation helper functions
+├── UnityInstallHelpers.ps1 # Unity-specific helpers
+└── VisualStudioHelpers.ps1 # Visual Studio helpers
+```
+
 ## Features
 
 ### Development Environments

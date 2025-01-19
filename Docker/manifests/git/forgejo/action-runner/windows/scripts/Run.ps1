@@ -159,18 +159,18 @@ Write-Log "Starting Gitea Runner initialization..."
 Test-Environment
 Register-Runner
 
-# Install VSSetup module if not already installed
-if (-not (Get-Module -ListAvailable -Name VSSetup)) {
-    Write-Host "Installing VSSetup module..."
-    Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
-    Install-Module VSSetup -Scope CurrentUser -Force
-}
-
 Write-Log "Starting runner daemon..."
 $params = @("daemon")
 if ($env:CONFIG_FILE) {
     Write-Log "Using custom config file: $env:CONFIG_FILE"
     $params += @("--config", $env:CONFIG_FILE)
+}
+
+# Install VSSetup module if not already installed
+if (-not (Get-Module -ListAvailable -Name VSSetup)) {
+    Write-Log "Installing VSSetup module..."
+    Install-PackageProvider -Name NuGet -MinimumVersion 2.8.5.201 -Force
+    Install-Module VSSetup -Scope CurrentUser -Force
 }
 
 # Remove unused modules to avoid child process can access them

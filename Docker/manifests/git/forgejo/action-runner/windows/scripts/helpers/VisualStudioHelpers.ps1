@@ -72,7 +72,7 @@ function Install-VisualStudioBuildTools {
     }
     
     # Verify package IDs
-    $packageIds = Get-VisualStudioInstancePackageIds -Instance $vsInstance -Version $Version
+    $packageIds = Get-VisualStudioInstancePackageIds -Instance $vsInstance
     if (-not $packageIds) {
         Write-Warning "Visual Studio Build Tools package IDs not found after installation/modification"
         return $false
@@ -91,6 +91,7 @@ function Install-VisualStudioBuildTools {
 
 function Get-VisualStudioBuildToolsInstances {
     param (
+        [Parameter(Mandatory=$true)]
         [string]$Version
     )
     
@@ -109,9 +110,7 @@ function Get-VisualStudioBuildToolsInstances {
 function Get-VisualStudioInstancePackageIds {
     param (
         [Parameter(Mandatory=$true)]
-        [Microsoft.VisualStudio.Setup.Instance]$Instance,
-        [Parameter(Mandatory=$true)]
-        [string]$Version
+        [Microsoft.VisualStudio.Setup.Instance]$Instance
     )
     # https://stackoverflow.com/a/50983068
     return (Select-VSSetupInstance -Instance $Instance -Product *).Packages | Select-Object -ExpandProperty "Id"

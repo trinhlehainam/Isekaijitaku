@@ -1,4 +1,6 @@
-# Export functions from InstallHelpers.ps1
+# Import required modules
+
+# Import helper scripts
 . $PSScriptRoot\InstallHelpers.ps1
 Export-ModuleMember -Function @(
     'Install-Binary'

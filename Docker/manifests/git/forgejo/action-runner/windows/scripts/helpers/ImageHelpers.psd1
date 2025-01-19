@@ -17,6 +17,14 @@
     # Minimum version of the Windows PowerShell engine required by this module
     # PowerShellVersion = ''
 
+    # Required modules
+    RequiredModules = @(
+        @{
+            ModuleName = 'VSSetup'
+            ModuleVersion = '2.2.16'
+        }
+    )
+
     # Functions to export from this module, for best performance, do not use wildcards and do not delete the entry, use an empty array if there are no functions to export.
     FunctionsToExport = '*'
 
