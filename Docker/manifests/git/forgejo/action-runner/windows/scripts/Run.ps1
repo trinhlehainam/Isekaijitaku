@@ -175,7 +175,32 @@ if ($env:CONFIG_FILE) {
 
 # Remove unused modules to avoid child process can access them
 Remove-Module -ModuleInfo $helpersModule
-# Import Image Helpers for Runner Process
-Import-Module (Join-Path $helpersPath "ImageHelpers.psm1")
+
+# Install ImageHelpers module if not already installed
+$moduleName = "ImageHelpers"
+$installedModule = Get-Module -Name $moduleName -ListAvailable
+
+if (-not $installedModule) {
+    # Get user's PowerShell module directory
+    $userModulePath = ($env:PSModulePath -split ';' | Where-Object { $_ -like "$home*" }) | Select-Object -First 1
+    $moduleInstallPath = Join-Path $userModulePath $moduleName
+    
+    # Create module directory if it doesn't exist
+    if (-not (Test-Path $moduleInstallPath)) {
+        New-Item -Path $moduleInstallPath -ItemType Directory -Force | Out-Null
+    }
+    
+    # Define files to exclude
+    $filesToExclude = @(
+        'ImageRunSetupHelpers.psm1',
+        'LogHelpers.ps1',
+        'CertificateHelpers.ps1'
+    )
+    
+    # Copy all files except excluded ones
+    Get-ChildItem -Path $helpersPath -File | 
+        Where-Object { $_.Name -notin $filesToExclude } |
+        Copy-Item -Destination $moduleInstallPath -Force
+}
 
 & act_runner @params

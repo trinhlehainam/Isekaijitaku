@@ -45,13 +45,38 @@ windows/
     │   ├── Install-OptionalBuildTools.ps1
     │   ├── Install-PrerequisiteBuildTools.ps1
     │   └── Install-Rust.ps1
-    └── helpers/           # Helper functions and utilities
-        ├── ImageHelpers.psm1
-        ├── ImageRunSetupHelpers.psm1
-        ├── InstallHelpers.ps1
-        ├── UnityInstallHelpers.ps1
-        └── VisualStudioHelpers.ps1
-```
+    └── helpers/           # Helper functions and modules
+        ├── ImageHelpers.psd1      # Module manifest
+        ├── ImageHelpers.psm1      # Module implementation
+        ├── InstallHelpers.ps1     # Installation helper functions
+        ├── UnityInstallHelpers.ps1 # Unity-specific helpers
+        ├── VisualStudioHelpers.ps1 # Visual Studio helpers
+        ├── CertificateHelpers.ps1  # Certificate management
+        ├── LogHelpers.ps1          # Logging utilities
+        └── ImageRunSetupHelpers.psm1  # Runner setup helpers
+
+### PowerShell Modules
+
+The runner uses several PowerShell modules to manage the build environment:
+
+#### ImageHelpers Module
+
+The `ImageHelpers` module provides core functionality for managing the Windows build environment. The module is installed in the user's PowerShell modules directory (`$home\Documents\PowerShell\Modules\ImageHelpers`) and includes:
+
+- `ImageHelpers.psd1` - Module manifest defining metadata
+- `ImageHelpers.psm1` - Core module implementation
+- `InstallHelpers.ps1` - Installation helper functions
+- `UnityInstallHelpers.ps1` - Unity-specific installation helpers
+- `VisualStudioHelpers.ps1` - Visual Studio installation helpers
+
+Module installation process:
+1. Checks if module is already installed by looking for it in `Get-Module -ListAvailable`
+2. Locates user's PowerShell module directory from `$env:PSModulePath`
+3. Creates `ImageHelpers` directory in the module path if it doesn't exist
+4. Copies required module files to the installation directory
+5. Module becomes available for all PowerShell sessions
+
+Note: Some helper scripts (CertificateHelpers, LogHelpers, ImageRunSetupHelpers) are kept separate and not included in the module as they are specific to the runner setup process.
 
 ## Features
 
