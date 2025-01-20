@@ -8,17 +8,9 @@ function Write-Log {
     Write-Host "[$timestamp] [$Level] $Message" -ForegroundColor $color
 }
 
-function Write-Error-Log {
+function Write-ErrorLog {
     param(
         [string]$Message
     )
     Write-Log -Level "ERROR" -Message $Message
-}
-
-function Write-Error-Log-And-Throw {
-    param(
-        [string]$Message
-    )
-    Write-Error-Log $Message
-    throw $Message
 }
