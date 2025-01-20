@@ -59,6 +59,15 @@ This directory contains sample GitHub Actions workflows that demonstrate various
 - Includes VSTest integration
 - Uses NuGet package caching
 
+### 7. Common Actions Test (`common-actions-test.yaml`)
+- Tests essential GitHub Actions
+- Validates `actions/checkout@v4`
+- Tests `actions/setup-node@v4`
+- Tests `actions/setup-python@v5`
+- Demonstrates artifact upload/download using `actions/upload-artifact@v3` and `actions/download-artifact@v3`
+- Tests caching with `actions/cache@v3`
+- Verifies environment variables and runner context
+
 ## Usage
 
 1. Copy the desired workflow file to your repository's `.gitea/workflows/` directory

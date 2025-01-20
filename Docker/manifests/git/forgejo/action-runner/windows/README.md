@@ -732,6 +732,34 @@ C:/BuildTools/
 └── Tools/           # Common development tools
 ```
 
+## Volume Mounting in Windows Containers
+
+When working with Windows containers, there are two main approaches to mounting volumes:
+
+### 1. Named Volumes
+```yaml
+volumes:
+  - type: volume
+    source: data
+    target: "C:\\ProgramData\\GiteaActRunner"
+```
+- Recommended for persistent data storage
+- Managed by Docker
+- Better performance and reliability
+- Must be declared in the `volumes` section of docker-compose file
+
+### 2. Bind Mounts
+```yaml
+volumes:
+  - "C:\\host-path:C:\\container-path"
+```
+- Used for mounting host directories
+- Works with directories but may have issues with individual files
+- Use Windows-style paths with double backslashes
+- Host path must exist before mounting
+
+> **Note**: When specifying paths in Windows containers, always use double backslashes (`\\`) in paths to ensure proper parsing.
+
 ## Build Capabilities
 
 The runner is equipped with comprehensive build tools and SDKs to support various development scenarios:

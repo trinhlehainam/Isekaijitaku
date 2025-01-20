@@ -24,16 +24,13 @@ services:
       - GITEA_RUNNER_LABELS=windows:host
       - EXTRA_CERT_FILES=C:\certs\root.crt,C:\certs\intermediate.crt,C:\all-certs
     volumes:
-      # Mount runner data directory for persistence
-      - ./runner:/data
-      # Optional: Mount Visual Studio tools if needed
-      # - "C:\\Program Files (x86)\\Windows Kits:C:\\Program Files (x86)\\Windows Kits"
-      # - "C:\\Program Files (x86)\\Microsoft Visual Studio:C:\\Program Files (x86)\\Microsoft Visual Studio"
-      # - "C:\\Program Files\\Microsoft Visual Studio:C:\\Program Files\\Microsoft Visual Studio"
-      # - "C:\\ProgramData\\Microsoft\\VisualStudio:C:\\ProgramData\\Microsoft\\VisualStudio"
-      - ./certs/root.crt:C:\certs\root.crt:ro
-      - ./certs/intermediate.crt:C:\certs\intermediate.crt:ro
-      - ./all-certs:C:\all-certs:ro
+      # Mount volumes in Windows container
+      # https://docs.docker.com/reference/compose-file/services/#volumes
+      - type: volume
+        source: data
+        target: "C:\\ProgramData\\GiteaActRunner"
+      # Bind mount directory in Windows container, not working on files
+      - "C:\\certs:C:\\certs"
     deploy:
       resources:
         limits:
@@ -46,3 +43,7 @@ services:
 networks:
   gitea_network:
     external: true
+    
+volumes:
+  data:
+    driver: local
