@@ -1,3 +1,2 @@
-[ ] Configure act_runner environment to change default folders paths (cache, workdir) to $env:ProgramData\GiteaActRunner
 [ ] Change Git to use Windows system ca store. git config --global http.sslBackend schannel https://github.com/desktop/desktop/issues/9293#issuecomment-607357181
 [ ] Failed to setup Pty Unsupported when using actions/setup-node@v3 on Windows runner

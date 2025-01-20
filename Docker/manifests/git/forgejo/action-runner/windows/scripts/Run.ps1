@@ -67,22 +67,22 @@ function Test-Environment {
 
 function New-RunnerConfig {
     param(
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory = $false)]
         [string]$ConfigFile,
 
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory = $false)]
         [string]$RunnerFile,
 
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory = $false)]
         [string]$CacheDir,
 
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory = $false)]
         [string]$WorkDir,
 
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory = $false)]
         [string]$Labels = "windows:host",
 
-        [Parameter(Mandatory=$false)]
+        [Parameter(Mandatory = $false)]
         [ValidateSet('trace', 'debug', 'info', 'warn', 'error')]
         [string]$LogLevel = 'info'
     )
@@ -94,6 +94,19 @@ function New-RunnerConfig {
     if (-not (Test-Path $configDir)) {
         New-Item -ItemType Directory -Force -Path $configDir | Out-Null
     }
+    
+    # convert labels string from "a,b,c"
+    # to
+    #   - a
+    #   - b
+    #   - c
+    $labels = $Labels.Trim().Split(",") |
+    ForEach-Object { $_.Trim() } |
+    Where-Object { -not [string]::IsNullOrWhiteSpace($_) } |
+    ForEach-Object { "    - $_" }
+
+    # convert labels to yaml format
+    $labels = $labels -join "`n"
 
     # Reference: https://gitea.com/gitea/act_runner/src/branch/main/internal/pkg/config/config.example.yaml
     $configContent = @"
@@ -137,7 +150,7 @@ runner:
   # If it's empty when registering, it will ask for inputting labels.
   # If it's empty when execute `daemon`, will use labels in `.runner` file.
   labels:
-    - $Labels
+$Labels
 
 cache:
   # Enable cache server to use actions/cache.
@@ -217,7 +230,7 @@ function Register-Runner {
     # https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.management/rename-item?view=powershell-7.4#outputs
     $defaultConfigFile = New-TemporaryFile | Rename-Item -NewName {[io.path]::ChangeExtension($_.Name, ".yaml")} -PassThru
     
-    if ($env:CONFIG_FILE) {
+    if ($env:CONFIG_FILE -and (Test-Path $env:CONFIG_FILE)) {
         Write-Log "Using custom config file: $env:CONFIG_FILE"
         $defaultConfigFile = $env:CONFIG_FILE
     }
