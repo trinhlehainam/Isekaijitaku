@@ -332,6 +332,14 @@ if ($env:EXTRA_CERT_FILES) {
         Write-ErrorLog "Failed to install one or more custom certificates to Node.js"
         exit 1
     }
+    
+    # git use OpenSSL by default and extra certificates is installed in Windows CA store
+    # need to change git to use Windows CA store
+    # https://github.com/desktop/desktop/issues/9293#issuecomment-607357181
+    if (Get-Command git -ErrorAction SilentlyContinue) {
+        Write-Log "Configuring git to use Windows certificate store for custom certificates..."
+        git config --global http.sslBackend schannel
+    }
 }
 
 Write-Log "Starting Gitea Runner initialization..."
