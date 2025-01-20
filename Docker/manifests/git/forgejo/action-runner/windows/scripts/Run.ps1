@@ -224,22 +224,6 @@ function Register-Runner {
     Write-Log "Maximum registration attempts: $max_registration_attempts"
 
     Write-Log "Checking runner registration..."
-    
-    # change temp file extension to .yaml
-    # https://stackoverflow.com/a/12120352
-    # https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.management/rename-item?view=powershell-7.4#outputs
-    $defaultConfigFile = New-TemporaryFile | Rename-Item -NewName {[io.path]::ChangeExtension($_.Name, ".yaml")} -PassThru
-    
-    if ($env:CONFIG_FILE -and (Test-Path $env:CONFIG_FILE)) {
-        Write-Log "Using custom config file: $env:CONFIG_FILE"
-        $defaultConfigFile = $env:CONFIG_FILE
-    }
-    else {
-        $defaultRunnerPath = "$env:ProgramData\GiteaActRunner\.runner"
-        $defaultCachePath = "$env:ProgramData\GiteaActRunner\.cache\actcache"
-        $defaultWorkPath = "$env:ProgramData\GiteaActRunner\.cache\act"
-        New-RunnerConfig -ConfigFile $defaultConfigFile.FullName -RunnerFile $defaultRunnerPath -CacheDir $defaultCachePath -WorkDir $defaultWorkPath -Labels $env:GITEA_RUNNER_LABELS 
-    }
 
     if (-not (Test-Path $env:RUNNER_STATE_FILE)) {
         Write-Log "Runner not registered, starting registration..."
@@ -250,7 +234,7 @@ function Register-Runner {
             "--token", $env:GITEA_RUNNER_REGISTRATION_TOKEN,
             "--name", $env:GITEA_RUNNER_NAME,
             "--labels", $env:GITEA_RUNNER_LABELS,
-            "--config", $defaultConfigFile,
+            "--config", $env:CONFIG_FILE,
             "--no-interactive"
         )
 
@@ -341,17 +325,26 @@ if ($env:EXTRA_CERT_FILES) {
         git config --global http.sslBackend schannel
     }
 }
+    
+# change temp file extension to .yaml
+# https://stackoverflow.com/a/12120352
+# https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.management/rename-item?view=powershell-7.4#outputs
+$defaultConfigFile = New-TemporaryFile | Rename-Item -NewName { [io.path]::ChangeExtension($_.Name, ".yaml") } -PassThru
+    
+if ([string]::IsNullOrEmpty($env:CONFIG_FILE) -or -not (Test-Path $env:CONFIG_FILE)) {
+    Write-Log "No CONFIG_FILE specified or CONFIG_FILE does not exist, generating default config file..."
+    $env:CONFIG_FILE = $defaultConfigFile.FullName
+    $defaultRunnerPath = "$env:ProgramData\GiteaActRunner\.runner"
+    $defaultCachePath = "$env:ProgramData\GiteaActRunner\.cache\actcache"
+    $defaultWorkPath = "$env:ProgramData\GiteaActRunner\.cache\act"
+    New-RunnerConfig -ConfigFile $env:CONFIG_FILE -RunnerFile $defaultRunnerPath -CacheDir $defaultCachePath -WorkDir $defaultWorkPath -Labels $env:GITEA_RUNNER_LABELS 
+}
 
 Write-Log "Starting Gitea Runner initialization..."
 Test-Environment
 Register-Runner
 
 Write-Log "Starting runner daemon..."
-$params = @("daemon")
-if ($env:CONFIG_FILE) {
-    Write-Log "Using custom config file: $env:CONFIG_FILE"
-    $params += @("--config", $env:CONFIG_FILE)
-}
 
 # Install VSSetup module if not already installed
 if (-not (Get-Module -ListAvailable -Name VSSetup)) {
@@ -395,4 +388,4 @@ if (-not $installedModule) {
         Copy-Item -Destination $moduleInstallPath -Force
 }
 
-& act_runner @params
+& act_runner daemon --config $env:CONFIG_FILE
