@@ -1,0 +1,76 @@
+name: UWP Continuous Integration
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build:
+    strategy:
+      matrix:
+        configuration: [Debug, Release]
+        platform: [x86, x64, ARM64]
+
+    runs-on: windows-latest
+
+    env:
+      Solution_Path: YourApp.sln # Replace with your solution name
+      UWP_Project_Path: YourApp/YourApp.csproj # Replace with your project path
+      UWP_Project_Directory: YourApp
+      PACKAGE_DIRECTORY: AppPackages
+      SIGNING_CERTIFICATE: GitHubActionsDemo.pfx
+
+    steps:
+    - name: Checkout
+      uses: actions/checkout@v4
+      with:
+        fetch-depth: 0
+
+    - name: Setup MSBuild
+      uses: microsoft/setup-msbuild@v1.3.1
+
+    - name: Setup Windows SDK
+      uses: microsoft/setup-windowssdk@v1
+      with:
+        windows-sdk-version: '10.0.22621.0'
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v3
+      with:
+        dotnet-version: '7.0.x'
+
+    - name: Restore Dependencies
+      run: |
+        dotnet restore $env:Solution_Path
+
+    - name: Decode Signing Certificate
+      if: ${{ github.event_name != 'pull_request' }}
+      run: |
+        $pfx_cert_byte = [System.Convert]::FromBase64String("${{ secrets.BASE64_ENCODED_PFX }}")
+        $certificatePath = Join-Path -Path $env:UWP_Project_Directory -ChildPath $env:SIGNING_CERTIFICATE
+        [IO.File]::WriteAllBytes("$certificatePath", $pfx_cert_byte)
+
+    - name: Build UWP App
+      run: |
+        msbuild $env:Solution_Path `
+        /p:Configuration=${{ matrix.configuration }} `
+        /p:Platform=${{ matrix.platform }} `
+        /p:UapAppxPackageBuildMode=StoreUpload `
+        /p:AppxBundle=Always `
+        /p:AppxBundlePlatforms="${{ matrix.platform }}" `
+        /p:AppxPackageDir="$env:PACKAGE_DIRECTORY" `
+        /p:GenerateAppxPackageOnBuild=true `
+        ${{ github.event_name != 'pull_request' && format('/p:PackageCertificateKeyFile={0} /p:PackageCertificatePassword="${{ secrets.CERTIFICATE_PASSWORD }}"', env.SIGNING_CERTIFICATE) || '' }}
+
+    - name: Remove Certificate
+      if: ${{ github.event_name != 'pull_request' }}
+      run: |
+        Remove-Item -path "$env:UWP_PROJECT_DIRECTORY\$env:SIGNING_CERTIFICATE"
+
+    - name: Upload Build Artifacts
+      uses: actions/upload-artifact@v3
+      with:
+        name: MSIX Package (${{ matrix.platform }})
+        path: ${{ env.PACKAGE_DIRECTORY }}
