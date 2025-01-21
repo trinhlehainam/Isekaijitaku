@@ -138,6 +138,60 @@ $manifest = [System.Xml.XmlDocument]::new()
 $manifest.Load("\Path\To\Package.appxmanifest")
 ```
 
+### Node Manipulation
+
+#### Checking Existing Nodes
+
+Before adding new nodes, it's essential to check if they already exist:
+
+```powershell
+[xml]$manifest = Get-Content "\Path\To\Package.appxmanifest"
+
+# Check if a Capability exists
+$uapNs = $manifest.DocumentElement.GetNamespaceOfPrefix('uap')
+$capabilities = $manifest.Package.Capabilities
+$existingCapability = $capabilities.ChildNodes | 
+    Where-Object { ($_.Name -eq "Capability") -and ($_.GetAttribute("Name") -eq "documentsLibrary") }
+
+if (-not $existingCapability) {
+    # Create and append new capability
+    $newCapability = $manifest.CreateElement("uap", "Capability", $uapNs)
+    $newCapability.SetAttribute("Name", "documentsLibrary")
+    [void]$capabilities.AppendChild($newCapability)
+}
+```
+
+#### Controlling Node Position
+
+You can insert nodes at specific positions instead of appending at the end:
+
+```powershell
+[xml]$manifest = Get-Content "\Path\To\Package.appxmanifest"
+
+# Get the parent node
+$capabilities = $manifest.Package.Capabilities
+
+# Find reference node (e.g., the picturesLibrary capability)
+$refNode = $capabilities.ChildNodes | 
+    Where-Object { 
+      ($_.Prefix -eq "uap") -and ($_.LocalName -eq "Capability") -and
+      ($_.GetAttribute("Name") -eq "picturesLibrary") 
+    }
+
+if ($refNode) {
+    # Create new node
+    $uapNs = $manifest.DocumentElement.GetNamespaceOfPrefix('uap')
+    $newCapability = $manifest.CreateElement("uap", "Capability", $uapNs)
+    $newCapability.SetAttribute("Name", "documentsLibrary")
+
+    # Insert after the reference node
+    [void]$capabilities.InsertAfter($newCapability, $refNode)
+    
+    # Or insert before the reference node
+    # [void]$capabilities.InsertBefore($newCapability, $refNode)
+}
+```
+
 ### Adding Capabilities
 
 To add a new capability (e.g., documentsLibrary):
@@ -149,12 +203,22 @@ To add a new capability (e.g., documentsLibrary):
 # Get the namespace URI for 'uap'
 $nsUri = $manifest.DocumentElement.GetNamespaceOfPrefix('uap')
 
-# Create new Capability element
-$newCapability = $manifest.CreateElement("uap", "Capability", $nsUri)
-$newCapability.SetAttribute("Name", "documentsLibrary")
+# Check if capability already exists
+$capabilities = $manifest.Package.Capabilities
+$existingCapability = $capabilities.ChildNodes | 
+    Where-Object { 
+      ($_.Prefix -eq "uap") -and ($_.LocalName -eq "Capability") -and
+      ($_.GetAttribute("Name") -eq "documentsLibrary") 
+    }
 
-# Add the new Capability to Capabilities node
-[void]$manifest.Package.Capabilities.AppendChild($newCapability)
+if (-not $existingCapability) {
+    # Create new Capability element
+    $newCapability = $manifest.CreateElement("uap", "Capability", $nsUri)
+    $newCapability.SetAttribute("Name", "documentsLibrary")
+
+    # Append to the Capabilities node
+    [void]$capabilities.AppendChild($newCapability)
+}
 
 # Save the changes
 $manifest.Save("\Path\To\Package.appxmanifest")
@@ -162,7 +226,7 @@ $manifest.Save("\Path\To\Package.appxmanifest")
 
 ### Adding File Type Associations
 
-To add file type associations to your app:
+To add file type associations to a specific application:
 
 ```powershell
 # Load the manifest
@@ -171,40 +235,61 @@ To add file type associations to your app:
 # Get the namespace URI for 'uap'
 $nsUri = $manifest.DocumentElement.GetNamespaceOfPrefix('uap')
 
-# Create Extension structure
-$extension = $manifest.CreateElement("uap", "Extension", $nsUri)
-$extension.SetAttribute("Category", "windows.fileTypeAssociation")
+# Find the specific application by EntryPoint
+$application = $manifest.Package.Applications.ChildNodes | Where-Object { ($_.EntryPoint -eq "YourApp.App") }
 
-$fileTypeAssoc = $manifest.CreateElement("uap", "FileTypeAssociation", $nsUri)
-$fileTypeAssoc.SetAttribute("Name", "test")
-
-$supportedTypes = $manifest.CreateElement("uap", "SupportedFileTypes", $nsUri)
-$fileType = $manifest.CreateElement("uap", "FileType", $nsUri)
-$fileType.InnerText = ".txt"
-
-$displayName = $manifest.CreateElement("uap", "DisplayName", $nsUri)
-$displayName.InnerText = "test"
-
-# Build the XML structure
-$supportedTypes.AppendChild($fileType)
-$fileTypeAssoc.AppendChild($supportedTypes)
-$fileTypeAssoc.AppendChild($displayName)
-$extension.AppendChild($fileTypeAssoc)
-
-# Find the Extensions node under Application (create if doesn't exist)
-$application = $manifest.Package.Applications.Application
-$extensions = $application.SelectSingleNode("Extensions")
-if ($extensions -eq $null) {
-    $extensions = $manifest.CreateElement("Extensions")
-    [void]$application.AppendChild($extensions)
+if (-not $application) {
+    Write-Error "Application not found"
+    return
 }
 
-# Add the new Extension
-[void]$extensions.AppendChild($extension)
+# Check if the file type association already exists
+$extensions = $application.ChildNodes | Where-Object { $_.LocalName -eq "Extensions" }
+
+# Create Extensions node if it doesn't exist
+if (-not $extensions) {
+  $extensions = $manifest.CreateElement("Extensions")
+
+  [void]$application.AppendChild($extensions)
+}
+
+$hasFileTypeAssociation = $extensions.ChildNodes | Where-Object { 
+    ($_.Prefix -eq "uap") -and ($_.LocalName -eq "Extension") -and
+    ($_.GetAttribute("Category") -eq "windows.fileTypeAssociation")
+}
+
+if (-not $hasFileTypeAssociation) {
+    # Create Extension structure
+    $extension = $manifest.CreateElement("uap", "Extension", $nsUri)
+    $extension.SetAttribute("Category", "windows.fileTypeAssociation")
+
+    $fileTypeAssoc = $manifest.CreateElement("uap", "FileTypeAssociation", $nsUri)
+    $fileTypeAssoc.SetAttribute("Name", "test")
+
+    $supportedTypes = $manifest.CreateElement("uap", "SupportedFileTypes", $nsUri)
+    $fileType = $manifest.CreateElement("uap", "FileType", $nsUri)
+    $fileType.InnerText = ".txt"
+
+    $displayName = $manifest.CreateElement("uap", "DisplayName", $nsUri)
+    $displayName.InnerText = "test"
+
+    # Build the XML structure
+    $supportedTypes.AppendChild($fileType)
+    $fileTypeAssoc.AppendChild($supportedTypes)
+    $fileTypeAssoc.AppendChild($displayName)
+    $extension.AppendChild($fileTypeAssoc)
+
+    # Append to the Extensions node
+    [void]$extensions.AppendChild($extension)
+}
 
 # Save the changes
 $manifest.Save("\Path\To\Package.appxmanifest")
 ```
+
+Key changes in this example:
+1. Finds specific application by `EntryPoint` attributes
+2. Maintains proper node ordering within the Application element
 
 ### Working with Namespaces
 
