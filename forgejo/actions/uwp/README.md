@@ -359,6 +359,62 @@ $rescapCapability = $manifest.CreateElement("rescap", "Capability", $rescapNs)
 4. The `[void]` operator is used to suppress output when appending nodes
 5. Test the modified manifest thoroughly before deployment
 
+## Modifying Visual Studio Project Settings
+
+### Changing Platform Toolset
+
+To change the platform toolset (e.g., to Visual Studio 2022), you can modify the project file using PowerShell:
+
+```powershell
+# Load the project settings file
+[xml]$projectSettings = Get-Content "\Path\To\YourApp.vcxproj"
+
+# Find all PropertyGroup elements
+$propertyGroups = $projectSettings.Project.ChildNodes |
+    Where-Object { $_.LocalName -eq "PropertyGroup" -and $_.Label -eq "Configuration" } 
+    
+if (-not $propertyGroups) {
+    Write-Host "No PropertyGroup elements found."
+    return
+}
+
+# Find and update PlatformToolset
+$propertyGroups.ChildNodes |
+  Where-Object { $_.LocalName -eq "PlatformToolset" } |
+  ForEach-Object { $_.InnerText = "v143" }
+
+# Save changes
+$projectSettings.Save("\Path\To\YourApp.vcxproj")
+```
+
+You can also target specific configurations:
+
+```powershell
+# Load the project settings file
+[xml]$projectSettings = Get-Content "\Path\To\YourApp.vcxproj"
+
+# Find ItemGroup elements
+$debugConfigs = $projectSettings.Project.ChildNodes |
+    Where-Object { 
+        $_.LocalName -eq "PropertyGroup" -and
+        ($_.Condition -match "'Debug\|.*'") -and 
+        ($_.PlatformToolset)
+    }
+
+# Save changes
+$projectSettings.Save("\Path\To\YourApp.vcxproj")
+```
+
+Available Platform Toolset values:
+- `v143` - Visual Studio 2022
+- `v142` - Visual Studio 2019
+- `v141` - Visual Studio 2017
+
+Note: After modifying the project file, you need to reload the project in Visual Studio for changes to take effect.
+
+References:
+- [Visual Studio Platform Toolsets](https://learn.microsoft.com/en-us/cpp/build/how-to-modify-the-target-framework-and-platform-toolset)
+
 ## References
 
 ### Official Documentation
