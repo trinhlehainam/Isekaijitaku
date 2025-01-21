@@ -92,7 +92,7 @@ Note: Secret names in Forgejo/Gitea:
 
 ### 4. Configure Workflow Files
 
-1. Place these workflow files in your `.github/workflows` directory
+1. Place these workflow files in your `.forgejo/workflows` directory
 2. Update the following variables in both workflows:
    - `Solution_Path`
    - `UWP_Project_Path`
@@ -120,3 +120,33 @@ This ensures that your app can run on all supported Windows 10/11 devices.
 3. The PFX file is decoded only during the build process and is immediately removed after signing
 4. Certificate files are automatically cleaned up after each workflow run
 5. Access to secrets is limited to workflow runs and is not available to pull requests from forks
+
+## References
+
+### Official Documentation
+- [Forgejo Actions Documentation](https://forgejo.org/docs/v1.20/user/actions/)
+- [Forgejo Secrets Management](https://docs.gitea.com/usage/secrets)
+- [Windows App Certification Kit](https://learn.microsoft.com/en-us/windows/uwp/debug-test-perf/windows-app-certification-kit)
+- [UWP App Packaging](https://learn.microsoft.com/en-us/windows/uwp/packaging/packaging-uwp-apps)
+
+### Certificate Management
+- [Windows Code Signing Best Practices](https://learn.microsoft.com/en-us/windows-hardware/drivers/install/authenticode-signing-of-windows-applications)
+- [PowerShell Certificate Commands](https://learn.microsoft.com/en-us/powershell/module/pki/new-selfsignedcertificate)
+- [Working with Certificates in PowerShell](https://learn.microsoft.com/en-us/powershell/scripting/samples/working-with-certificates)
+
+### CI/CD Pipeline
+- [Forgejo Actions Command Line](https://docs.gitea.com/administration/command-line#generate)
+- [MSBuild Command Line Reference](https://learn.microsoft.com/en-us/visualstudio/msbuild/msbuild-command-line-reference)
+- [MSIX Packaging Tool](https://learn.microsoft.com/en-us/windows/msix/packaging-tool/tool-overview)
+- [Automated UWP App Packaging](https://github.com/MicrosoftDocs/windows-dev-docs/blob/docs/uwp/packaging/auto-build-package-uwp-apps.md)
+- [GitHub Actions for Desktop Apps](https://github.com/microsoft/github-actions-for-desktop-apps#workflows)
+
+### Security
+- [Forgejo Actions Security Guide](https://forgejo.org/docs/v1.20/user/actions/#secrets)
+- [Secure Development and Deployment](https://learn.microsoft.com/en-us/windows/security/threat-protection/security-compliance-toolkit-10)
+- [Best Practices for UWP App Security](https://learn.microsoft.com/en-us/windows/uwp/security/security-best-practices)
+
+### Tools and Utilities
+- [Windows SDK](https://developer.microsoft.com/en-us/windows/downloads/windows-sdk/)
+- [Visual Studio Build Tools](https://visualstudio.microsoft.com/downloads/#build-tools-for-visual-studio-2022)
+- [SignTool Documentation](https://learn.microsoft.com/en-us/windows/win32/seccrypto/signtool)
