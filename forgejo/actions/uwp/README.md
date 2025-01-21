@@ -121,6 +121,141 @@ This ensures that your app can run on all supported Windows 10/11 devices.
 4. Certificate files are automatically cleaned up after each workflow run
 5. Access to secrets is limited to workflow runs and is not available to pull requests from forks
 
+## Modifying Package.appxmanifest
+
+You can use PowerShell to programmatically modify the Package.appxmanifest file. Here are common scenarios and their implementations:
+
+### Loading the Manifest
+
+There are two ways to load the manifest file:
+
+```powershell
+# Method 1: Simple and concise
+[xml]$manifest = Get-Content "\Path\To\Package.appxmanifest"
+
+# Method 2: Using XmlDocument (provides more control over loading options)
+$manifest = [System.Xml.XmlDocument]::new()
+$manifest.Load("\Path\To\Package.appxmanifest")
+```
+
+### Adding Capabilities
+
+To add a new capability (e.g., documentsLibrary):
+
+```powershell
+# Load the manifest
+[xml]$manifest = Get-Content "\Path\To\Package.appxmanifest"
+
+# Get the namespace URI for 'uap'
+$nsUri = $manifest.DocumentElement.GetNamespaceOfPrefix('uap')
+
+# Create new Capability element
+$newCapability = $manifest.CreateElement("uap", "Capability", $nsUri)
+$newCapability.SetAttribute("Name", "documentsLibrary")
+
+# Add the new Capability to Capabilities node
+[void]$manifest.Package.Capabilities.AppendChild($newCapability)
+
+# Save the changes
+$manifest.Save("\Path\To\Package.appxmanifest")
+```
+
+### Adding File Type Associations
+
+To add file type associations to your app:
+
+```powershell
+# Load the manifest
+[xml]$manifest = Get-Content "\Path\To\Package.appxmanifest"
+
+# Get the namespace URI for 'uap'
+$nsUri = $manifest.DocumentElement.GetNamespaceOfPrefix('uap')
+
+# Create Extension structure
+$extension = $manifest.CreateElement("uap", "Extension", $nsUri)
+$extension.SetAttribute("Category", "windows.fileTypeAssociation")
+
+$fileTypeAssoc = $manifest.CreateElement("uap", "FileTypeAssociation", $nsUri)
+$fileTypeAssoc.SetAttribute("Name", "test")
+
+$supportedTypes = $manifest.CreateElement("uap", "SupportedFileTypes", $nsUri)
+$fileType = $manifest.CreateElement("uap", "FileType", $nsUri)
+$fileType.InnerText = ".txt"
+
+$displayName = $manifest.CreateElement("uap", "DisplayName", $nsUri)
+$displayName.InnerText = "test"
+
+# Build the XML structure
+$supportedTypes.AppendChild($fileType)
+$fileTypeAssoc.AppendChild($supportedTypes)
+$fileTypeAssoc.AppendChild($displayName)
+$extension.AppendChild($fileTypeAssoc)
+
+# Find the Extensions node under Application (create if doesn't exist)
+$application = $manifest.Package.Applications.Application
+$extensions = $application.SelectSingleNode("Extensions")
+if ($extensions -eq $null) {
+    $extensions = $manifest.CreateElement("Extensions")
+    [void]$application.AppendChild($extensions)
+}
+
+# Add the new Extension
+[void]$extensions.AppendChild($extension)
+
+# Save the changes
+$manifest.Save("\Path\To\Package.appxmanifest")
+```
+
+### Working with Namespaces
+
+Package.appxmanifest uses several predefined Microsoft schemas. Here's how to work with them:
+
+#### Checking Available Namespaces
+
+To view namespaces defined in the manifest:
+
+```powershell
+[xml]$manifest = Get-Content "\Path\To\Package.appxmanifest"
+
+# List all namespace declarations
+$manifest.DocumentElement.Attributes | Where-Object { $_.Prefix -eq "xmlns" } | 
+    Format-Table Name, Value
+
+# Get specific namespace URI
+$nsUri = $manifest.DocumentElement.GetNamespaceOfPrefix('uap')
+Write-Host "UAP Namespace: $nsUri"
+```
+
+Common namespace prefixes in Package.appxmanifest:
+```xml
+xmlns="http://schemas.microsoft.com/appx/manifest/foundation/windows10"
+xmlns:mp="http://schemas.microsoft.com/appx/2014/phone/manifest"
+xmlns:uap="http://schemas.microsoft.com/appx/manifest/uap/windows10"
+xmlns:uap2="http://schemas.microsoft.com/appx/manifest/uap/windows10/2"
+xmlns:uap3="http://schemas.microsoft.com/appx/manifest/uap/windows10/3"
+xmlns:rescap="http://schemas.microsoft.com/appx/manifest/foundation/windows10/restrictedcapabilities"
+```
+
+When creating new elements, make sure to use the correct namespace URI:
+
+```powershell
+# Get namespace URI for specific prefix
+$uapNs = $manifest.DocumentElement.GetNamespaceOfPrefix('uap')
+$rescapNs = $manifest.DocumentElement.GetNamespaceOfPrefix('rescap')
+
+# Create elements with correct namespaces
+$uapCapability = $manifest.CreateElement("uap", "Capability", $uapNs)
+$rescapCapability = $manifest.CreateElement("rescap", "Capability", $rescapNs)
+```
+
+### Important Notes
+
+1. Always backup your Package.appxmanifest file before making modifications
+2. Make sure to use the correct namespace prefixes (uap, uap2, etc.) as defined in your manifest
+3. The XML is case-sensitive, so make sure to match the exact casing of elements and attributes
+4. The `[void]` operator is used to suppress output when appending nodes
+5. Test the modified manifest thoroughly before deployment
+
 ## References
 
 ### Official Documentation
@@ -145,6 +280,13 @@ This ensures that your app can run on all supported Windows 10/11 devices.
 - [Forgejo Actions Security Guide](https://forgejo.org/docs/v1.20/user/actions/#secrets)
 - [Secure Development and Deployment](https://learn.microsoft.com/en-us/windows/security/threat-protection/security-compliance-toolkit-10)
 - [Best Practices for UWP App Security](https://learn.microsoft.com/en-us/windows/uwp/security/security-best-practices)
+
+### Package.appxmanifest Management
+- [Package manifest schema reference](https://learn.microsoft.com/en-us/uwp/schemas/appxpackage/appx-package-manifest)
+- [App capability declarations](https://learn.microsoft.com/en-us/windows/uwp/packaging/app-capability-declarations)
+- [File type associations](https://learn.microsoft.com/en-us/windows/uwp/launch-resume/handle-file-activation)
+- [PowerShell XML Manipulation](https://learn.microsoft.com/en-us/powershell/scripting/samples/working-with-xml)
+- [App Extensions](https://learn.microsoft.com/en-us/windows/uwp/launch-resume/how-to-create-an-extension)
 
 ### Tools and Utilities
 - [Windows SDK](https://developer.microsoft.com/en-us/windows/downloads/windows-sdk/)
