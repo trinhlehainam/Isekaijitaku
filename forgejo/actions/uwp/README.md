@@ -140,6 +140,19 @@ $manifest.Load("\Path\To\Package.appxmanifest")
 
 ### Node Manipulation
 
+#### Creating Elements With and Without Namespaces
+
+```powershell
+[xml]$manifest = Get-Content "\Path\To\Package.appxmanifest"
+
+# Create element without xmlns="" attribute
+$noXmlnsElement = $manifest.CreateElement("Extensions", $manifest.DocumentElement.NamespaceURI)
+
+# Create element with namespace prefix
+$nsUri = $manifest.DocumentElement.GetNamespaceOfPrefix('uap')
+$withNamespaceElement = $manifest.CreateElement("uap", "Extension", $nsUri)
+```
+
 #### Checking Existing Nodes
 
 Before adding new nodes, it's essential to check if they already exist:
@@ -232,9 +245,6 @@ To add file type associations to a specific application:
 # Load the manifest
 [xml]$manifest = Get-Content "\Path\To\Package.appxmanifest"
 
-# Get the namespace URI for 'uap'
-$nsUri = $manifest.DocumentElement.GetNamespaceOfPrefix('uap')
-
 # Find the specific application by EntryPoint
 $application = $manifest.Package.Applications.ChildNodes | Where-Object { ($_.EntryPoint -eq "YourApp.App") }
 
@@ -243,22 +253,28 @@ if (-not $application) {
     return
 }
 
-# Check if the file type association already exists
+# Check if Extensions node exists
 $extensions = $application.ChildNodes | Where-Object { $_.LocalName -eq "Extensions" }
 
-# Create Extensions node if it doesn't exist
+# Create Extensions node if it doesn't exist (without xmlns="" attribute)
 if (-not $extensions) {
-  $extensions = $manifest.CreateElement("Extensions")
-
-  [void]$application.AppendChild($extensions)
+    # Create Extensions element without xmlns="" attribute
+    # Using parent's namespace to avoid xmlns="" attribute
+    # https://stackoverflow.com/a/8676037
+    $extensions = $manifest.CreateElement("Extensions", $manifest.DocumentElement.NamespaceURI)
+    [void]$application.AppendChild($extensions)
 }
 
+# Check if file type association already exists
 $hasFileTypeAssociation = $extensions.ChildNodes | Where-Object { 
     ($_.Prefix -eq "uap") -and ($_.LocalName -eq "Extension") -and
     ($_.GetAttribute("Category") -eq "windows.fileTypeAssociation")
 }
 
 if (-not $hasFileTypeAssociation) {
+    # Get the namespace URI for 'uap'
+    $nsUri = $manifest.DocumentElement.GetNamespaceOfPrefix('uap')
+
     # Create Extension structure
     $extension = $manifest.CreateElement("uap", "Extension", $nsUri)
     $extension.SetAttribute("Category", "windows.fileTypeAssociation")
@@ -288,8 +304,10 @@ $manifest.Save("\Path\To\Package.appxmanifest")
 ```
 
 Key changes in this example:
-1. Finds specific application by `EntryPoint` attributes
-2. Maintains proper node ordering within the Application element
+1. Creates `Extensions` element using parent's namespace (`$manifest.DocumentElement.NamespaceURI`) to avoid xmlns="" attribute
+2. The resulting XML will have a clean `<Extensions>` tag without any xmlns attribute
+3. Finds specific application by `EntryPoint` attribute
+4. Maintains proper node ordering within the Application element
 
 ### Working with Namespaces
 
