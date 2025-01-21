@@ -408,7 +408,7 @@ The certificate handling is performed by the `Install-NodeExtraCaCerts` function
 3. Creates a fresh certificate file
 4. Updates system environment variables
 
-### Build Examples
+## Build Examples
 
 ```powershell
 # Build with default Windows image
@@ -465,9 +465,10 @@ The following components are installed by default:
 
 1. **Base Development Tools**
    - Visual Studio Build Tools 2022
-   - C++ build tools and Windows SDK
-   - .NET development tools
-   - CMake and Git
+   - CMake build system
+   - ATL/MFC support
+   - Windows SDK 11
+   - Address Sanitizer (ASAN)
 
 2. **Node.js Environment**
    - Node.js LTS (default v22)
@@ -493,6 +494,7 @@ The following components are installed by default:
    - Android NDK R23C
    - .NET MAUI support
    - OpenJDK
+   - Cross-platform build support
 
 3. **Universal Windows Platform** (`-InstallUWP`)
    - UWP build tools
@@ -588,6 +590,437 @@ C:/BuildTools/
 └── Android/            # Android SDK and tools
 ```
 
+## Python Setup Requirements
+
+The Windows runner includes specific configurations to support the `actions/setup-python` action:
+
+### Prerequisites
+
+Before using the Python installation scripts, ensure you have the following dependencies installed:
+
+1. **7-Zip**:
+   - Installs latest 7-Zip
+   - Adds to system PATH
+   - Required for extracting Python packages
+   - [7-Zip download](https://www.7-zip.org/download.html)
+
+2. **Execution Policies**:
+   - Sets appropriate PowerShell execution policies
+   - Configures all scopes (Machine, User, Process)
+   - [About Execution Policies](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_execution_policies)
+
+### Prerequisites Installation
+
+Run the installation script as Administrator:
+```powershell
+.\scripts\build\Install-PythonPrerequisites.ps1
+```
+
+The script sets up:
+
+1. **7-Zip**
+   - Installs latest 7-Zip
+   - Adds to system PATH
+   - Required for extracting Python packages
+   - [7-Zip download](https://www.7-zip.org/download.html)
+
+2. **Execution Policies**
+   - Sets appropriate PowerShell execution policies
+   - Configures all scopes (Machine, User, Process)
+   - [About Execution Policies](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_execution_policies)
+
+### Service Account Setup
+
+When running as a Windows service:
+1. Use NT AUTHORITY\NETWORK SERVICE account
+   - Default service account with limited privileges
+   - [Service Account Documentation](https://learn.microsoft.com/en-us/windows/win32/services/service-user-accounts)
+2. Ensure account has write permissions to:
+   - Python installation directories
+   - Temporary directories used during installation
+
+### Environment Testing
+
+The `environment-test.yaml` workflow includes tests for Python prerequisites:
+- PowerShell execution policies
+- 7-Zip installation and PATH setup
+- Service account privileges
+- Environment variables
+
+Run the environment test to verify your setup:
+```yaml
+name: Test Environment
+on: [push, workflow_dispatch]
+
+jobs:
+  test:
+    runs-on: [windows]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Environment Tests
+        run: |
+          # Test script content in examples/actions/environment-test.yaml
+```
+
+### Troubleshooting Common Issues
+
+1. **Python Installation Failures**
+   - Verify execution policies are properly set
+   - Check service account permissions
+   - [Python Installation Guide](https://github.com/actions/setup-python/blob/main/docs/advanced-usage.md#windows)
+
+2. **Permission Issues**
+   - Run initial setup as Administrator
+   - Configure service account permissions correctly
+   - [Windows Permissions Guide](https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/understand-security-identifiers)
+
+3. **7-Zip Issues**
+   - Verify 7-Zip is in system PATH
+   - Check installation using `7z.exe i`
+   - [7-Zip Command Line Guide](https://documentation.help/7-Zip/start.htm)
+
+## Build Capabilities
+
+The runner is equipped with comprehensive build tools and SDKs to support various development scenarios:
+
+### Development Environments
+
+1. **C++ Development**
+   - Visual Studio Build Tools 2022
+   - CMake build system
+   - ATL/MFC support
+   - Windows SDK 11
+   - Address Sanitizer (ASAN)
+
+2. **Rust Development**
+   - Latest stable Rust toolchain
+   - MSVC build tools
+   - Cargo package manager
+
+3. **Unity Development**
+   - Unity Build Support components
+   - IL2CPP build support
+   - Windows build support
+   - Android build support
+   - Required Visual C++ components
+   - .NET Framework support
+
+4. **.NET Development**
+   - .NET Framework 4.8 SDK
+   - .NET Core 6.0 Runtime
+   - NuGet package manager
+   - MSBuild Tools
+
+5. **Android Development**
+   - Android SDK
+   - Android NDK R23C
+   - .NET MAUI support
+   - OpenJDK
+   - Cross-platform build support
+
+6. **Universal Windows Platform (UWP)**
+   - UWP build tools
+   - ARM64 and ARM support
+   - Windows 11 SDK
+   - USB device connectivity support
+
+### Additional Tools
+
+- Git for Windows
+- CMake
+- Visual C++ Redistributables
+- Windows SDK components
+
+## Example Actions
+
+For ready-to-use workflow examples, check the `examples/actions` directory. It contains sample workflows for:
+
+1. Environment Testing
+   - System information and tool verification
+   - Module functionality testing
+   - Environment report generation
+
+2. .NET Development
+   - Build and test workflow
+   - Package publishing
+   - Artifact handling
+
+3. Unity Development
+   - PlayMode testing
+   - Build automation
+   - Cache optimization
+
+4. Rust Development
+   - Code formatting and linting
+   - Cross-compilation setup
+   - Cargo workflow
+
+5. Node.js Development
+   - Native module building
+   - Package management
+   - Type checking and testing
+
+6. Visual C++ Development
+   - Multi-configuration builds
+   - Platform-specific compilation
+   - Test automation
+
+Each workflow is documented and includes best practices for Windows runners. See `examples/actions/README.md` for detailed usage instructions.
+
+## Environment Variables
+
+The following environment variables can be used in your workflows:
+
+- `UNITY_EDITOR`: Path to Unity Editor (e.g., `C:/BuildTools/UnityEditor/2019.4.24f1/Editor/Unity.exe`)
+- `RUSTUP_HOME`: Rust installation directory
+- `CARGO_HOME`: Cargo home directory
+
+## Notes on Windows Paths
+
+When working with paths in Windows runners:
+
+1. Use forward slashes (`/`) or escaped backslashes (`\\`) in YAML
+2. Use PowerShell style paths in PowerShell scripts
+3. Environment variables use Windows style paths with backslashes
+
+Example path usage:
+```yaml
+- name: Example Path Usage
+  run: |
+    # PowerShell style
+    $unityPath = "C:\BuildTools\UnityEditor"
+    
+    # YAML style
+    path: C:/BuildTools/UnityEditor
+    # or
+    path: C:\\BuildTools\\UnityEditor
+```
+
+## Commands
+
+### Build and Run
+
+```powershell
+# Build with specific version
+docker compose build --build-arg gitea_runner_version=0.2.11
+
+# Build with specific version and tag
+docker compose build \
+    --build-arg gitea_runner_version=0.2.11 \
+    --build-arg WINDOWS_IMAGE=your-registry/your-custom-windows-image:1.0.0 \
+    gitea-runner
+
+# Start runner
+docker compose up -d
+
+# View logs
+docker compose logs -f
+
+# Stop runner
+docker compose down
+```
+
+### Maintenance
+
+```powershell
+# View runner status
+docker compose ps
+
+# View detailed logs
+docker compose logs -f --tail=100
+
+# Restart runner
+docker compose restart
+
+# Update to latest version
+docker compose pull
+docker compose up -d
+```
+
+## Troubleshooting
+
+### Common Issues
+
+1. Build fails:
+   - Ensure Docker Desktop is set to Windows containers
+   - Try rebuilding without cache: `docker compose build --no-cache`
+   - Check build logs for specific errors
+
+2. Runner fails to start:
+   - Verify environment variables in `.env` or `docker-compose.yaml`
+   - Check Gitea instance URL is accessible
+   - Ensure registration token is valid
+   - View logs: `docker compose logs -f`
+
+3. Runner registration fails:
+   - Check network connectivity to Gitea instance
+   - Verify registration token hasn't expired
+   - Check for any proxy or firewall issues
+
+### Logs
+
+View runner logs:
+```powershell
+# Follow logs
+docker compose logs -f
+
+# View last N lines
+docker compose logs --tail=100
+
+# View logs for specific time
+docker compose logs --since 30m
+
+```
+
+## References
+
+- [Visual Studio Build Tools Documentation](https://learn.microsoft.com/en-us/visualstudio/install/use-command-line-parameters-to-install-visual-studio)
+- [Unity CI Docker Images](https://hub.docker.com/r/unityci/hub/tags)
+- [Gitea Actions Documentation](https://docs.gitea.io/en-us/actions/)
+- [Understanding the PowerShell Module Path](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_psmodulepath)
+- [Installing a PowerShell Module](https://learn.microsoft.com/en-us/powershell/scripting/developer/module/installing-a-powershell-module)
+- [How to Write a PowerShell Module Manifest](https://learn.microsoft.com/en-us/powershell/scripting/developer/module/how-to-write-a-powershell-module-manifest)
+- [PowerShell Module Building Basics](https://powershellexplained.com/2017-05-27-Powershell-module-building-basics)
+- [PowerShell Module Troubleshooting](https://learn.microsoft.com/en-us/powershell/scripting/developer/module/troubleshooting-module-installation)
+- [Understanding Module Commands](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_modules)
+
+## Python Action Requirements
+
+The Windows runner requires specific prerequisites for the `actions/setup-python` action to work correctly. These requirements are based on official documentation and community feedback:
+
+### Key References
+- [actions/setup-python documentation](https://github.com/actions/setup-python)
+- [Python in GitHub Actions](https://docs.github.com/en/actions/automating-builds-and-tests/building-and-testing-python)
+- [Windows Runner Requirements](https://docs.github.com/en/actions/hosting-your-own-runners/managing-self-hosted-runners/about-self-hosted-runners#requirements-for-self-hosted-runner-machines)
+- [Python Windows Installation](https://github.com/actions/python-versions/blob/main/CONTRIBUTING.md#windows)
+
+### Prerequisites Installation
+
+Run the installation script as Administrator:
+```powershell
+.\scripts\build\Install-PythonPrerequisites.ps1
+```
+
+The script sets up:
+
+1. **7-Zip**
+   - Installs latest 7-Zip
+   - Adds to system PATH
+   - Required for extracting Python packages
+   - [7-Zip download](https://www.7-zip.org/download.html)
+
+2. **Execution Policies**
+   - Sets appropriate PowerShell execution policies
+   - Configures all scopes (Machine, User, Process)
+   - [About Execution Policies](https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_execution_policies)
+
+### Service Account Setup
+
+When running as a Windows service:
+1. Use NT AUTHORITY\NETWORK SERVICE account
+   - Default service account with limited privileges
+   - [Service Account Documentation](https://learn.microsoft.com/en-us/windows/win32/services/service-user-accounts)
+2. Ensure account has write permissions to:
+   - Python installation directories
+   - Temporary directories used during installation
+
+### Environment Testing
+
+The `environment-test.yaml` workflow includes tests for Python prerequisites:
+- PowerShell execution policies
+- 7-Zip installation and PATH setup
+- Service account privileges
+- Environment variables
+
+Run the environment test to verify your setup:
+```yaml
+name: Test Environment
+on: [push, workflow_dispatch]
+
+jobs:
+  test:
+    runs-on: [windows]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Environment Tests
+        run: |
+          # Test script content in examples/actions/environment-test.yaml
+```
+
+### Troubleshooting Common Issues
+
+1. **Python Installation Failures**
+   - Verify execution policies are properly set
+   - Check service account permissions
+   - [Python Installation Guide](https://github.com/actions/setup-python/blob/main/docs/advanced-usage.md#windows)
+
+2. **Permission Issues**
+   - Run initial setup as Administrator
+   - Configure service account permissions correctly
+   - [Windows Permissions Guide](https://learn.microsoft.com/en-us/windows-server/identity/ad-ds/manage/understand-security-identifiers)
+
+3. **7-Zip Issues**
+   - Verify 7-Zip is in system PATH
+   - Check installation using `7z.exe i`
+   - [7-Zip Command Line Guide](https://documentation.help/7-Zip/start.htm)
+
+## Helper Scripts
+
+The runner uses a modular helper script system located in the `scripts/helpers` directory:
+
+### Core Helpers
+
+1. **ImageHelper.ps1**
+   - Core image setup and tool installation functions
+   - Environment initialization
+   - Tool installation methods:
+     - Visual Studio Build Tools
+     - Node.js and pnpm
+     - Rust toolchain
+     - Android SDK
+     - Common development tools
+
+2. **ImageHelper.psm1**
+   - PowerShell module loader
+   - Imports and exports all helper functions
+   - Manages dependencies between helper scripts
+
+3. **UnityInstallHelper.psm1**
+   - Unity-specific installation functions
+   - Unity Hub installation and configuration
+   - Unity Editor installation with modules
+
+### Available Functions
+
+#### Image Setup
+```powershell
+# Initialize build environment
+Initialize-BuildEnvironment -InstallPath "C:/BuildTools"
+
+# Install Visual Studio
+Install-VisualStudio -InstallPath $path -Version "17" -Components $components -Workloads $workloads
+
+# Install Node.js
+Install-NodeJs -InstallPath $path -Version "22" -InstallPnpm
+
+# Install Rust
+Install-Rust -InstallPath $path -Toolchain "stable" -Profile "minimal"
+
+# Install Unity
+Install-UnityEditor -Version "2022.3.16f1" -InstallPath $path -Modules @("windows-mono", "universal-windows-platform-mono")
+```
+
+### Directory Structure
+
+The build tools are organized in a standard directory structure under `C:/BuildTools`:
+```
+C:/BuildTools/
+├── UnityEditor/     # Unity Editor and Hub
+├── Node/            # Node.js and npm/pnpm
+├── Rust/            # Rust toolchain
+└── Tools/           # Common development tools
+```
+
 ## Unity Development Support
 
 The runner includes support for Unity development through Unity Hub CLI. The installation process is managed by helper scripts that handle both Unity Hub and Unity Editor installation.
@@ -597,8 +1030,7 @@ The runner includes support for Unity development through Unity Hub CLI. The ins
 Before using the Unity installation scripts, ensure you have the following dependencies installed:
 
 1. **Required Dependencies**:
-   - Node.js: Required for version validation
-   - npx: Required for unity-changeset validation
+   - 7-Zip: Required for extracting Unity packages
    - Chocolatey: Required for Unity Hub and Editor installation
 
 2. **Installation Commands**:
@@ -608,11 +1040,8 @@ Before using the Unity installation scripts, ensure you have the following depen
    [System.Net.ServicePointManager]::SecurityProtocol = [System.Net.ServicePointManager]::SecurityProtocol -bor 3072
    iex ((New-Object System.Net.WebClient).DownloadString('https://chocolatey.org/install.ps1'))
 
-   # Install Node.js
-   choco install nodejs -y
-
-   # Install npx globally
-   npm install -g npx
+   # Install 7-Zip
+   choco install 7zip -y
    ```
 
 ### Unity Installation Features
@@ -673,63 +1102,6 @@ C:/BuildTools/UnityEditor/           # Unity Editor installation
 └── [VERSION]/                        # Editor version-specific files
     ├── Editor/                       # Unity Editor
     └── modules/                      # Installed modules
-```
-
-## Helper Scripts
-
-The runner uses a modular helper script system located in the `scripts/helpers` directory:
-
-### Core Helpers
-
-1. **ImageHelper.ps1**
-   - Core image setup and tool installation functions
-   - Environment initialization
-   - Tool installation methods:
-     - Visual Studio Build Tools
-     - Node.js and pnpm
-     - Rust toolchain
-     - Android SDK
-     - Common development tools
-
-2. **ImageHelper.psm1**
-   - PowerShell module loader
-   - Imports and exports all helper functions
-   - Manages dependencies between helper scripts
-
-3. **UnityInstallHelper.psm1**
-   - Unity-specific installation functions
-   - Unity Hub installation and configuration
-   - Unity Editor installation with modules
-
-### Available Functions
-
-#### Image Setup
-```powershell
-# Initialize build environment
-Initialize-BuildEnvironment -InstallPath "C:/BuildTools"
-
-# Install Visual Studio
-Install-VisualStudio -InstallPath $path -Version "17" -Components $components -Workloads $workloads
-
-# Install Node.js
-Install-NodeJs -InstallPath $path -Version "22" -InstallPnpm
-
-# Install Rust
-Install-Rust -InstallPath $path -Toolchain "stable" -Profile "minimal"
-
-# Install Unity
-Install-UnityEditor -Version "2022.3.16f1" -InstallPath $path -Modules @("windows-mono", "universal-windows-platform-mono")
-```
-
-### Directory Structure
-
-The build tools are organized in a standard directory structure under `C:/BuildTools`:
-```
-C:/BuildTools/
-├── UnityEditor/     # Unity Editor and Hub
-├── Node/            # Node.js and npm/pnpm
-├── Rust/            # Rust toolchain
-└── Tools/           # Common development tools
 ```
 
 ## Volume Mounting in Windows Containers
@@ -809,7 +1181,6 @@ The runner is equipped with comprehensive build tools and SDKs to support variou
 
 - Git for Windows
 - CMake
-- PowerShell Core
 - Visual C++ Redistributables
 - Windows SDK components
 

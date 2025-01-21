@@ -19,6 +19,9 @@ jobs:
           Write-Host "Number of CPUs: $($cpuInfo.NumberOfCores)"
           Write-Host "Number of Logical CPUs: $($cpuInfo.NumberOfLogicalProcessors)"
           Write-Host "Available RAM: $((Get-CimInstance Win32_PhysicalMemory | Measure-Object -Property capacity -Sum).sum /1gb)GB"
+          # Check PowerShell version
+          Write-Host "`nPowerShell Version:" -ForegroundColor Yellow
+          $PSVersionTable | Format-List
 
       - name: Test Disk Space
         run: |
@@ -34,7 +37,8 @@ jobs:
               'RUSTUP_HOME',
               'CARGO_HOME',
               'NODE_EXTRA_CA_CERTS',
-              'RUNNER_TEMP'
+              'RUNNER_TEMP',
+              'RUNNER_TOOL_CACHE'
           )
           
           foreach ($var in $envVars) {
@@ -275,6 +279,46 @@ jobs:
           Write-Host "`nNinja Version:"
           ninja --version
           
+      - name: Test Python Prerequisites
+        run: |
+          Write-Host "Testing Python Prerequisites..." -ForegroundColor Cyan
+
+          # Check execution policies
+          Write-Host "`nPowerShell Execution Policies:" -ForegroundColor Yellow
+          Get-ExecutionPolicy -List | Format-Table -AutoSize
+
+          # Check 7-Zip installation
+          Write-Host "`n7-Zip Installation:" -ForegroundColor Yellow
+          $7zPath = (Get-Command "7z.exe" -ErrorAction SilentlyContinue).Path
+          if ($7zPath) {
+              Write-Host "7-Zip found at: $7zPath"
+              & 7z.exe i
+          } else {
+              Write-Host "7-Zip not found in PATH!" -ForegroundColor Red
+              exit 1
+          }
+
+          # Check running as administrator/service account
+          Write-Host "`nCurrent User Context:" -ForegroundColor Yellow
+          $currentUser = [Security.Principal.WindowsIdentity]::GetCurrent()
+          $currentPrincipal = New-Object Security.Principal.WindowsPrincipal($currentUser)
+          
+          Write-Host "Current user: $($currentUser.Name)"
+          Write-Host "Is Administrator: $($currentPrincipal.IsInRole([Security.Principal.WindowsBuiltInRole]::Administrator))"
+          Write-Host "Is System Account: $($currentUser.User.Value -eq 'S-1-5-18')"
+          Write-Host "Is Network Service: $($currentUser.User.Value -eq 'S-1-5-20')"
+
+          # List groups
+          Write-Host "`nUser Groups:"
+          $currentUser.Groups | ForEach-Object {
+              try {
+                  $group = $_.Translate([Security.Principal.NTAccount])
+                  Write-Host " - $($group.Value)"
+              } catch {
+                  Write-Host " - $($_.Value) (SID)"
+              }
+          }
+
       - name: Generate Environment Report
         run: |
           $report = @{
