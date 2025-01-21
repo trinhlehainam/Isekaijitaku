@@ -24,11 +24,14 @@ services:
       - GITEA_RUNNER_LABELS=windows:host
       - EXTRA_CERT_FILES=C:\certs\root.crt,C:\certs\intermediate.crt,C:\all-certs
     volumes:
-      # Mount volumes in Windows container
+      # To Mount volumes in Windows container
       # https://docs.docker.com/reference/compose-file/services/#volumes
-      - type: volume
-        source: data
-        target: "C:\\ProgramData\\GiteaActRunner"
+      # - type: volume
+      #   source: data
+      #   target: "C:\\ProgramData\\GiteaActRunner"
+      # Or
+      - "data:C:\\ProgramData\\GiteaActRunner"
+      #
       # Bind mount directory in Windows container, not working on files
       - "C:\\certs:C:\\certs"
     deploy:
