@@ -28,7 +28,8 @@ foreach ($option in $parsedOptions) {
     }
 }
 
-# Define Visual Studio workloads and components
+# Define Visual Studio Build Tools workloads and components ID
+# https://github.com/MicrosoftDocs/visualstudio-docs/blob/main/docs/install/includes/vs-2022/workload-component-id-vs-build-tools.md
 $vsWorkloadsAndComponents = @{
     # Unity build components
     Unity = @(
@@ -37,7 +38,10 @@ $vsWorkloadsAndComponents = @{
         # .NET MAUI build tools for cross-platform development
         # "Microsoft.VisualStudio.Workload.XamarinBuildTools",
         # Universal Windows Platform build tools
-        "Microsoft.VisualStudio.Workload.UniversalBuildTools"
+        "Microsoft.VisualStudio.Workload.UniversalBuildTools",
+        "Microsoft.VisualStudio.ComponentGroup.UWP.VC.BuildTools",
+        "Microsoft.VisualStudio.ComponentGroup.UWP.VC.v142.BuildTools",
+        "Microsoft.VisualStudio.Component.Windows11SDK.22621"
     )
 }
 

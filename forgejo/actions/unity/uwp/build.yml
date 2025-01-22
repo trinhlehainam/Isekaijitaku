@@ -1,0 +1,125 @@
+name: Unity UWP Build 🎮
+
+on:
+  push:
+    paths:
+      - 'unity/uwp/**'
+  pull_request:
+    paths:
+      - 'unity/uwp/**'
+
+jobs:
+  build:
+    name: Build Unity UWP Project
+    runs-on: windows-latest
+    
+    strategy:
+      matrix:
+        unityProjectPath:
+          - test-project
+        unityVersions:
+          - 2019.4.31f1
+        targetPlatforms:
+          - WSAPlayer # Build for UWP
+        platform: [x86, x64, ARM, ARM64]
+        configuration: [Debug, Release]
+    
+    env:
+      APP_NAME: TestApp
+      SOLUTION_PATH: build/${{ env.APP_NAME }}.sln
+      MANIFEST_PATH: build/${{ env.APP_NAME }}/Package.appxmanifest
+      PACKAGE_PATH: build/${{ env.APP_NAME }}
+      CERT_PATH: cert.pfx
+      CERT_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
+    
+    steps:
+      # Checkout
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          lfs: true
+          fetch-depth: 0
+
+      # Cache
+      - uses: actions/cache@v3
+        with:
+          path: ${{ matrix.unityProjectPath }}/Library
+          key: Library-${{ matrix.unityProjectPath }}-${{ hashFiles('${{ matrix.unityProjectPath }}/Assets/**', '${{ matrix.unityProjectPath }}/Packages/**', '${{ matrix.unityProjectPath }}/ProjectSettings/**') }}
+          restore-keys: |
+            Library-${{ matrix.unityProjectPath }}-
+
+      # Test
+      - name: Run Unity Tests
+        uses: game-ci/unity-test-runner@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          projectPath: ${{ matrix.unityProjectPath }}
+          testMode: all
+          coverageOptions: 'generateAdditionalMetrics;generateHtmlReport;generateBadgeReport'
+          githubToken: ${{ secrets.GITHUB_TOKEN }}
+
+      # Build Unity Project
+      - name: Build Unity Project
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+        with:
+          buildName: UWPBuild
+          projectPath: ${{ matrix.unityProjectPath }}
+          unityVersion: ${{ matrix.unityVersions }}
+          targetPlatform: ${{ matrix.targetPlatforms }}
+          customParameters: -profile SomeProfile -someBoolean -someValue exampleValue
+
+      # Setup Build Tools
+      - name: Setup MSBuild
+        uses: microsoft/setup-msbuild@v1.3.1
+
+      - name: Setup Windows SDK
+        uses: microsoft/setup-windowssdk@v1
+        with:
+          windows-sdk-version: '10.0.22621.0'
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v3
+        with:
+          dotnet-version: '7.0.x'
+
+      # Decode Certificate for Store Submission
+      - name: Decode Signing Certificate
+        if: ${{ github.event_name != 'pull_request' }}
+        run: |
+          $pfx_cert_byte = [System.Convert]::FromBase64String("${{ secrets.BASE64_ENCODED_PFX }}")
+          [IO.File]::WriteAllBytes("$env:CERT_PATH", $pfx_cert_byte)
+
+      # Build UWP Solution
+      - name: Build UWP App
+        env:
+        run: |
+          msbuild $env:SOLUTION_PATH `
+          /p:Platform=${{ matrix.platform }} `
+          /p:Configuration=${{ matrix.configuration }} `
+          /p:AppxBundlePlatforms="${{ matrix.platform }}" `
+          /p:AppxPackageDir="$env:PACKAGE_DIRECTORY" `
+          /p:AppxBundle=Always `
+          /p:UapAppxPackageBuildMode=StoreUpload `
+          /p:GenerateAppxPackageOnBuild=true `
+          ${{ github.event_name != 'pull_request' && format('/p:PackageCertificateKeyFile={0} /p:PackageCertificatePassword="${{ secrets.CERTIFICATE_PASSWORD }}"', env.CERT_PATH) || '' }}
+
+      # Cleanup Certificate
+      - name: Remove Certificate
+        if: ${{ github.event_name != 'pull_request' }}
+        run: |
+          Remove-Item -Path "$env:CERT_PATH"
+
+      # Upload Build Artifacts
+      - name: Upload Build Artifacts
+        uses: actions/upload-artifact@v3
+        with:
+          name: MSIX-${{ matrix.unityProjectPath }}-${{ matrix.platform }}-${{ matrix.configuration }}
+          path: ${{ env.PACKAGE_PATH }}
+          retention-days: 14
