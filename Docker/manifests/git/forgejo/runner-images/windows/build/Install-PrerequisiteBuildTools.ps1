@@ -15,6 +15,7 @@ if (-not (Get-Module -ListAvailable -Name VSSetup)) {
 $scriptPath = Split-Path -Parent $PSScriptRoot
 $helpersPath = Join-Path $scriptPath "helpers"
 . "$helpersPath/InstallHelpers.ps1"
+. "$helpersPath/PathHelpers.ps1"
 
 # Define Visual Studio workloads and components
 $vsWorkloadsAndComponents = @{
@@ -80,16 +81,6 @@ function Start-ProcessSafe {
     }
 }
 
-# Install the chocolatey packages we need
-Start-ProcessSafe "choco" @("install", "--no-progress", "-y", "git.install", "--version=2.43.0", "--params", @'
-"'/GitOnlyOnPath /NoAutoCrlf /WindowsTerminal /NoShellIntegration /NoCredentialManager'`"
-'@)
-
-Update-Environment
-
-# Forcibly disable the git credential manager
-Start-ProcessSafe "git" @("config", "--system", "--unset", "credential.helper")
-
 # Install additional dependencies via Chocolatey
 Write-Host "Installing additional build dependencies..."
 $chocoPackages = @(
@@ -104,11 +95,19 @@ foreach ($package in $chocoPackages) {
 
 Update-Environment
 
+# Install Git
+. "$PSScriptRoot/Install-Git.ps1"
+
+Update-Environment
+
+# Forcibly disable the git credential manager
+Start-ProcessSafe "git" @("config", "--system", "--unset", "credential.helper")
 # Install Rust
 . "$PSScriptRoot/Install-Rust.ps1" -InstallPath $installPath
 
 # Install Node.js and pnpm
 . "$PSScriptRoot/Install-NodeJS.ps1" -InstallPath $installPath
+
 
 Start-ProcessSafe "choco-cleaner" @("--dummy")
 

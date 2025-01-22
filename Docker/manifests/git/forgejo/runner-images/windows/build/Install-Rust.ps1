@@ -23,8 +23,7 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 # Add Rust binaries to the path
-$newPath = ("{0}\bin;{1}" -f $env:CARGO_HOME, $env:Path)
-[Environment]::SetEnvironmentVariable("Path", $newPath, [EnvironmentVariableTarget]::Machine)
+Add-MachinePathItem -PathItem "${env:CARGO_HOME}\bin"
 
 # Add Rustup and cargo home environment variables
 [Environment]::SetEnvironmentVariable("RUSTUP_HOME", $env:RUSTUP_HOME, [EnvironmentVariableTarget]::Machine)

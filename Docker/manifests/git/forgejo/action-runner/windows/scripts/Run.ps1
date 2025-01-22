@@ -8,7 +8,7 @@ $ErrorActionPreference = 'Stop'
 
 # Import helper scripts
 $helpersPath = Join-Path $PSScriptRoot "helpers"
-$helpersModule = Import-Module "$helpersPath\ImageRunSetupHelpers.psm1" -PassThru
+$helpersModule = Import-Module "$helpersPath\ImageSetupHelpers.psm1" -PassThru
 
 function Test-Environment {
     Write-Log "Checking environment variables..."
@@ -355,37 +355,5 @@ if (-not (Get-Module -ListAvailable -Name VSSetup)) {
 
 # Remove unused modules to avoid child process can access them
 Remove-Module -ModuleInfo $helpersModule
-
-# Install ImageHelpers module if not already installed
-# References:
-# - PowerShell Module Installation: https://learn.microsoft.com/en-us/powershell/scripting/developer/module/installing-a-powershell-module
-# - Module Path Locations: https://learn.microsoft.com/en-us/powershell/module/microsoft.powershell.core/about/about_psmodulepath
-# - Module Building Basics: https://powershellexplained.com/2017-05-27-Powershell-module-building-basics
-# - Installing Custom-Module with Install-Module: https://stackoverflow.com/a/65872546
-$moduleName = "ImageHelpers"
-$installedModule = Get-Module -Name $moduleName -ListAvailable
-
-if (-not $installedModule) {
-    # Get user's PowerShell module directory
-    $userModulePath = ($env:PSModulePath -split ';' | Where-Object { $_ -like "$HOME*" }) | Select-Object -First 1
-    $moduleInstallPath = Join-Path $userModulePath $moduleName
-    
-    # Create module directory if it doesn't exist
-    if (-not (Test-Path $moduleInstallPath)) {
-        New-Item -Path $moduleInstallPath -ItemType Directory -Force | Out-Null
-    }
-    
-    # Define files to exclude
-    $filesToExclude = @(
-        'ImageRunSetupHelpers.psm1',
-        'LogHelpers.ps1',
-        'CertificateHelpers.ps1'
-    )
-    
-    # Copy all files except excluded ones
-    Get-ChildItem -Path $helpersPath -File | 
-        Where-Object { $_.Name -notin $filesToExclude } |
-        Copy-Item -Destination $moduleInstallPath -Force
-}
 
 & act_runner daemon --config $env:CONFIG_FILE
