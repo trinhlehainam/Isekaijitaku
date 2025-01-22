@@ -21,8 +21,8 @@ This action is designed to build Unity UWP (Universal Windows Platform) projects
 - `UNITY_LICENSE`: Your Unity license
 - `UNITY_EMAIL`: Your Unity account email (for activation)
 - `UNITY_PASSWORD`: Your Unity account password (for activation)
-- `BASE64_ENCODED_PFX`: Base64-encoded signing certificate for UWP package
-- `CERTIFICATE_PASSWORD`: Password for the signing certificate
+- `CERT_BASE64_ENCODED`: Base64-encoded signing certificate for UWP package
+- `CERT_PASSWORD`: Password for the signing certificate
 
 ### Workflow Environment Variables
 
@@ -32,7 +32,6 @@ These variables are defined at the workflow level:
 env:
   APP_NAME: TestApp
   CERT_PATH: cert.pfx
-  CERT_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
 ```
 
 #### Step-Specific Variables
@@ -43,6 +42,7 @@ Due to GitHub Actions limitations, variables that depend on other environment va
   env:
     SOLUTION_PATH: build/${{ env.APP_NAME }}.sln
     PACKAGE_PATH: build/AppPackages/${{ env.APP_NAME }}
+    CERT_PASSWORD: ${{ secrets.CERT_PASSWORD }}
   run: |
     msbuild $env:SOLUTION_PATH ...
 ```

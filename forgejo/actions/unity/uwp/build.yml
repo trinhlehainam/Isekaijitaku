@@ -23,7 +23,6 @@ jobs:
     env:
       APP_NAME: TestApp
       CERT_PATH: cert.pfx
-      CERT_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
     
     steps:
       # Checkout
@@ -43,7 +42,7 @@ jobs:
 
       # Test
       - name: Run Unity Tests
-        uses: game-ci/unity-test-runner@v4
+        uses: https://github.com/game-ci/unity-test-runner@v4
         env:
           UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
           UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
@@ -56,7 +55,7 @@ jobs:
 
       # Build Unity Project
       - name: Build Unity Project
-        uses: game-ci/unity-builder@v4
+        uses: https://github.com/game-ci/unity-builder@v4
         env:
           UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
           UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
@@ -70,15 +69,10 @@ jobs:
 
       # Setup Build Tools
       - name: Setup MSBuild
-        uses: microsoft/setup-msbuild@v1.3.1
-
-      - name: Setup Windows SDK
-        uses: microsoft/setup-windowssdk@v1
-        with:
-          windows-sdk-version: '10.0.22621.0'
+        uses: https://github.com/microsoft/setup-msbuild@v2
 
       - name: Setup .NET
-        uses: actions/setup-dotnet@v3
+        uses: https://github.com/actions/setup-dotnet@v4
         with:
           dotnet-version: '7.0.x'
 
@@ -86,7 +80,7 @@ jobs:
       - name: Decode Signing Certificate
         if: ${{ github.event_name != 'pull_request' }}
         run: |
-          $pfx_cert_byte = [System.Convert]::FromBase64String("${{ secrets.BASE64_ENCODED_PFX }}")
+          $pfx_cert_byte = [System.Convert]::FromBase64String("${{ secrets.CERT_BASE64_ENCODED }}")
           [IO.File]::WriteAllBytes("$env:CERT_PATH", $pfx_cert_byte)
 
       # Build UWP Solution
@@ -94,6 +88,7 @@ jobs:
         env:
           SOLUTION_PATH: build/${{ env.APP_NAME }}.sln
           PACKAGE_PATH: build/AppPackages/${{ env.APP_NAME }}
+          CERT_PASSWORD: ${{ secrets.CERT_PASSWORD }}
         run: |
           msbuild $env:SOLUTION_PATH `
           /p:Platform=${{ matrix.platform }} `
@@ -103,7 +98,7 @@ jobs:
           /p:AppxBundle=Always `
           /p:UapAppxPackageBuildMode=StoreUpload `
           /p:GenerateAppxPackageOnBuild=true `
-          ${{ github.event_name != 'pull_request' && format('/p:PackageCertificateKeyFile={0} /p:PackageCertificatePassword="${{ secrets.CERTIFICATE_PASSWORD }}"', env.CERT_PATH) || '' }}
+          ${{ github.event_name != 'pull_request' && format('/p:PackageCertificateKeyFile={0} /p:PackageCertificatePassword="$env:CERT_PASSWORD"', $env.CERT_PATH) || '' }}
 
       # Cleanup Certificate
       - name: Remove Certificate
