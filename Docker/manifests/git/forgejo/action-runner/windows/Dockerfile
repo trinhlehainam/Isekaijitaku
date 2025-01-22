@@ -7,14 +7,15 @@ FROM ${WINDOWS_IMAGE}
 # $ProgressPreference: https://github.com/PowerShell/PowerShell/issues/2138#issuecomment-251261324
 SHELL ["powershell", "-Command", "$ErrorActionPreference = 'Stop'; $ProgressPreference = 'SilentlyContinue';"]
 
-ARG GITEA_RUNNER_VERSION=0.2.11
 # Install Gitea Runner
+ARG GITEA_RUNNER_VERSION=0.2.11
+
 RUN \
     # Create installation directory
     $gitea_runner_exec_path = ('{0}\GiteaActRunner\bin' -f $env:ProgramFiles); \
     New-Item -ItemType Directory -Force -Path $gitea_runner_exec_path; \
-    # Update PATH for Gitea Runner
     \
+    # Update PATH for Gitea Runner
     Write-Host ('Updating PATH: {0}' -f $gitea_runner_exec_path); \
     $newPath = ('{0};{1}' -f $gitea_runner_exec_path, $env:PATH); \
     [Environment]::SetEnvironmentVariable('PATH', $newPath, [EnvironmentVariableTarget]::Machine); \
@@ -51,6 +52,7 @@ RUN \
         throw \
     }
 
+# Copy runtime scripts
 COPY ["scripts", "C:/Program Files/GiteaActRunner/scripts"]
 
 WORKDIR C:\\ProgramData\\GiteaActRunner

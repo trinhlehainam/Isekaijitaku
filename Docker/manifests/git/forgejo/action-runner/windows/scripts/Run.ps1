@@ -9,7 +9,6 @@ $ErrorActionPreference = 'Stop'
 # Import helper scripts
 $helpersPath = Join-Path $PSScriptRoot "helpers"
 $helpersModule = Import-Module "$helpersPath\ImageSetupHelpers.psm1" -PassThru
-
 function Test-Environment {
     Write-Log "Checking environment variables..."
     
