@@ -2,11 +2,7 @@ name: Unity UWP Build 🎮
 
 on:
   push:
-    paths:
-      - 'unity/uwp/**'
   pull_request:
-    paths:
-      - 'unity/uwp/**'
 
 jobs:
   build:
@@ -26,9 +22,6 @@ jobs:
     
     env:
       APP_NAME: TestApp
-      SOLUTION_PATH: build/${{ env.APP_NAME }}.sln
-      MANIFEST_PATH: build/${{ env.APP_NAME }}/Package.appxmanifest
-      PACKAGE_PATH: build/${{ env.APP_NAME }}
       CERT_PATH: cert.pfx
       CERT_PASSWORD: ${{ secrets.CERTIFICATE_PASSWORD }}
     
@@ -99,12 +92,14 @@ jobs:
       # Build UWP Solution
       - name: Build UWP App
         env:
+          SOLUTION_PATH: build/${{ env.APP_NAME }}.sln
+          PACKAGE_PATH: build/AppPackages/${{ env.APP_NAME }}
         run: |
           msbuild $env:SOLUTION_PATH `
           /p:Platform=${{ matrix.platform }} `
           /p:Configuration=${{ matrix.configuration }} `
           /p:AppxBundlePlatforms="${{ matrix.platform }}" `
-          /p:AppxPackageDir="$env:PACKAGE_DIRECTORY" `
+          /p:AppxPackageDir="$env:PACKAGE_PATH" `
           /p:AppxBundle=Always `
           /p:UapAppxPackageBuildMode=StoreUpload `
           /p:GenerateAppxPackageOnBuild=true `
@@ -119,6 +114,8 @@ jobs:
       # Upload Build Artifacts
       - name: Upload Build Artifacts
         uses: actions/upload-artifact@v3
+        env:
+          PACKAGE_PATH: build/AppPackages/${{ env.APP_NAME }}
         with:
           name: MSIX-${{ matrix.unityProjectPath }}-${{ matrix.platform }}-${{ matrix.configuration }}
           path: ${{ env.PACKAGE_PATH }}
