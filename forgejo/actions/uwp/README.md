@@ -69,8 +69,7 @@ Convert your PFX file to base64 format using PowerShell:
 ```powershell
 # Convert PFX to Base64
 $pfxPath = ".\YourApp_Signing.pfx"
-$base64 = [Convert]::ToBase64String([System.IO.File]::ReadAllBytes($pfxPath))
-$base64 | Set-Content "certificate_base64.txt"
+[Convert]::ToBase64String([System.IO.File]::ReadAllBytes($pfxPath)) | Set-Content "pfx_cert_base64.txt"
 ```
 
 ### 3. Add Secrets to Forgejo/Gitea Repository
@@ -79,7 +78,7 @@ $base64 | Set-Content "certificate_base64.txt"
 2. Go to "Secrets" section
 3. Add the following secrets:
    - Name: `BASE64_ENCODED_PFX`
-     - Value: The content of `certificate_base64.txt`
+     - Value: The content of `pfx_cert_base64.txt`
    - Name: `CERTIFICATE_PASSWORD`
      - Value: Your PFX certificate password
 
@@ -163,10 +162,10 @@ Before adding new nodes, it's essential to check if they already exist:
 # Check if a Capability exists
 $uapNs = $manifest.DocumentElement.GetNamespaceOfPrefix('uap')
 $capabilities = $manifest.Package.Capabilities
-$existingCapability = $capabilities.ChildNodes | 
+$hasDocumentsLibrary = $capabilities.ChildNodes | 
     Where-Object { ($_.Name -eq "Capability") -and ($_.GetAttribute("Name") -eq "documentsLibrary") }
 
-if (-not $existingCapability) {
+if (-not $hasDocumentsLibrary) {
     # Create and append new capability
     $newCapability = $manifest.CreateElement("uap", "Capability", $uapNs)
     $newCapability.SetAttribute("Name", "documentsLibrary")
@@ -256,9 +255,8 @@ if (-not $application) {
 # Check if Extensions node exists
 $extensions = $application.ChildNodes | Where-Object { $_.LocalName -eq "Extensions" }
 
-# Create Extensions node if it doesn't exist (without xmlns="" attribute)
+# Create Extensions node if it doesn't exist
 if (-not $extensions) {
-    # Create Extensions element without xmlns="" attribute
     # Using parent's namespace to avoid xmlns="" attribute
     # https://stackoverflow.com/a/8676037
     $extensions = $manifest.CreateElement("Extensions", $manifest.DocumentElement.NamespaceURI)

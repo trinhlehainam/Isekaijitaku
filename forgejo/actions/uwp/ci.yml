@@ -55,12 +55,12 @@ jobs:
     - name: Build UWP App
       run: |
         msbuild $env:Solution_Path `
-        /p:Configuration=${{ matrix.configuration }} `
         /p:Platform=${{ matrix.platform }} `
-        /p:UapAppxPackageBuildMode=StoreUpload `
-        /p:AppxBundle=Always `
+        /p:Configuration=${{ matrix.configuration }} `
         /p:AppxBundlePlatforms="${{ matrix.platform }}" `
         /p:AppxPackageDir="$env:PACKAGE_DIRECTORY" `
+        /p:AppxBundle=Always `
+        /p:UapAppxPackageBuildMode=StoreUpload `
         /p:GenerateAppxPackageOnBuild=true `
         ${{ github.event_name != 'pull_request' && format('/p:PackageCertificateKeyFile={0} /p:PackageCertificatePassword="${{ secrets.CERTIFICATE_PASSWORD }}"', env.SIGNING_CERTIFICATE) || '' }}
 
