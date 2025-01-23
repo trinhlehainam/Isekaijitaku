@@ -11,7 +11,7 @@
 services:
   keycloak:
     # https://quay.io/repository/keycloak/keycloak?tab=tags
-    image: quay.io/keycloak/keycloak:26.0.7
+    image: quay.io/keycloak/keycloak:26.1.0
     container_name: keycloak
     # NOTE: how to use docker secrets
     # https://github.com/keycloak/keycloak/issues/10816

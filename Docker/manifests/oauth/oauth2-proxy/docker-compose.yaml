@@ -4,7 +4,7 @@
 services:
   oauth2-proxy:
     # https://quay.io/repository/oauth2-proxy/oauth2-proxy?tab=tags  
-    image: quay.io/oauth2-proxy/oauth2-proxy:v7.7.1-alpine
+    image: quay.io/oauth2-proxy/oauth2-proxy:v7.8.1-alpine
     container_name: oauth2-proxy
     entrypoint:
       - /bin/sh
