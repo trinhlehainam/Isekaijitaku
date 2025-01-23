@@ -1,13 +1,13 @@
----
 filenames:
  - /var/log/traefik/access.log
 labels:
   type: traefik
-
 ---
+
+# https://docs.crowdsec.net/docs/next/appsec/quickstart/traefik/#setup-the-acquisition
+appsec_config: crowdsecurity/appsec-default
 listen_addr: 0.0.0.0:7422
-appsec_config: crowdsecurity/virtual-patching
 name: myAppSecComponent
 source: appsec
 labels:
-  type: appsec
+    type: appsec

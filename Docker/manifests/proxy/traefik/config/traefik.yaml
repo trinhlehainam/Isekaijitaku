@@ -33,14 +33,14 @@ accessLog:
   # NOTE: GoAccess only support CLF format for Treafik
   # https://goaccess.io/man#options
   format: common
-  bufferingSize: 100
+  bufferingSize: 0
+  # https://doc.traefik.io/traefik/v3.2/observability/access-logs/#limiting-the-fieldsincluding-headers
   fields:
-    defaultMode: keep
-    # https://doc.traefik.io/traefik/v3.2/observability/access-logs/#limiting-the-fieldsincluding-headers
+    # https://blog.lrvt.de/configuring-crowdsec-with-traefik/#enabling-traefik-logs
     headers:
-      defaultMode: keep
-      # names:
-      #   User-Agent: keep
+      defaultMode: drop
+      names:
+        User-Agent: keep
 
 # https://doc.traefik.io/traefik/routing/entrypoints/
 entryPoints:

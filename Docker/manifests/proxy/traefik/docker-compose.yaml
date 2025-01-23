@@ -61,7 +61,6 @@ services:
       - CF_DNS_API_TOKEN_FILE=/run/secrets/cloudflare_dns_api_token
     secrets:
       - cloudflare_dns_api_token
-      - crowdsec_lapi_key
     ports:
       - "80:80" # web
       - "443:443" # websecure
@@ -86,13 +85,13 @@ services:
   # https://doc.crowdsec.net/docs/next/appsec/quickstart/traefik
   # https://github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin?tab=readme-ov-file#usage
   # https://www.crowdsec.net/blog/enhance-docker-compose-security
-  # https://github.com/TechnoBoom/YT-Files
   crowdsec:
     # https://hub.docker.com/r/crowdsecurity/crowdsec/tags
     image: crowdsecurity/crowdsec:v1.6.4
     container_name: "crowdsec"
     restart: unless-stopped
     environment:
+      # https://docs.crowdsec.net/docs/next/appsec/quickstart/traefik/#appsec-component-setup
       COLLECTIONS: crowdsecurity/traefik crowdsecurity/appsec-virtual-patching crowdsecurity/appsec-generic-rules
       CUSTOM_HOSTNAME: crowdsec
     volumes:
@@ -151,8 +150,6 @@ volumes:
 secrets:
   cloudflare_dns_api_token:
     file: ./secrets/cloudflare_dns_api_token
-  crowdsec_lapi_key:
-    file: ./secrets/crowdsec_lapi_key
 
 networks:
   cloudflared:
