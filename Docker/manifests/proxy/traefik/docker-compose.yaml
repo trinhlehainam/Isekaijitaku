@@ -37,7 +37,7 @@ services:
   # https://erdaltoprak.com/blog/setting-up-a-local-reverse-proxy-on-proxmox-with-traefik-and-cloudflare/
   traefik:
     # https://hub.docker.com/_/traefik/tags
-    image: "traefik:v3.2.3"
+    image: "traefik:v3.3.2"
     container_name: "traefik"
     depends_on:
       step-ca:
@@ -61,6 +61,7 @@ services:
       - CF_DNS_API_TOKEN_FILE=/run/secrets/cloudflare_dns_api_token
     secrets:
       - cloudflare_dns_api_token
+      - crowdsec_lapi_key
     ports:
       - "80:80" # web
       - "443:443" # websecure
@@ -150,6 +151,8 @@ volumes:
 secrets:
   cloudflare_dns_api_token:
     file: ./secrets/cloudflare_dns_api_token
+  crowdsec_lapi_key:
+    file: ./secrets/crowdsec_lapi_key
 
 networks:
   cloudflared:
