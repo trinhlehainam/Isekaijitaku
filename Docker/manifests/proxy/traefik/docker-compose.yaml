@@ -82,6 +82,32 @@ services:
       start_period: 30s
     restart: always
 
+  traefik-redis:
+    # https://hub.docker.com/_/redis/tags
+    image: redis:7.4.2-alpine3.21
+    container_name: traefik-redis
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        /usr/local/bin/redis-server \
+        --port 6379 \
+        --requirepass $(cat /run/secrets/redis_password)
+    volumes:
+      - ./traefik-redis:/data
+    secrets:
+      - traefik_redis_password
+    networks:
+      - redis
+    # ports:
+    #   - 6379:6379
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 30s
+      retries: 3
+
   # https://doc.crowdsec.net/docs/next/appsec/quickstart/traefik
   # https://github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin?tab=readme-ov-file#usage
   # https://www.crowdsec.net/blog/enhance-docker-compose-security
@@ -150,6 +176,8 @@ volumes:
 secrets:
   cloudflare_dns_api_token:
     file: ./secrets/cloudflare_dns_api_token
+  traefik_redis_password:
+    file: ./secrets/traefik_redis_password
 
 networks:
   cloudflared:

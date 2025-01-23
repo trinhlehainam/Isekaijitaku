@@ -30,10 +30,8 @@ http:
           crowdsecLapiTLSInsecureVerify: false
           # NOTE: enable Redis cache
           # https://github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin/blob/main/examples/redis-cache/README.md
-          redisCacheEnabled: true
-          redisCacheHost: "redis:6379"
-          redisCachePassword: password
-          redisCacheDatabase: "5"
+          # NOTE: prefer to use Plugin Cache (memory cache) instead
+          redisCacheEnabled: false
           # NOTE: trusted IPs
           # https://github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin/blob/main/examples/trusted-ips/README.md
           forwardedHeadersTrustedIPs: 
