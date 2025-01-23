@@ -6,7 +6,7 @@ This guide explains how to set up CrowdSec security engine with Traefik proxy us
 
 - Docker and Docker Compose installed
 - Traefik proxy running
-- Redis (optional, for caching)
+- Redis (recommended for caching in stream mode)
 - Basic understanding of Docker networking
 
 ## Directory Structure Setup
@@ -18,6 +18,7 @@ Create necessary directories:
 mkdir -p crowdsec/data
 mkdir -p crowdsec/config
 mkdir -p log
+mkdir -p secrets
 ```
 
 ## Configuration Files
@@ -67,6 +68,7 @@ Update Traefik service configuration in `docker-compose.yaml`:
 ```yaml
 services:
   traefik:
+    image: "traefik:v3.3.2"
     # ... existing traefik configuration ...
     command:
       # ... existing commands ...
@@ -74,9 +76,15 @@ services:
       - "--experimental.plugins.crowdsec-bouncer.version=v1.3.5"
     depends_on:
       - crowdsec
+    secrets:
+      - crowdsec_lapi_key
     networks:
       - crowdsec
       # ... other networks ...
+
+secrets:
+  crowdsec_lapi_key:
+    file: ./secrets/crowdsec_lapi_key
 ```
 
 #### B. Create CrowdSec Middleware Configuration
@@ -91,20 +99,20 @@ http:
         bouncer:
           enabled: true
           logLevel: DEBUG
+          # Stream mode configuration
+          crowdsecMode: stream
           updateIntervalSeconds: 60
-          defaultDecisionSeconds: 60
-          httpTimeoutSeconds: 10
-          crowdsecMode: live
+          updateMaxFailure: 0
+          # LAPI Configuration using secrets
+          crowdsecLapiKeyFile: /run/secrets/crowdsec_lapi_key
+          crowdsecLapiHost: crowdsec:8080
+          crowdsecLapiScheme: http
           # Enable AppSec for advanced protection
           crowdsecAppsecEnabled: true
           crowdsecAppsecHost: crowdsec:7422
           crowdsecAppsecFailureBlock: true
           crowdsecAppsecUnreachableBlock: true
-          # LAPI Configuration
-          crowdsecLapiKey: ${BOUNCER_KEY}  # Replace with your key
-          crowdsecLapiHost: crowdsec:8080
-          crowdsecLapiScheme: http
-          # Optional Redis Cache Configuration
+          # Redis Cache Configuration (Recommended for stream mode)
           redisCacheEnabled: true
           redisCacheHost: "redis:6379"
           redisCachePassword: ${REDIS_PASSWORD}
@@ -130,19 +138,36 @@ http:
    ```
    Get your enrollment key from [CrowdSec Console](https://app.crowdsec.net)
 
-3. Generate bouncer API key:
+3. Generate bouncer API key and store it securely:
    ```bash
-   docker compose exec crowdsec cscli bouncers add traefik-bouncer
+   # Generate the key
+   docker compose exec crowdsec cscli bouncers add traefik-bouncer > secrets/crowdsec_lapi_key
+   # Ensure proper permissions
+   chmod 600 secrets/crowdsec_lapi_key
    ```
-   Save the generated API key and update it in your middleware configuration
 
 4. Add CrowdSec middleware to your services:
    ```yaml
    labels:
      - "traefik.http.middlewares.crowdsec-bouncer.plugin.crowdsec-bouncer.enabled=true"
-     - "traefik.http.middlewares.crowdsec-bouncer.plugin.crowdsec-bouncer.crowdseclapikey=<your-bouncer-api-key>"
      - "traefik.http.routers.your-service.middlewares=crowdsec-bouncer@docker"
    ```
+
+## Stream Mode vs Live Mode
+
+This setup uses **stream mode** instead of live mode for several important reasons:
+
+1. **Better Performance**: Stream mode is recommended by the CrowdSec bouncer plugin for better performance as it maintains a local cache of decisions.
+
+2. **Cache Consistency**: When using Redis cache with live mode, banned IPs remain in cache even after being deleted from CrowdSec server. Stream mode ensures better cache consistency by periodically syncing with the CrowdSec server.
+
+3. **Reduced Latency**: Stream mode reduces the number of API calls to the CrowdSec server by maintaining a local cache of decisions.
+
+4. **Higher Reliability**: Even if the CrowdSec server is temporarily unavailable, the bouncer can still function using its cached decisions.
+
+Key configuration parameters for stream mode:
+- `updateIntervalSeconds`: How often to sync decisions with CrowdSec server (default: 60)
+- `updateMaxFailure`: Maximum number of failed updates before considering the service as down (default: 0)
 
 ## Verification
 
@@ -166,24 +191,55 @@ http:
 1. Always keep CrowdSec and Traefik updated to the latest versions
 2. Configure appropriate trusted IP ranges for your environment
 3. Enable AppSec features for enhanced protection
-4. Use Redis cache for better performance in high-traffic environments
+4. Ensure Redis cache is properly secured with authentication
 5. Regularly monitor CrowdSec logs and metrics
 6. Consider implementing allowlists for trusted IPs
 7. Use secure networks and limit container access
+8. Properly secure the LAPI key file with appropriate permissions
 
 ## Troubleshooting
 
 1. If CrowdSec is not blocking requests:
-   - Check if the bouncer API key is correct
+   - Check if the bouncer API key file exists and has correct permissions
    - Verify the middleware configuration
    - Check CrowdSec logs for any errors
+   - Verify Redis cache connectivity
 
 2. If performance is impacted:
-   - Enable Redis cache
-   - Adjust update intervals
+   - Verify Redis cache is working correctly
+   - Adjust update intervals in stream mode
    - Monitor resource usage
+   - Check Redis cache hit/miss rates
 
 3. For false positives:
    - Add trusted IPs to the configuration
    - Review and adjust decision durations
    - Consider implementing custom rules
+   - Monitor stream mode sync logs for any issues
+
+## References
+
+### CrowdSec Documentation
+- [CrowdSec Hub](https://hub.crowdsec.net/)
+- [CrowdSec Console](https://app.crowdsec.net)
+- [CrowdSec Documentation](https://docs.crowdsec.net/)
+- [CrowdSec Blog - Docker Security](https://www.crowdsec.net/blog/enhance-docker-compose-security)
+
+### Traefik CrowdSec Plugin
+- [CrowdSec Bouncer Plugin](https://plugins.traefik.io/plugins/6335346ca4caa9ddeffda116/crowdsec-bouncer-traefik-plugin)
+- [Plugin GitHub Repository](https://github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin)
+- [Plugin Examples](https://github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin/tree/main/examples)
+  - [AppSec Configuration](https://github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin/blob/main/examples/appsec-enabled/README.md)
+  - [Redis Cache Setup](https://github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin/blob/main/examples/redis-cache/README.md)
+  - [Trusted IPs Configuration](https://github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin/blob/main/examples/trusted-ips/README.md)
+
+### Traefik Documentation
+- [Traefik Docker Provider](https://doc.traefik.io/traefik/providers/docker/)
+- [Traefik Plugin System](https://doc.traefik.io/traefik/plugins/)
+- [Traefik Middleware](https://doc.traefik.io/traefik/middlewares/overview/)
+- [Forwarded Headers](https://doc.traefik.io/traefik/routing/entrypoints/#forwarded-headers)
+
+### Network Configuration
+- [Tailscale IP Ranges](https://tailscale.com/kb/1015/100.x-addresses)
+- [Private Network RFC1918](https://datatracker.ietf.org/doc/html/rfc1918)
+- [Cloudflare IP Ranges](https://www.cloudflare.com/ips/)

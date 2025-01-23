@@ -8,11 +8,13 @@ http:
         bouncer:
           enabled: true
           logLevel: DEBUG
+          # stream mode only
           updateIntervalSeconds: 60
           updateMaxFailure: 0
+          # live mode only
           defaultDecisionSeconds: 60
           httpTimeoutSeconds: 10
-          crowdsecMode: live
+          crowdsecMode: stream
           # NOTE: enable AppSec
           # https://github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin/blob/main/examples/appsec-enabled/README.md
           crowdsecAppsecEnabled: true
@@ -41,9 +43,10 @@ http:
             # https://doc.traefik.io/traefik/routing/entrypoints/#forwarded-headers
             - 172.50.0.0/16
           clientTrustedIPs: 
-            # NOTE: Tailscale IPs
+            # Tailscale IPs
             # https://tailscale.com/kb/1015/100.x-addresses
             - 100.64.0.0/10 
+            # Private LAN IPs
             - 192.168.1.0/24
             - 192.168.0.1/24
             # NOTE: May need to include gateway IP of crowdsec network
