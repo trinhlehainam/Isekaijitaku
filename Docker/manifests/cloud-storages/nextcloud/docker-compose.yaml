@@ -17,7 +17,7 @@
 services:
   nextcloud:
     # https://hub.docker.com/_/nextcloud/tags
-    image: nextcloud:30.0.4-apache
+    image: nextcloud:30.0.5-apache
     container_name: nextcloud
     restart: always
     depends_on:
