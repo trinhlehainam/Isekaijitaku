@@ -224,6 +224,8 @@ Key configuration parameters for stream mode:
 - [CrowdSec Console](https://app.crowdsec.net)
 - [CrowdSec Documentation](https://docs.crowdsec.net/)
 - [CrowdSec Blog - Docker Security](https://www.crowdsec.net/blog/enhance-docker-compose-security)
+- [CrowdSec Captcha Profile](https://docs.crowdsec.net/docs/profiles/captcha_profile/)
+- [CrowdSec with Nginx Proxy Manager](https://www.crowdsec.net/blog/crowdsec-with-nginx-proxy-manager)
 
 ### Traefik CrowdSec Plugin
 - [CrowdSec Bouncer Plugin](https://plugins.traefik.io/plugins/6335346ca4caa9ddeffda116/crowdsec-bouncer-traefik-plugin)

@@ -3,7 +3,7 @@
 services:
   stirling-pdf:
     # https://hub.docker.com/r/frooodle/s-pdf/tags
-    image: frooodle/s-pdf:0.35.1-fat
+    image: frooodle/s-pdf:0.38.0-fat
     container_name: stirling-pdf
     restart: unless-stopped
     volumes:
@@ -23,6 +23,9 @@ services:
       # https://docs.stirlingpdf.com/Advanced%20Configuration/Single%20Sign-On%20Configuration
       DOCKER_ENABLE_SECURITY: true
       SECURITY_ENABLELOGIN: true
+      # Disable Form Login (username/password)
+      # https://docs.stirlingpdf.com/Advanced%20Configuration/Single%20Sign-On%20Configuration#configurations-examples
+      SECURITY_LOGINMETHOD: "oauth2"
       SECURITY_OAUTH2_ENABLED: true
       SECURITY_OAUTH2_AUTOCREATEUSER: true
       SECURITY_OAUTH2_CLIENT_KEYCLOAK_ISSUER: "https://keycloak.mydomain.local/realms/your-realm"
