@@ -104,7 +104,7 @@ http:
           updateIntervalSeconds: 60
           updateMaxFailure: 0
           # LAPI Configuration using secrets
-          crowdsecLapiKeyFile: /run/secrets/crowdsec_lapi_key
+          crowdsecLapiKey: FIXME
           crowdsecLapiHost: crowdsec:8080
           crowdsecLapiScheme: http
           # Enable AppSec for advanced protection
@@ -116,14 +116,87 @@ http:
           redisCacheEnabled: true
           redisCacheHost: "redis:6379"
           redisCachePassword: ${REDIS_PASSWORD}
-          redisCacheDatabase: "5"
           # Trusted IPs Configuration
           forwardedHeadersTrustedIPs: 
             - "172.50.0.0/16"  # Cloudflare network
           clientTrustedIPs: 
             - "100.64.0.0/10"  # Tailscale
-            - "192.168.0.0/16"  # Local network
+            - "192.168.0.0/16"  # Private Local network
+          # Captcha Configuration
+          # Available providers: turnstile, hcaptcha, recaptcha
+          captchaProvider: turnstile
+          captchaSiteKey: FIXME
+          captchaSecretKey: FIXME
+          captchaGracePeriodSeconds: 1800
+          captchaHTMLFilePath: /captcha.html
+          banHTMLFilePath: /ban.html
 ```
+
+### 4. Configure Captcha
+
+To enable captcha protection with CrowdSec:
+
+1. Download required HTML templates:
+```bash
+# Download captcha.html and ban.html templates
+curl -o crowdsec/captcha.html https://raw.githubusercontent.com/maxlerebourg/crowdsec-bouncer-traefik-plugin/main/captcha.html
+curl -o crowdsec/ban.html https://raw.githubusercontent.com/maxlerebourg/crowdsec-bouncer-traefik-plugin/main/ban.html
+```
+
+2. After CrowdSec container is created, modify the default `profiles.yaml` by adding one of these configurations at the top of the file:
+
+Option 1 - Basic Captcha:
+```yaml
+name: captcha_remediation
+filters:
+  - Alert.Remediation == true && Alert.GetScope() == "Ip" && Alert.GetScenario() contains "http"
+## Any scenario with http in its name will trigger a captcha challenge
+decisions:
+  - type: captcha
+    duration: 4h
+on_success: break
+---
+```
+
+Option 2 - Limited Captcha with Ban Fallback:
+```yaml
+name: captcha_remediation
+filters:
+  - Alert.Remediation == true && Alert.GetScope() == "Ip" && Alert.GetScenario() contains "http" && GetDecisionsSinceCount(Alert.GetValue(), "24h") <= 3
+## Same as above but only 3 captcha decision per 24 hours before ban
+decisions:
+  - type: captcha
+    duration: 4h
+on_success: break
+---
+```
+
+The second option is recommended as it prevents abuse by limiting the number of captcha challenges before implementing a ban.
+
+3. Update the bouncer middleware configuration in `config/dynamic/crowdsec-middleware.yaml`:
+
+```yaml
+http:
+  middlewares:
+    crowdsec:
+      plugin:
+        bouncer:
+          # ...
+          # Captcha Configuration
+          captchaProvider: turnstile  # Available: turnstile, hcaptcha, recaptcha
+          captchaSiteKey: FIXME
+          captchaSecretKey: FIXME
+          captchaGracePeriodSeconds: 1800
+          captchaHTMLFilePath: /captcha.html
+          banHTMLFilePath: /ban.html
+```
+
+The captcha configuration will:
+- Challenge suspicious IPs with a captcha instead of immediately banning them
+- Apply captcha for HTTP-related scenarios
+- Set captcha duration to 4 hours
+- With Option 2, limit to 3 captcha challenges per IP in 24 hours before implementing a ban
+- Use custom HTML templates for captcha and ban pages
 
 ## Setup Steps
 

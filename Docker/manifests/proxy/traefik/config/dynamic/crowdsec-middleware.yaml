@@ -24,7 +24,7 @@ http:
           # NOTE: generate LAPI key command:
           # `sudo docker exec crowdsec cscli bouncers add traefik-bouncer`
           # IMPORTANT: DO NOT use crowdsecLapiKeyFileFile because that breaks Traefik (v1.3.5) 
-          crowdsecLapiKey: privateKey-foo
+          crowdsecLapiKey: FIXME
           crowdsecLapiHost: crowdsec:8080
           crowdsecLapiScheme: http
           crowdsecLapiTLSInsecureVerify: false
@@ -32,6 +32,13 @@ http:
           # https://github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin/blob/main/examples/redis-cache/README.md
           # NOTE: prefer to use Plugin Cache (memory cache) instead
           redisCacheEnabled: false
+          # Available providers: turnstile, hcaptcha, recaptcha
+          captchaProvider: turnstile
+          captchaSiteKey: FIXME
+          captchaSecretKey: FIXME
+          captchaGracePeriodSeconds: 1800
+          captchaHTMLFilePath: /captcha.html
+          banHTMLFilePath: /ban.html
           # NOTE: trusted IPs
           # https://github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin/blob/main/examples/trusted-ips/README.md
           forwardedHeadersTrustedIPs: 
@@ -47,8 +54,7 @@ http:
             # Private LAN IPs
             - 192.168.1.0/24
             - 192.168.0.1/24
-            # NOTE: May need to include gateway IP of crowdsec network
-            - 172.40.0.1/32
-            # NOTE: May need to include gateway IP of Cloudflared Tunnel gateway network
-            # When container use private dns server to resolve Domain, sometimes container ip is resolved to Cloudflared Tunnel gateway IP
-            - 172.50.0.1/32
+            # crowdsec docker bridge network
+            - 172.40.0.0/16
+            # cloudflared docker bridge network
+            - 172.50.0.0/16

@@ -58,6 +58,37 @@ docker compose exec crowdsec cscli decisions add --ip <ip-address> --duration 24
 docker compose exec crowdsec cscli decisions delete --ip <ip-address>
 ```
 
+## Managing Captcha
+
+### List Captcha Decisions
+```bash
+docker compose exec crowdsec cscli decisions list --type captcha
+```
+
+### Add Manual Captcha Decision
+```bash
+docker compose exec crowdsec cscli decisions add --ip <ip-address> --duration 4h --type captcha
+```
+
+### Delete Captcha Decision
+```bash
+docker compose exec crowdsec cscli decisions delete --ip <ip-address> --type captcha
+```
+
+### View Captcha Metrics
+```bash
+docker compose exec crowdsec cscli metrics --type captcha
+```
+
+### Check Captcha Configuration
+```bash
+# View profiles configuration
+docker compose exec crowdsec cat /etc/crowdsec/profiles.yaml
+
+# View bouncer configuration
+docker compose exec crowdsec cat /etc/crowdsec/bouncers/crowdsec-traefik-bouncer.yaml
+```
+
 ## Managing Bouncers
 
 ### List Bouncers
@@ -153,3 +184,7 @@ docker compose exec crowdsec cscli decisions list --ip 1.2.3.4
 3. Keep backups of your configuration
 4. Test new rules in a staging environment first
 5. Document any custom configurations or rules
+
+## References
+- [CrowdSec CLI Documentation](https://docs.crowdsec.net/docs/cscli/)
+- [CrowdSec Decisions Management](https://docs.crowdsec.net/docs/user_guides/decisions_mgmt/)

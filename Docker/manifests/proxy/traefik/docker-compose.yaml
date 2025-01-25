@@ -55,6 +55,9 @@ services:
       - "./letsencrypt:/etc/letsencrypt"
       # NOTE: make sure step-ca is initialized before creating Traefik
       - "./step/certs/root_ca.crt:/certs/step-ca/root_ca.crt:ro"
+      # NOTE: make sure to download crowdsec's captcha and ban pages before starting Traefik
+      - "./crowdsec/captcha.html:/captcha.html"
+      - "./crowdsec/ban.html:/ban.html"
     environment:
       - TZ=Asia/Tokyo
       # https://go-acme.github.io/lego/dns/cloudflare/
