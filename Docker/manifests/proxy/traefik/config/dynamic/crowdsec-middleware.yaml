@@ -15,14 +15,13 @@ http:
           defaultDecisionSeconds: 60
           httpTimeoutSeconds: 10
           crowdsecMode: stream
-          # NOTE: enable AppSec
+          # AppSec
           # https://github.com/maxlerebourg/crowdsec-bouncer-traefik-plugin/blob/main/examples/appsec-enabled/README.md
           crowdsecAppsecEnabled: true
           crowdsecAppsecHost: crowdsec:7422
           crowdsecAppsecFailureBlock: true
           crowdsecAppsecUnreachableBlock: true
-          # NOTE: generate LAPI key command:
-          # `sudo docker exec crowdsec cscli bouncers add traefik-bouncer`
+          # generate LAPI key command: `sudo docker exec crowdsec cscli bouncers add traefik-bouncer`
           # IMPORTANT: DO NOT use crowdsecLapiKeyFileFile because that breaks Traefik (v1.3.5) 
           crowdsecLapiKey: FIXME
           crowdsecLapiHost: crowdsec:8080
