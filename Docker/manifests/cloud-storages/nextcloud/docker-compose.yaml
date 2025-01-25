@@ -116,7 +116,37 @@ services:
       - "traefik.http.middlewares.nextcloud-dav.redirectregex.permanent=true"
       - "traefik.http.middlewares.nextcloud-dav.redirectregex.regex=https?://([^/]*)/.well-known/(card|cal)dav"
       - "traefik.http.middlewares.nextcloud-dav.redirectregex.replacement=https://$${1}/remote.php/dav/"
-
+      
+  # https://github.com/nextcloud/whiteboard
+  nextcloud-whiteboard:
+    # https://github.com/nextcloud-releases/whiteboard/pkgs/container/whiteboard
+    image: ghcr.io/nextcloud-releases/whiteboard:v1.0.5
+    container_name: nextcloud-whiteboard
+    environment:
+      - NEXTCLOUD_URL=https://nextcloud.vice.local
+      - JWT_SECRET_KEY=FIXME
+    # ports:
+    #   - 3002:3002
+    networks:
+      - proxy
+    dns:
+      - 192.168.x.y
+      - 1.1.1.1
+      - 1.0.0.1
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.services.nextcloud-whiteboard.loadbalancer.server.port=3002"
+      ## Router
+      ### Private
+      - "traefik.http.routers.nextcloud-whiteboard-local.rule=Host(`nextcloud-whiteboard.yourdomain.local`)"
+      - "traefik.http.routers.nextcloud-whiteboard-local.entrypoints=websecure"
+      - "traefik.http.routers.nextcloud-whiteboard-local.tls.certresolver=stepca"
+      ### Public
+      - "traefik.http.routers.nextcloud-whiteboard.rule=Host(`nextcloud-whiteboard.yourdomain`)"
+      - "traefik.http.routers.nextcloud-whiteboard.entrypoints=websecure"
+      - "traefik.http.routers.nextcloud-whiteboard.tls.certresolver=cloudflare"
+      
   # https://sdk.collaboraonline.com/docs/installation/CODE_Docker_image.html#how-to-configure-docker-image
   # https://forum.collaboraonline.com/t/docker-compose-file-example-needed/2976/4
   collabora:
