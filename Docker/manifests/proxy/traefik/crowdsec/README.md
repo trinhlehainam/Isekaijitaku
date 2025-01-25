@@ -143,7 +143,16 @@ curl -o crowdsec/captcha.html https://raw.githubusercontent.com/maxlerebourg/cro
 curl -o crowdsec/ban.html https://raw.githubusercontent.com/maxlerebourg/crowdsec-bouncer-traefik-plugin/main/ban.html
 ```
 
-2. After CrowdSec container is created, modify the default `profiles.yaml` by adding one of these configurations at the top of the file:
+2. Mount the HTML files in Traefik service. Add these volumes to your `docker-compose.yaml` under the Traefik service:
+```yaml
+    volumes:
+      # ... existing volumes ...
+      # NOTE: make sure to download crowdsec's captcha and ban pages before starting Traefik
+      - "./crowdsec/captcha.html:/captcha.html"
+      - "./crowdsec/ban.html:/ban.html"
+```
+
+3. After CrowdSec container is created, modify the default `profiles.yaml` by adding one of these configurations at the top of the file:
 
 Option 1 - Basic Captcha:
 ```yaml
@@ -173,7 +182,7 @@ on_success: break
 
 The second option is recommended as it prevents abuse by limiting the number of captcha challenges before implementing a ban.
 
-3. Update the bouncer middleware configuration in `config/dynamic/crowdsec-middleware.yaml`:
+4. Update the bouncer middleware configuration in `config/dynamic/crowdsec-middleware.yaml`:
 
 ```yaml
 http:
