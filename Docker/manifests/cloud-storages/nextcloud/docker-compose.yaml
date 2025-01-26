@@ -8,6 +8,7 @@
 # https://help.nextcloud.com/t/docker-compose-for-nextcloud-collabora-traefik/127733/6
 # NOTE: Collabora Dark Mode
 # https://github.com/CollaboraOnline/online/issues/9059
+# https://help.nextcloud.com/t/collabora-with-dark-theme-barely-readable/100192/6
 # NOTE: Japanese, Chinese fonts (use Standalone Collabora solved this issue)
 # https://forum.collaboraonline.com/t/cannot-display-chinese/2607/5
 # https://help.nextcloud.com/t/installing-new-fonts-in-collabora/22758
@@ -151,7 +152,7 @@ services:
   # https://forum.collaboraonline.com/t/docker-compose-file-example-needed/2976/4
   collabora:
     # https://hub.docker.com/r/collabora/code/tags
-    image: collabora/code:24.04.11.1.1
+    image: collabora/code:24.04.12.1.1
     container_name: collabora
     hostname: collabora
     environment:
