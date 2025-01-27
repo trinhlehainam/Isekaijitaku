@@ -31,8 +31,6 @@ services:
       # nextcloud-mountcheck:
       #   condition: service_healthy
       #   restart: true
-      # collabora:
-      #   condition: service_started
     # ports:
     #   - 80:80
     volumes:
