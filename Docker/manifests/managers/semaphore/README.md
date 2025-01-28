@@ -48,6 +48,27 @@ This command will:
 
 3. When overriding the command with `docker compose run`, the entire command line after the service name replaces the default command and is passed to `exec "$@"` in the entrypoint script.
 
+4. The `exec` command is crucial here because:
+   - It replaces the current shell process with the specified command
+   - This ensures `tini` runs as PID 1 (the main process) in the container
+   - Running `tini` as PID 1 is necessary for proper signal handling and zombie process reaping
+   - Without `exec`, `tini` would run as a child process and couldn't function properly as an init system
+
+For example, the process hierarchy with `exec` looks like this:
+```
+PID 1: /sbin/tini
+└── /usr/local/bin/server-wrapper
+    └── /usr/local/bin/semaphore
+```
+
+Without `exec`, it would incorrectly look like this:
+```
+PID 1: /bin/sh
+└── /sbin/tini
+    └── /usr/local/bin/server-wrapper
+        └── /usr/local/bin/semaphore
+```
+
 ## Config Folder Setup
 
 Before running the Semaphore container, you need to set up the config folder with the correct ownership:

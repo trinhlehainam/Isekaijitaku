@@ -43,7 +43,8 @@ services:
         export SECURITY_INITIALlOGIN_PASSWORD=$$(cat /run/secrets/password)
         export SECURITY_OAUTH2_CLIENT_KEYCLOAK_CLIENTSECRET=$$(cat /run/secrets/keycloak_client_secret)
         update-ca-certificates
-        tini -- /scripts/init.sh java -Dfile.encoding=UTF-8 -jar /app.jar
+        exec "$@"
+    command: ["tini", "--", "/scripts/init.sh", "java", "-Dfile.encoding=UTF-8", "-jar", "/app.jar"]
     # ports:
     #   - '8080:8080'
     networks:

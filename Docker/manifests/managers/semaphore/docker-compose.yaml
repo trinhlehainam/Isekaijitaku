@@ -27,7 +27,6 @@ services:
       SEMAPHORE_ADMIN_NAME: admin
       SEMAPHORE_ADMIN_EMAIL: admin@localhost
       SEMAPHORE_PASSWORD_LOGIN_DISABLED: True
-      ENTRYPOINT_ARG: ""
     volumes:
       # NOTE: only needed when using SEMAPHORE_DB_DIALECT=boltdb
       # - ./data:/var/lib/semaphore
