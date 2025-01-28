@@ -126,6 +126,7 @@ services:
       - JWT_SECRET_KEY=FIXME
     # ports:
     #   - 3002:3002
+    restart: always
     networks:
       - proxy
     dns:

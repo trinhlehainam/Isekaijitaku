@@ -1,9 +1,9 @@
 services:
   # https://tailscale.com/kb/1282/docker#code-examples
-  tailscale-adguardhome:
+  adguardhome-tailscale:
     # https://hub.docker.com/r/tailscale/tailscale/tags
     image: tailscale/tailscale:v1.78.3
-    container_name: tailscale-adguardhome
+    container_name: adguardhome-tailscale
     # hostname: Docker-Tailscale
     environment:
       # NOTE: parameters: https://tailscale.com/kb/1282/docker#parameters
@@ -33,7 +33,7 @@ services:
       # https://doc.traefik.io/traefik/providers/docker/#network
       - "traefik.docker.network=proxy"
       - "traefik.http.services.adguardhome.loadbalancer.server.port=80"
-      - "traefik.http.routers.adguardhome-local.rule=Host(`adguardhome.yourdomain`)"
+      - "traefik.http.routers.adguardhome-local.rule=Host(`adguardhome.yourdomain.local`)"
       - "traefik.http.routers.adguardhome-local.entrypoints=websecure"
       - "traefik.http.routers.adguardhome-local.tls.certresolver=stepca"
       - "traefik.http.routers.adguardhome-local.middlewares=oauth2-admin@file"
