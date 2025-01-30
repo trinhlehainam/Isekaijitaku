@@ -1,0 +1,42 @@
+# https://beszel.dev/guide/hub-installation#docker-or-podman
+
+services:
+  beszel:
+    # https://hub.docker.com/r/henrygd/beszel/tags
+    image: henrygd/beszel:0.9.1
+    container_name: beszel
+    restart: unless-stopped
+    volumes:
+      # To mount custom CA certificates
+      # - /etc/ssl/certs:/etc/ssl/certs:ro
+      - ./data:/beszel_data
+    environment:
+      # https://beszel.dev/guide/environment-variables#hub
+      - DISABLE_PASSWORD_AUTH=true
+      # https://beszel.dev/guide/oauth
+      # Enable user creation to login with OAuth2
+      - USER_CREATION=true
+    # ports:
+    #   - 8090:8090
+    # Required when using local agent
+    extra_hosts:
+      - host.docker.internal:host-gateway
+    networks:
+      - proxy
+    dns:
+      - 192.168.x.y
+      - 1.1.1.1
+      - 1.0.0.1
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.services.beszel.loadbalancer.server.port=8090"
+      ## Router
+      ### Private
+      - "traefik.http.routers.beszel-local.rule=Host(`beszel.yourdomain.local`)"
+      - "traefik.http.routers.beszel-local.entrypoints=websecure"
+      - "traefik.http.routers.beszel-local.tls.certresolver=stepca"
+      
+networks:
+  proxy:
+    external: true
