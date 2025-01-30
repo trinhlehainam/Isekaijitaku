@@ -196,7 +196,7 @@ Due to Tailscale's node approval requirements, it's recommended to start service
 3. Start Semaphore container:
    ```bash
    # Start Semaphore after Tailscale is approved and connected
-   docker compose up -d semaphore
+   docker compose up -d
    ```
 
 This sequence ensures:
@@ -218,7 +218,7 @@ If Tailscale container becomes unhealthy:
    docker compose down
    docker compose up -d tailscale
    # Wait for approval and connection
-   docker compose up -d semaphore
+   docker compose up -d
    ```
 
 ### Generating Auth Key
