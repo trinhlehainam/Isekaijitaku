@@ -6,6 +6,7 @@ services:
     image: henrygd/beszel-agent:0.9.1
     container_name: beszel-agent
     restart: unless-stopped
+    # https://beszel.dev/guide/agent-installation#why-host-network-mode
     network_mode: host
     volumes:
       # https://beszel.dev/guide/environment-variables#agent
