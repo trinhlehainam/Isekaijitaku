@@ -36,6 +36,11 @@ services:
       - "traefik.http.routers.beszel-local.rule=Host(`beszel.yourdomain.local`)"
       - "traefik.http.routers.beszel-local.entrypoints=websecure"
       - "traefik.http.routers.beszel-local.tls.certresolver=stepca"
+      #### Admin
+      - "traefik.http.routers.beszel-admin-local.rule=Host(`beszel.yourdomain.local`) && PathPrefix(`/_/`)"
+      - "traefik.http.routers.beszel-admin-local.entrypoints=websecure"
+      - "traefik.http.routers.beszel-admin-local.tls.certresolver=stepca"
+      - "traefik.http.routers.beszel-admin-local.middlewares=oauth2@file,oauth2-admin@file"
       
 networks:
   proxy:
