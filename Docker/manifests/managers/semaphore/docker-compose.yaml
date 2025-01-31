@@ -11,9 +11,21 @@ services:
         export SEMAPHORE_ADMIN_PASSWORD=$$(cat /run/secrets/semaphore_admin_password)
         export SEMAPHORE_DB_PASS=$$(cat /run/secrets/db_password)
         export SEMAPHORE_ACCESS_KEY_ENCRYPTION=$$(cat /run/secrets/semaphore_access_key_encryption)
-        exec "$@"
-    # https://github.com/semaphoreui/semaphore/blob/develop/deployment/docker/server/server-wrapper
-    command: ["/sbin/tini", "--", "/usr/local/bin/server-wrapper"]
+        # Generate config.json inside SEMAPHORE_CONFIG_PATH
+        /usr/local/bin/server-wrapper /usr/local/bin/semaphore
+        # Inject custom Keycloak config to generated config.json
+        # https://docs.semaphoreui.com/administration-guide/openid/keycloak/
+        jq '.oidc_providers = {
+          "keycloak": {
+            "display_name": "Sign in with keycloak",
+            "provider_url": "https://keycloak.yourdomain.local/realms/your_realm_name",
+            "client_id": "semaphore",
+            "client_secret": "/run/secrets/keycloak_client_secret",
+            "redirect_url": "https://semaphore.yourdomain.local/api/auth/oidc/keycloak/redirect"
+          }
+        }' /etc/semaphore/config.json > /etc/semaphore/config.json
+        # https://github.com/semaphoreui/semaphore/blob/develop/deployment/docker/server/server-wrapper
+        exec /sbin/tini -- /usr/local/bin/server-wrapper
     depends_on:
       semaphore-postgres:
         condition: service_healthy
@@ -27,10 +39,10 @@ services:
       SEMAPHORE_ADMIN_NAME: admin
       SEMAPHORE_ADMIN_EMAIL: admin@localhost
       SEMAPHORE_PASSWORD_LOGIN_DISABLED: True
+      SEMAPHORE_CONFIG_PATH: /etc/semaphore
     volumes:
       # NOTE: only needed when using SEMAPHORE_DB_DIALECT=boltdb
       # - ./data:/var/lib/semaphore
-      - ./config:/etc/semaphore
     secrets:
       - db_password
       - semaphore_admin_password
@@ -42,7 +54,6 @@ services:
       # https://docs.semaphoreui.com/administration-guide/openid/keycloak/
       # NOTE: Current version (2.11.3) hasn't supported openid configuration environment variables.
       # Don't bind config.json to container. Instead copy content of config.json to generated file.
-      - keycloak_client_id
       - keycloak_client_secret
     # ports:
     #   - 3000:3000
@@ -87,8 +98,6 @@ secrets:
     file: ./secrets/semaphore_admin_password
   semaphore_access_key_encryption:
     file: ./secrets/semaphore_access_key_encryption
-  keycloak_client_id:
-    file: ./secrets/keycloak_client_id
   keycloak_client_secret:
     file: ./secrets/keycloak_client_secret
 
