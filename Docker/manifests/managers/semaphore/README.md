@@ -250,6 +250,79 @@ If Tailscale container becomes unhealthy:
 - Consider using Docker secrets for storing sensitive Tailscale credentials
 - The hostname set in the Tailscale service will be the node name in your tailnet
 
+## Keycloak OIDC Integration
+
+The configuration automatically injects Keycloak OpenID Connect settings through a JSON merge:
+
+```yaml
+jq '.oidc_providers = {
+  "keycloak": {
+    "display_name": "Sign in with keycloak",
+    "provider_url": "https://keycloak.yourdomain.local/realms/your_realm_name",
+    "client_id": "semaphore",
+    "client_secret": "/run/secrets/keycloak_client_secret",
+    "redirect_url": "https://semaphore.yourdomain.local/api/auth/oidc/keycloak/redirect"
+  }
+}' /etc/semaphore/config.json
+```
+
+Requirements:
+- Valid Keycloak realm setup
+- Client secret stored in `secrets/keycloak_client_secret`
+- Proper DNS records for Keycloak and Semaphore endpoints
+
+## Reverse Proxy Setup (Traefik)
+
+Labels configure Traefik routing:
+```yaml
+labels:
+  - "traefik.enable=true"
+  - "traefik.docker.network=proxy"
+  - "traefik.http.services.semaphore.loadbalancer.server.port=3000"
+  - "traefik.http.routers.semaphore-local.rule=Host(`semaphore.yourdomain.local`)"
+  - "traefik.http.routers.semaphore-local.entrypoints=websecure"
+  - "traefik.http.routers.semaphore-local.tls.certresolver=stepca"
+```
+
+Prerequisites:
+- Existing Traefik proxy network
+- Valid TLS certificate resolver
+- DNS records pointing to your Traefik instance
+
+## Secret Management
+
+Required secrets:
+- `db_password`: PostgreSQL database password
+- `semaphore_admin_password`: Initial admin password
+- `semaphore_access_key_encryption`: Base64-encoded 32-byte key
+- `keycloak_client_secret`: Keycloak OIDC client secret
+
+Generate encryption key:
+```bash
+head -c32 /dev/urandom | base64 > secrets/semaphore_access_key_encryption
+```
+
+Best practices:
+- Store secrets outside version control
+- Use 600 permissions for secret files
+- Rotate secrets regularly
+
+## Database Health Checks
+
+PostgreSQL service includes comprehensive health monitoring:
+```yaml
+healthcheck:
+  test: [ "CMD", "pg_isready", "-q", "-d", "semaphore", "-U", "semaphore" ]
+  interval: 10s
+  timeout: 5s
+  retries: 3
+```
+
+This ensures:
+- Automatic restarts on database connection failures
+- Dependency ordering during startup
+- Service reliability through continuous monitoring
+
 ## Important Notes
 
 - Using `exec "$@"` in the entrypoint ensures proper signal handling and process management
