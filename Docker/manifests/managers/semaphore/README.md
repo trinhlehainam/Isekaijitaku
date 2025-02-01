@@ -125,6 +125,7 @@ This section explains how to integrate Semaphore with Tailscale for secure netwo
        volumes:
          - ./tailscale:/var/lib/tailscale  # Persist Tailscale state
          - ./tailscale/socket:/tmp/
+       devices:
          - /dev/net/tun:/dev/net/tun  # Required for Tailscale VPN
        environment:
          - TS_AUTHKEY=${TS_AUTHKEY}  # Auth key generated using OAuth client
