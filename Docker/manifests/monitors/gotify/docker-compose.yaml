@@ -38,7 +38,7 @@ services:
       ## Router
       ### API
       # https://gotify.net/api-docs
-      - 'traefik.http.routers.gotify-api-local.rule=Host(`gotify.mydomain.local`) && (PathPrefix(`/application`) || PathPrefix(`/message`) || PathPrefix(`/client`) || PathPrefix(`/user`) || PathPrefix(`/health`) || PathPrefix(`/plugin`) || PathPrefix(`/version`))'
+      - 'traefik.http.routers.gotify-api-local.rule=Host(`gotify.mydomain.local`) && PathRegexp(`^/(application|message|client|user|health|plugin|version)`)'
       - 'traefik.http.routers.gotify-api-local.entrypoints=websecure'
       - 'traefik.http.routers.gotify-api-local.tls.certresolver=stepca'
       ### Console
