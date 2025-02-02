@@ -1,6 +1,8 @@
 # https://forgejo.org/docs/latest/admin/installation-docker/
 # https://forgejo.org/docs/next/admin/installation-docker/#postgresql-database
 # https://codeberg.org/forgejo-contrib/delightful-forgejo
+## Enable sending emails
+# https://forgejo.org/docs/latest/admin/email-setup/
 
 services:
   # https://forgejo.org/docs/next/admin/installation-docker/#hosting-repository-data-on-remote-storage-systems
@@ -15,9 +17,6 @@ services:
       - FORGEJO__database__USER=forgejo
       # NOTE: can be set up on admin page
       # - FORGEJO__database__PASSWD=forgejo
-      
-      # Keep using legacy config path (not recommended)
-      # - GITEA_APP_INI=/etc/gitea/app.ini
     volumes:
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
@@ -69,7 +68,6 @@ services:
       - "traefik.tcp.routers.forgejo-ssh.rule=HostSNI(`*`)"
       - "traefik.tcp.routers.forgejo-ssh.service=forgejo-ssh"
       - "traefik.tcp.routers.forgejo-ssh.entrypoints=forgejo-ssh"
-      
 
   # https://hub.docker.com/_/postgres
   forgejo-db:

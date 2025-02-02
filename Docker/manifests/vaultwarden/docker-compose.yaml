@@ -1,8 +1,5 @@
 # https://github.com/dani-garcia/vaultwarden/wiki/Starting-a-Container
 # https://github.com/dani-garcia/vaultwarden/wiki/Using-Docker-Compose
-# https://github.com/dani-garcia/vaultwarden/wiki/SMTP-Configuration
-# NOTE: Enable admin page
-# https://github.com/dani-garcia/vaultwarden/wiki/Enabling-admin-page
 # NOTE: Use PostgreSQL instead of SQLite
 # https://github.com/dani-garcia/vaultwarden/wiki/Using-the-PostgreSQL-Backend
 
@@ -24,7 +21,16 @@ services:
         export ADMIN_TOKEN=$$(cat /run/secrets/admin_token)
         export POSTGRES_PASSWORD=$$(cat /run/secrets/db_password)
         export DATABASE_URL=postgresql://${POSTGRES_USER}:$$POSTGRES_PASSWORD@vaultwarden-postgres:5432/${POSTGRES_DB}
+        export STMP_PASSWORD=$$(cat /run/secrets/smtp_password)
         /start.sh
+    environment:
+      # Enable SMTP
+      # https://github.com/dani-garcia/vaultwarden/wiki/SMTP-Configuration
+      SMTP_HOST: smtp.domain.tld
+      SMTP_SECURITY: force_tls
+      SMTP_PORT: 465
+      SMTP_USERNAME: yourusername
+      SMTP_FROM: yourname@domain.tld
     # ports:
     #   - '80:80'
     volumes:
@@ -32,6 +38,7 @@ services:
     secrets:
       - admin_token
       - db_password
+      - smtp_password
     networks:
       - vaultwarden
       - proxy
@@ -43,6 +50,8 @@ services:
       - "traefik.http.routers.vaultwarden-local.rule=Host(`vaultwarden.yourdomain.local`)"
       - "traefik.http.routers.vaultwarden-local.entrypoints=websecure"
       - "traefik.http.routers.vaultwarden-local.tls.certresolver=stepca"
+      # Enable admin page
+      # https://github.com/dani-garcia/vaultwarden/wiki/Enabling-admin-page
       # Admin path with OAuth2 protection
       - "traefik.http.routers.vaultwarden-admin-local.rule=Host(`vaultwarden.yourdomain.local`) && PathPrefix(`/admin`)"
       - "traefik.http.routers.vaultwarden-admin-local.entrypoints=websecure"
@@ -81,3 +90,5 @@ secrets:
     file: ./secrets/admin_token
   db_password:
     file: ./secrets/db_password
+  smtp_password:
+    file: ./secrets/smtp_password

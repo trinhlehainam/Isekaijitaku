@@ -34,7 +34,7 @@ services:
       - ./nextcloud/data:/var/www/html/data
       # NOTE: import self-signed certificates in nextcloud
       # make sure root_ca.crt can be read by user www-data: `sudo chmod 644 /path/to/step/certs/root_ca.crt`
-      # `docker exec -it -u www-data nextcloud ./occ security:certificates:import /certs/step-ca/root_ca.crt`
+      # `docker compose exec -it -u 33 nextcloud php occ security:certificates:import /certs/step-ca/root_ca.crt`
       - /path/to/step/certs/root_ca.crt:/certs/step-ca/root_ca.crt:ro
       # NOTE: enable OPcache
       # https://github.com/nextcloud/docker/issues/2184#issuecomment-2082845207

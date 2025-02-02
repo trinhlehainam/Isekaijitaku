@@ -99,10 +99,13 @@ labels:
 ```
 
 #### Disable Reset Password
+- If we don't configure send emails, we can disable reset password because reset password requires email verification.
 - [Official Guidance](https://help.nextcloud.com/t/remove-the-possibility-to-reset-password-for-users/27570/2)
 ```bash
 docker compose exec -u 33 nextcloud php occ config:system:set --value "disabled" lost_password_link
 ```
+
+- To configure send emails reference [Nextcloud Email Configuration](https://docs.nextcloud.com/server/30/admin_manual/configuration_server/email_configuration.html)
 
 #### Disable Passwordless Login
 - [Official Guidance](https://help.nextcloud.com/t/disable-passwordless-login-and-remove-log-in-with-a-device-link-on-login-page/86465/8)
