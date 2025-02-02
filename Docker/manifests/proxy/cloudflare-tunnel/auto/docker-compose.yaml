@@ -3,6 +3,7 @@
 services:
   cloudflare-tunnel:
     container_name: cloudflare-tunnel
+    # https://hub.docker.com/r/cloudflare/cloudflared/tags
     image: cloudflare/cloudflared:2025.1.1-amd64
     restart: unless-stopped
     environment:
