@@ -103,7 +103,9 @@ labels:
 ```bash
 docker compose exec -u 33 nextcloud php occ config:system:set --value "disabled" lost_password_link
 ```
+
 #### Disable Passwordless Login
+- [Official Guidance](https://help.nextcloud.com/t/disable-passwordless-login-and-remove-log-in-with-a-device-link-on-login-page/86465/8)
 ```bash
 docker compose exec -u 33 nextcloud php occ config:system:set --type boolean --value false auth.webauthn.enabled
 ```
