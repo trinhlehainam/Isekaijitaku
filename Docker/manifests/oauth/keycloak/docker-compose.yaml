@@ -7,6 +7,9 @@
 #
 # NOTE: setup permanent admin in Keyloack
 # https://github.com/keycloak/keycloak/discussions/33803#discussioncomment-10921141
+# 
+# NOTE: Configuring email for a realm
+# https://www.keycloak.org/docs/latest/server_admin/#_email
 
 services:
   keycloak:
