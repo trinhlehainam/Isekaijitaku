@@ -1,4 +1,3 @@
-# https://hub.docker.com/_/nextcloud
 # https://chrisgrime.medium.com/deploy-nextcloud-with-docker-compose-935a76a5eb78
 # https://www.smarthomebeginner.com/traefik-docker-nextcloud/
 # https://github.com/heyvaldemar/nextcloud-traefik-letsencrypt-docker-compose
@@ -8,13 +7,6 @@
 # https://help.nextcloud.com/t/docker-compose-for-nextcloud-collabora-traefik/127733/6
 ### Dark Mode
 # https://help.nextcloud.com/t/collabora-with-dark-theme-barely-readable/100192/6
-## Nextcloud SSO
-### Keycloak
-# https://github.com/zorn-v/nextcloud-social-login/blob/master/docs/sso/keycloak.md
-### disable reset password
-# https://help.nextcloud.com/t/remove-the-possibility-to-reset-password-for-users/27570/2
-### disable passwordless login
-# https://help.nextcloud.com/t/disable-passwordless-login-and-remove-log-in-with-a-device-link-on-login-page/86465/9
 
 services:
   nextcloud:
@@ -103,6 +95,13 @@ services:
       - "traefik.http.routers.nextcloud.rule=Host(`nextcloud.yourdomain`)"
       - "traefik.http.routers.nextcloud.entrypoints=websecure"
       - "traefik.http.routers.nextcloud.tls.certresolver=cloudflare"
+      - "traefik.http.routers.nextcloud.middlewares=nextcloud-dav,nextcloud-headers"
+      #### Block Username/Password Login
+      - "traefik.http.routers.nextcloud-password-login.rule=Host(`nextcloud.yourdomain`) && PathPrefix(`/login`) && Query(`noredir`, `1`)"
+      - "traefik.http.routers.nextcloud-password-login.entrypoints=websecure"
+      - "traefik.http.routers.nextcloud-password-login.tls.certresolver=cloudflare"
+      - "traefik.http.routers.nextcloud-password-login.service=noop@internal"
+      - "traefik.http.routers.nextcloud-password-login.middlewares=nextcloud-headers"
       ## Middlewares
       ### Security Headers
       - 'traefik.http.middlewares.nextcloud-headers.headers.referrerPolicy=no-referrer'

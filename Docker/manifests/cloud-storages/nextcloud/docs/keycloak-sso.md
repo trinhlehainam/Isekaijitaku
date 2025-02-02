@@ -77,15 +77,57 @@ Note: These settings can be found in the Nextcloud Admin Settings → Social Log
    - Going to Personal Settings → Security
    - Under "Connected Accounts", they can connect additional SSO providers
 
-### Security Considerations
+### Advanced Security Configurations
 
-1. Always use HTTPS for all endpoints
-2. Regularly rotate client secrets
-3. Limit redirect URIs to specific Nextcloud instances
-4. Consider implementing additional security measures like:
-   - IP filtering
-   - Multi-factor authentication
-   - Group-based access control
+### Disable Username/Password Login
+- [Nextcloud Social Login Documentation](https://github.com/zorn-v/nextcloud-social-login?tab=readme-ov-file#config)
+
+- **Traefik Path Blocking Configuration**:
+```yaml
+labels:
+   # https://doc.traefik.io/traefik/routing/routers/#query-and-queryregexp
+  - "traefik.http.routers.nextcloud-password-login.rule=Host(`nextcloud.yourdomain`) && PathPrefix(`/login`) && Query(`noredir`, `1`)"
+  # Traefik dummy service: https://github.com/traefik/traefik/issues/7291
+  - "traefik.http.routers.nextcloud-password-login.service=noop@internal"
+  - "traefik.http.routers.nextcloud-password-login.middlewares=nextcloud-headers"
+```
+
+#### Disable Reset Password
+- [Official Guidance](https://help.nextcloud.com/t/remove-the-possibility-to-reset-password-for-users/27570/2)
+```php
+'lost_password_link' => 'disabled',
+```
+
+#### Disable Passwordless Login
+```bash
+docker compose exec nextcloud php occ config:system:set --type boolean --value false auth.webauthn.enabled
+```
+
+## Operational Verification
+
+1. Test direct login attempt:
+```bash
+curl -I https://nextcloud.yourdomain/login?noredir=1
+# Expected response: HTTP/2 418
+```
+
+2. Check passwordless status:
+```bash
+docker compose exec nextcloud php occ config:system:get auth.webauthn.enabled
+# Expected output: false
+```
+
+3. Verify password reset link:
+```bash
+grep lost_password_link config/config.php # Should show 'disabled'
+```
+
+## References
+- [Disable Password Reset](https://help.nextcloud.com/t/remove-the-possibility-to-reset-password-for-users/27570)
+- [Passwordless Login Configuration](https://github.com/nextcloud/user_saml/issues/284)
+- [Security Hardening Discussion](https://www.reddit.com/r/NextCloud/comments/v1vo8r/possible_to_remove_usernamepassword_option_from/)
+- [Keycloak SSO User Mapping Discussion](https://help.nextcloud.com/t/keycloak-sso-how-to-map-only-existing-keycloak-users-to-nextcloud-users-without-creating-new/85981)
+- [Nextcloud Social Login Documentation](https://github.com/zorn-v/nextcloud-social-login/blob/master/docs/sso/keycloak.md)
 
 ### Troubleshooting
 
@@ -98,8 +140,3 @@ Note: These settings can be found in the Nextcloud Admin Settings → Social Log
    - Ensure `allow_login_connect` is enabled
    - Check if the email addresses match between accounts
    - Verify user session is active
-
-### References
-
-- [Keycloak SSO User Mapping Discussion](https://help.nextcloud.com/t/keycloak-sso-how-to-map-only-existing-keycloak-users-to-nextcloud-users-without-creating-new/85981)
-- [Nextcloud Social Login Documentation](https://github.com/zorn-v/nextcloud-social-login/blob/master/docs/sso/keycloak.md)
