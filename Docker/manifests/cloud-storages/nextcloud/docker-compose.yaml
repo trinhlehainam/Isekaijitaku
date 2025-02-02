@@ -3,20 +3,22 @@
 # https://www.smarthomebeginner.com/traefik-docker-nextcloud/
 # https://github.com/heyvaldemar/nextcloud-traefik-letsencrypt-docker-compose
 # https://forums.truenas.com/t/logging-into-nextcloud-app-for-the-first-time-cannot-log-in-as-specified-user/22853/11
-# NOTE: Collabora
+## Collabora
 # https://help.nextcloud.com/t/collabora-integration-guide/151879
 # https://help.nextcloud.com/t/docker-compose-for-nextcloud-collabora-traefik/127733/6
-# NOTE: Collabora Dark Mode
-# https://github.com/CollaboraOnline/online/issues/9059
+### Dark Mode
 # https://help.nextcloud.com/t/collabora-with-dark-theme-barely-readable/100192/6
-# NOTE: Japanese, Chinese fonts (use Standalone Collabora solved this issue)
-# https://forum.collaboraonline.com/t/cannot-display-chinese/2607/5
-# https://help.nextcloud.com/t/installing-new-fonts-in-collabora/22758
-# NOTE: Nextcloud SSO
+## Nextcloud SSO
+### Keycloak
 # https://github.com/zorn-v/nextcloud-social-login/blob/master/docs/sso/keycloak.md
+### disable reset password
+# https://help.nextcloud.com/t/remove-the-possibility-to-reset-password-for-users/27570/2
+### disable passwordless login
+# https://help.nextcloud.com/t/disable-passwordless-login-and-remove-log-in-with-a-device-link-on-login-page/86465/9
 
 services:
   nextcloud:
+    # Upgrade to a newer version: https://github.com/nextcloud/docker?tab=readme-ov-file#update-to-a-newer-version
     # https://hub.docker.com/_/nextcloud/tags
     image: nextcloud:30.0.5-apache
     container_name: nextcloud
