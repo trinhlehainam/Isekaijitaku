@@ -82,6 +82,12 @@ Note: These settings can be found in the Nextcloud Admin Settings → Social Log
 ### Disable Username/Password Login
 - [Nextcloud Social Login Documentation](https://github.com/zorn-v/nextcloud-social-login?tab=readme-ov-file#config)
 
+- You can use `social_login_auto_redirect` => true setting in `config.php` for auto redirect unauthorized users to social login if `only one provider` is configured. 
+
+```bash
+docker compose exec -u 33 nextcloud php occ config:system:set --value "true" social_login_auto_redirect
+```
+
 - **Traefik Path Blocking Configuration**:
 ```yaml
 labels:
@@ -94,40 +100,39 @@ labels:
 
 #### Disable Reset Password
 - [Official Guidance](https://help.nextcloud.com/t/remove-the-possibility-to-reset-password-for-users/27570/2)
-```php
-'lost_password_link' => 'disabled',
+```bash
+docker compose exec -u 33 nextcloud php occ config:system:set --value "disabled" lost_password_link
 ```
-
 #### Disable Passwordless Login
 ```bash
-docker compose exec nextcloud php occ config:system:set --type boolean --value false auth.webauthn.enabled
+docker compose exec -u 33 nextcloud php occ config:system:set --type boolean --value false auth.webauthn.enabled
 ```
 
 ## Operational Verification
 
-1. Test direct login attempt:
+1. Check SSO auto redirect setting:
+```bash
+docker compose exec -u 33 nextcloud php occ config:system:get social_login_auto_redirect
+# Expected output: 'true'
+```
+
+2. Test direct login attempt:
 ```bash
 curl -I https://nextcloud.yourdomain/login?noredir=1
 # Expected response: HTTP/2 418
 ```
 
-2. Check passwordless status:
+3. Check password reset status:
 ```bash
-docker compose exec nextcloud php occ config:system:get auth.webauthn.enabled
-# Expected output: false
+docker compose exec -u 33 nextcloud php occ config:system:get lost_password_link
+# Should return 'disabled'
 ```
 
-3. Verify password reset link:
+3. Confirm passwordless login disabled:
 ```bash
-grep lost_password_link config/config.php # Should show 'disabled'
+docker compose exec -u 33 nextcloud php occ config:system:get auth.webauthn.enabled
+# Expected output: 'false'
 ```
-
-## References
-- [Disable Password Reset](https://help.nextcloud.com/t/remove-the-possibility-to-reset-password-for-users/27570)
-- [Passwordless Login Configuration](https://github.com/nextcloud/user_saml/issues/284)
-- [Security Hardening Discussion](https://www.reddit.com/r/NextCloud/comments/v1vo8r/possible_to_remove_usernamepassword_option_from/)
-- [Keycloak SSO User Mapping Discussion](https://help.nextcloud.com/t/keycloak-sso-how-to-map-only-existing-keycloak-users-to-nextcloud-users-without-creating-new/85981)
-- [Nextcloud Social Login Documentation](https://github.com/zorn-v/nextcloud-social-login/blob/master/docs/sso/keycloak.md)
 
 ### Troubleshooting
 
@@ -140,3 +145,11 @@ grep lost_password_link config/config.php # Should show 'disabled'
    - Ensure `allow_login_connect` is enabled
    - Check if the email addresses match between accounts
    - Verify user session is active
+
+## References
+- [Disable Password Reset](https://help.nextcloud.com/t/remove-the-possibility-to-reset-password-for-users/27570)
+- [Passwordless Login Configuration](https://github.com/nextcloud/user_saml/issues/284)
+- [Security Hardening Discussion](https://www.reddit.com/r/NextCloud/comments/v1vo8r/possible_to_remove_usernamepassword_option_from/)
+- [Keycloak SSO User Mapping Discussion](https://help.nextcloud.com/t/keycloak-sso-how-to-map-only-existing-keycloak-users-to-nextcloud-users-without-creating-new/85981)
+- [Nextcloud Social Login Documentation](https://github.com/zorn-v/nextcloud-social-login/blob/master/docs/sso/keycloak.md)
+- [Nextcloud Configuration Documentation](https://doc.owncloud.com/server/next/admin_manual/configuration/server/occ_command.html#config-commands)
