@@ -1,0 +1,67 @@
+services:
+  hedgedoc:
+    container_name: hedgedoc
+    # Make sure to use the latest release from https://hedgedoc.org/latest-release
+    image: quay.io/hedgedoc/hedgedoc:1.10.1
+    depends_on:
+      hedgedoc-postgres:
+        condition: service_healthy
+        restart: true
+    restart: always
+    # https://github.com/hedgedoc/container/blob/master/debian/Dockerfile
+    entrypoint:
+      - /bin/sh
+      - "-c"
+      - |
+        export POSTGRES_PASSWORD=$$(cat /run/secrets/db_password);
+        export CMD_DB_URL=postgres://hedgedoc:$$POSTGRES_PASSWORD@hedgedoc-postgres:5432/hedgedoc
+        /usr/local/bin/docker-entrypoint.sh node app.js
+    environment:
+      - CMD_DOMAIN=hedgedoc.yourdomain.local
+      - CMD_URL_ADDPORT=false
+    secrets:
+      - db_password
+    # volumes:
+    #   - uploads:/hedgedoc/public/uploads
+    # ports:
+    #   - "3000:3000"
+    networks:
+      - hedgedoc
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.services.hedgedoc.loadbalancer.server.port=3000"
+      - "traefik.http.routers.hedgedoc-local.rule=Host(`hedgedoc.yourdomain.local`)"
+      - "traefik.http.routers.hedgedoc-local.entrypoints=websecure"
+      - "traefik.http.routers.hedgedoc-local.tls.certresolver=stepca"
+
+  hedgedoc-postgres:
+    container_name: hedgedoc-postgres
+    image: postgres:16.6-alpine3.21
+    volumes:
+      - ./postgres:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: hedgedoc
+      POSTGRES_USER: hedgedoc
+      POSTGRES_PASSWORD_FILE: "/run/secrets/db_password"
+    secrets:
+      - db_password
+    networks:
+      - hedgedoc
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-q", "-d", "hedgedoc", "-U", "hedgedoc" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: always
+
+secrets:
+  db_password:
+    file: ./secrets/db_password
+
+networks:
+  hedgedoc:
+    driver: bridge
+  proxy:
+    external: true
