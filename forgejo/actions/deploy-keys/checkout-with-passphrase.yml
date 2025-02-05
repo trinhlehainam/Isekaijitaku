@@ -50,7 +50,7 @@ jobs:
           sudo apt-get install -y expect
           
           # Create expect script for adding key with passphrase
-          $add_key_tmp=mktemp
+          add_key_tmp=mktemp
           cat > "$add_key_tmp" << 'EOF'
           #!/usr/bin/expect -f
           set timeout 10
@@ -62,7 +62,8 @@ jobs:
           chmod 700 "$add_key_tmp"
           
           # Run expect script
-          "$add_key_tmp"
+          expect "$add_key_tmp"
+          rm -f "$add_key_tmp"
           
           # Test SSH connection (success message expected)
           ssh -T "git@$GIT_SERVER_DOMAIN" || true
@@ -78,5 +79,4 @@ jobs:
       - name: Cleanup
         if: always()
         run: |
-          rm -f /tmp/add-key.exp
           eval "$(ssh-agent -k)" || true
