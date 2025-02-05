@@ -1,4 +1,4 @@
-# Example workflow using manual SSH setup for repository access
+# Example workflow for containerized runners (GitHub-hosted or containerized self-hosted)
 name: Checkout with Passphrase
 on:
   push:
@@ -9,6 +9,7 @@ on:
 
 jobs:
   checkout:
+    # This workflow is designed for containerized environments
     runs-on: ubuntu-latest
     env:
       GIT_SERVER_DOMAIN: forgejo.yourdomain
@@ -23,7 +24,7 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y expect
           
-          # Create SSH directory
+          # Create SSH config in container
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
           

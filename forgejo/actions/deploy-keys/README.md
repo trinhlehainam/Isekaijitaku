@@ -63,13 +63,67 @@ Common test responses:
 - Gitea/Forgejo: "successfully authenticated with the deploy key... but does not provide shell access"
 - GitHub: "successfully authenticated, but GitHub does not provide shell access"
 
+## Runner Environment Considerations
+
+### Docker-based Runners (GitHub-hosted or containerized self-hosted)
+
+For runners that execute in containers, you should create SSH configurations within the container as shown in the examples:
+- Create SSH config in `~/.ssh` during workflow execution
+- Clean up after use to maintain container isolation
+- Each workflow run starts with a fresh environment
+
+### Host Runners (Non-containerized self-hosted)
+
+For runners that execute directly on a host machine:
+1. **DO NOT** modify the host's SSH configuration in workflows
+2. Instead, configure the host machine's SSH setup once as an administrator:
+   ```bash
+   # As admin/root on the runner host machine
+
+   GIT_SERVER_DOMAIN=forgejo.yourdomain
+   GIT_SERVER_SSH_PORT=2222
+   RUNNER_HOME=/home/runner
+
+   mkdir -p $RUNNER_HOME/.ssh
+   chmod 700 $RUNNER_HOME/.ssh
+   
+   # Create global SSH config
+   cat > $RUNNER_HOME/.ssh/config << EOF
+   Host $GIT_SERVER_DOMAIN
+     Port $GIT_SERVER_SSH_PORT
+     StrictHostKeyChecking yes
+   EOF
+   chmod 600 $RUNNER_HOME/.ssh/config
+   
+   # Add known hosts
+   ssh-keyscan -t rsa,ed25519 -p $GIT_SERVER_SSH_PORT $GIT_SERVER_DOMAIN >> $RUNNER_HOME/.ssh/known_hosts
+   chmod 644 $RUNNER_HOME/.ssh/known_hosts
+   
+   # Set ownership
+   chown -R runner:runner $RUNNER_HOME/.ssh
+   ```
+
+3. Use simpler workflow configurations that rely on the host's SSH setup:
+
+```yaml
+name: Checkout with Host Runner
+jobs:
+  checkout:
+    runs-on: self-hosted
+    steps:
+      - name: Clone Repository
+        uses: https://github.com/actions/checkout@v4
+        with:
+          repository: owner/repo
+          ssh-key: ${{ secrets.DEPLOY_KEY }}
+          github-server-url: "https://forgejo.yourdomain"
+```
+
 ## Using Deploy Keys in Workflows
 
-There are two main approaches to using deploy keys in your workflows, both using `actions/checkout` but with different SSH key handling:
+The following examples are for **containerized environments**. For host runners, see the section above.
 
 ### 1. Using SSH Agent (For Keys Without Passphrase)
-
-This approach uses `webfactory/ssh-agent` to handle SSH keys without passphrases:
 
 ```yaml
 name: Checkout with SSH Agent
@@ -100,7 +154,6 @@ jobs:
           # Configure SSH for custom port
           cat > ~/.ssh/config << EOF
           Host $GIT_SERVER_DOMAIN
-            HostName $GIT_SERVER_DOMAIN
             Port $GIT_SERVER_SSH_PORT
             StrictHostKeyChecking yes
           EOF
@@ -162,8 +215,6 @@ jobs:
           # Configure SSH
           cat > ~/.ssh/config << EOF
           Host $GIT_SERVER_DOMAIN
-            HostName $GIT_SERVER_DOMAIN
-            IdentityFile ~/.ssh/deploy_key
             Port $GIT_SERVER_SSH_PORT
             StrictHostKeyChecking yes
           EOF
@@ -210,54 +261,55 @@ jobs:
 
 ## Important Notes
 
-1. **SSH Key Types**
-   - Without passphrase: Use the SSH Agent approach for simpler setup
-   - With passphrase: Use the Expect approach for secure key handling
+1. **Runner Environment**
+   - Docker/container runners: Create SSH config per workflow
+   - Host runners: Configure SSH globally on the host
+   - Never modify host SSH config from workflows
 
-2. **actions/checkout Configuration**
+2. **SSH Key Types**
+   - Without passphrase: Use the SSH Agent approach
+   - With passphrase: Use the Expect approach
+
+3. **actions/checkout Configuration**
    - Always use the full URL `https://github.com/actions/checkout@v4`
-   - SSH configuration must be in `~/.ssh` directory
+   - For container runners: Create SSH config in workflow
+   - For host runners: Use pre-configured SSH setup
    - Use `github-server-url` with `https://` prefix
-   - Store SSH known hosts in repository variables
 
 ## Best Practices
 
-1. **SSH Configuration**
-   - Use custom paths in `runner.temp` directory to avoid conflicts
-   - Set proper file permissions:
-     - `700` for SSH directory
-     - `600` for private keys and config files
-     - `644` for known_hosts file
-   - Use `StrictHostKeyChecking yes` for security
-   - Configure custom SSH command with `-F` flag
+1. **Runner Configuration**
+   - Container runners:
+     - Create isolated SSH config per workflow
+     - Clean up sensitive files after use
+     - Use temporary directories when needed
+   - Host runners:
+     - Configure SSH once at runner setup
+     - Maintain proper file permissions
+     - Keep SSH configuration under admin control
 
-2. **Key Security**
-   - Use Ed25519 keys (more secure than RSA)
-   - Consider using passphrases for production keys
-   - Store keys securely in repository secrets
-   - Clean up keys and config files after use
-   - Never expose keys in logs or outputs
+2. **Security**
+   - Never modify host system files from workflows
+   - Clean up sensitive files in container environments
+   - Use proper file permissions
+   - Store secrets securely in repository settings
 
-3. **Access Control**
-   - Grant minimal required permissions
-   - Use read-only access when possible
-   - Regularly rotate keys
-   - Remove unused deploy keys
-   - Use separate keys for different environments
-
-4. **Error Handling**
-   - Add proper error handling in scripts
-   - Use timeouts for SSH operations
-   - Log SSH connection issues
-   - Ensure cleanup runs with `if: always()`
-   - Handle SSH agent cleanup properly
+3. **SSH Configuration**
+   - Container runners:
+     - Create fresh config for each workflow
+     - Use workflow-specific paths
+     - Clean up after use
+   - Host runners:
+     - Use global SSH configuration
+     - Maintain by system administrators
+     - Share configuration across workflows
 
 ## Troubleshooting
 
 1. **SSH Authentication**
-   - Message "successfully authenticated... but does not provide shell access" is expected
+   - Message "successfully authenticated... but does not provide shell access" is expected. [Learn More](https://docs.github.com/en/authentication/connecting-to-github-with-ssh/testing-your-ssh-connection)
    - Command exits with code 1, which is normal
-   - Use `ssh -T` for testing, or `ssh -vT` for verbose output
+   - Use `ssh -T` for testing, or `ssh -vT` for verbose output, avoid using -v in production that can leak secrets
    - Only Git operations (clone, push, pull) are allowed
 
 2. **Permission Denied**
@@ -291,3 +343,4 @@ jobs:
 3. **Related Guides**
    - [Fastlane Match with Deploy Keys](../fastlane/README.md)
    - [GitHub Actions Security Guide](https://docs.github.com/en/actions/security-guides)
+   - [GitHub Actions Checkout Custom SSH Port](https://github.com/actions/checkout/issues/1315#issuecomment-2421067786)

@@ -1,4 +1,4 @@
-# Example workflow using actions/checkout for repository access
+# Example workflow for containerized runners (GitHub-hosted or containerized self-hosted)
 name: Checkout with SSH Agent
 on:
   push:
@@ -9,6 +9,7 @@ on:
 
 jobs:
   checkout:
+    # This workflow is designed for containerized environments
     runs-on: ubuntu-latest
     env:
       GIT_SERVER_DOMAIN: forgejo.yourdomain
@@ -20,7 +21,7 @@ jobs:
       
       - name: Git SSH Setup
         run: |
-          # Create SSH config in home directory
+          # Create SSH config in container
           mkdir -p ~/.ssh
           chmod 700 ~/.ssh
           
