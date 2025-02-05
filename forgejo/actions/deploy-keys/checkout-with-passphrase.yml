@@ -14,41 +14,32 @@ jobs:
     env:
       GIT_SERVER_DOMAIN: forgejo.yourdomain
       GIT_SERVER_SSH_PORT: 2222
+      SSH_KEY_NAME: deploy-key
     steps:
-      - name: Git SSH Setup
+      - name: Install SSH Key
+        uses: https://github.com/shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.DEPLOY_KEY }}
+          name: ${{ env.SSH_KEY_NAME }}
+          known_hosts: ${{ env.GIT_SERVER_DOMAIN }}
+          config: |
+            Host ${{ env.GIT_SERVER_DOMAIN }}
+              Port ${{ env.GIT_SERVER_SSH_PORT }}
+              StrictHostKeyChecking yes
+      
+      - name: Add Passphrase to ssh-agent
         env:
-          SSH_KEY: ${{ secrets.DEPLOY_KEY }}
           SSH_KEY_PASSPHRASE: ${{ secrets.SSH_KEY_PASSPHRASE }}
         run: |
           # Install expect
           sudo apt-get update
           sudo apt-get install -y expect
           
-          # Create SSH config in container
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-          
-          # Save private key
-          echo "$SSH_KEY" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
-          
-          # Configure SSH
-          cat > ~/.ssh/config << EOF
-          Host $GIT_SERVER_DOMAIN
-            Port $GIT_SERVER_SSH_PORT
-            StrictHostKeyChecking yes
-          EOF
-          chmod 600 ~/.ssh/config
-          
-          # Add known hosts
-          ssh-keyscan -t rsa,ed25519 -p $GIT_SERVER_SSH_PORT $GIT_SERVER_DOMAIN >> ~/.ssh/known_hosts
-          chmod 644 ~/.ssh/known_hosts
-          
           # Create expect script for adding key with passphrase
           cat > /tmp/add-key.exp << 'EOF'
           #!/usr/bin/expect -f
           set timeout 10
-          spawn ssh-add ~/.ssh/deploy_key
+          spawn ssh-add "${HOME}/.ssh/${{ env.SSH_KEY_NAME }}"
           expect "Enter passphrase"
           send "$env(SSH_KEY_PASSPHRASE)\r"
           expect eof
@@ -56,24 +47,22 @@ jobs:
           chmod 700 /tmp/add-key.exp
           
           # Run expect script
+          eval "$(ssh-agent -s)"
           /tmp/add-key.exp
           
           # Test SSH connection (success message expected)
           ssh -T "git@$GIT_SERVER_DOMAIN" || true
       
-      # Clone repository using actions/checkout
-      - name: Clone Repository
+      - name: Clone remote private Repository
         uses: https://github.com/actions/checkout@v4
         with:
-          repository: trinhle.hainam/test-forgejo-action
+          repository: owner/private-repo
           ssh-key: ${{ secrets.DEPLOY_KEY }}
           github-server-url: "https://${{ env.GIT_SERVER_DOMAIN }}"
-          ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
+          ssh-known-hosts: ${{ env.GIT_SERVER_DOMAIN }}
       
-      # Cleanup sensitive files
       - name: Cleanup
         if: always()
         run: |
-          rm -f ~/.ssh/deploy_key
           rm -f /tmp/add-key.exp
-          rm -rf ~/.ssh
+          eval "$(ssh-agent -k)" || true
