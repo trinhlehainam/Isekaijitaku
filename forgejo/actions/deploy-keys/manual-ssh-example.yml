@@ -1,0 +1,90 @@
+# Example workflow using manual SSH setup for repository access
+name: Manual SSH Setup with Expect
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  ssh-setup:
+    runs-on: ubuntu-latest
+    env:
+      GIT_SERVER_DOMAIN: forgejo.yourdomain
+      GIT_SERVER_SSH_PORT: 22
+    steps:
+      # Install expect for handling passphrase
+      - name: Install expect
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y expect
+
+      # Setup SSH with expect for passphrase
+      - name: Setup SSH with expect
+        env:
+          SSH_KEY: ${{ secrets.DEPLOY_KEY }}
+          SSH_KEY_PASSPHRASE: ${{ secrets.SSH_KEY_PASSPHRASE }}
+        run: |
+          # Setup SSH directory
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          
+          # Start ssh-agent
+          eval "$(ssh-agent -s)"
+          
+          # Add deployment key
+          echo "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
+          
+          # Create expect script for adding key with passphrase
+          cat > /tmp/add-key.exp << 'EOF'
+          #!/usr/bin/expect -f
+          
+          # Set timeout
+          set timeout 10
+          
+          # Start ssh-add
+          spawn ssh-add ~/.ssh/deploy_key
+          
+          # Handle passphrase prompt
+          expect {
+              "Enter passphrase" {
+                  send "$env(SSH_KEY_PASSPHRASE)\r"
+                  exp_continue
+              }
+              timeout {
+                  puts "Timeout waiting for passphrase prompt"
+                  exit 1
+              }
+              eof {
+                  catch wait result
+                  exit [lindex $result 3]
+              }
+          }
+          interact
+          EOF
+          
+          chmod +x /tmp/add-key.exp
+          
+          # Run expect script
+          /tmp/add-key.exp
+          
+          # Add known hosts
+          ssh-keyscan -t rsa,ed25519 -p $GIT_SERVER_SSH_PORT $GIT_SERVER_DOMAIN >> ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+          
+          # Test SSH connection
+          ssh -T git@$GIT_SERVER_DOMAIN:$GIT_SERVER_SSH_PORT || true
+
+      # Clone private repository
+      - name: Clone private repository
+        run: |
+          git clone git@$GIT_SERVER_DOMAIN:$GIT_SERVER_SSH_PORT/owner/private-repo.git private-repo
+          cd private-repo && git status
+
+      # Cleanup sensitive files
+      - name: Cleanup
+        if: always()
+        run: |
+          rm -f ~/.ssh/deploy_key
+          rm -f /tmp/add-key.exp

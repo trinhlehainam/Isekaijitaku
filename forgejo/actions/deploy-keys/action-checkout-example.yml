@@ -1,0 +1,49 @@
+# Example workflow using actions/checkout for repository access
+name: Repository Checkout with Deploy Keys
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  checkout:
+    runs-on: ubuntu-latest
+    env:
+      GIT_SERVER_DOMAIN: forgejo.yourdomain
+    steps:
+      # Main repository checkout
+      - name: Checkout main repository
+        uses: actions/checkout@v4
+
+      # Setup SSH agent
+      - name: Setup SSH Agent
+        uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+
+      # Configure Git server
+      - name: Configure Git Server
+        run: |
+          ssh-keyscan -t rsa,ed25519 $GIT_SERVER_URL >> ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      # Private repository checkout
+      - name: Clone private repository
+        run: actions/checkout@v4
+        with:
+          repository: owner/private-repo
+          ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          github-server-url: https://$GIT_SERVER_DOMAIN
+
+      # Verify checkouts
+      - name: Verify repositories
+        run: |
+          echo "Repository structure:"
+          tree -L 2
+          
+          echo "Main repository status:"
+          cd $GITHUB_WORKSPACE && git status
+          
+          echo "Private repository status:"
+          cd private-repo && git status
