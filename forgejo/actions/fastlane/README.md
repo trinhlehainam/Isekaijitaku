@@ -155,6 +155,9 @@ jobs:
       APP_IDENTIFIER: ${{ secrets.APP_IDENTIFIER }}
       APPLE_DEVELOPER_USERNAME: ${{ secrets.APPLE_DEVELOPER_USERNAME }}
       TEMP_KEYCHAIN_PASSWORD: ${{ secrets.TEMP_KEYCHAIN_PASSWORD }}
+      SSH_CONFIG_PATH: ${{ runner.temp }}/.ssh/config
+      SSH_KEY_PATH: ${{ runner.temp }}/.ssh/match_key
+      SSH_KNOWN_HOSTS_PATH: ${{ runner.temp }}/.ssh/known_hosts
     steps:
       - uses: actions/checkout@v4
       
@@ -165,29 +168,41 @@ jobs:
 
       - name: Setup Match
         run: |
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
+          # Create SSH directory in temp
+          SSH_DIR="${{ runner.temp }}/.ssh"
+          mkdir -p "$SSH_DIR"
+          chmod 700 "$SSH_DIR"
           
           # Save private key to file
-          echo "${{ secrets.MATCH_GIT_PRIVATE_KEY }}" > ~/.ssh/match_key
-          chmod 600 ~/.ssh/match_key
+          echo "${{ secrets.MATCH_GIT_PRIVATE_KEY }}" > "$SSH_KEY_PATH"
+          chmod 600 "$SSH_KEY_PATH"
           
           # Set environment variable to key file path
-          echo "MATCH_GIT_PRIVATE_KEY=~/.ssh/match_key" >> $GITHUB_ENV
+          echo "MATCH_GIT_PRIVATE_KEY=$SSH_KEY_PATH" >> $GITHUB_ENV
           
           # Configure Git Server
-          ssh-keyscan -t rsa,ed25519 github.com >> ~/.ssh/known_hosts
-          chmod 644 ~/.ssh/known_hosts
+          ssh-keyscan -t rsa,ed25519 github.com > "$SSH_KNOWN_HOSTS_PATH"
+          chmod 644 "$SSH_KNOWN_HOSTS_PATH"
+          
+          # Create SSH config
+          cat > "$SSH_CONFIG_PATH" << EOF
+          Host github.com
+            IdentityFile $SSH_KEY_PATH
+            UserKnownHostsFile $SSH_KNOWN_HOSTS_PATH
+            StrictHostKeyChecking yes
+          EOF
+          chmod 600 "$SSH_CONFIG_PATH"
 
       - name: Build App
         env:
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          GIT_SSH_COMMAND: "ssh -F $SSH_CONFIG_PATH"
         run: bundle exec fastlane build_appstore
 
       - name: Cleanup
         if: always()
         run: |
-          rm -f ~/.ssh/match_key
+          rm -rf "${{ runner.temp }}/.ssh"
           bundle exec fastlane cleanup_keychain || true
 ```
 
@@ -222,19 +237,15 @@ Set up these secrets in your GitHub repository:
 - Always use `bundle exec` to run fastlane commands
 
 ### 3. Security
+- Use custom SSH paths in temp directory to avoid conflicts
 - Use readonly mode in CI environments
 - Clean up sensitive files after use
-- Use proper file permissions
+- Use proper file permissions (600 for keys and config, 644 for known_hosts)
 - Store secrets securely in GitHub Secrets
 - Use a dedicated deploy key for the certificates repository
+- Use StrictHostKeyChecking for SSH connections
 
-### 4. Error Handling
-- Implement cleanup in error blocks
-- Use `if: always()` for cleanup steps
-- Handle SSH key cleanup properly
-- Add proper logging and error messages
-
-### 5. CI/CD
+### 4. CI/CD
 - Cache Ruby dependencies for faster builds
 - Use environment variables for configuration
 - Implement proper cleanup procedures
