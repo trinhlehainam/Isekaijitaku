@@ -12,6 +12,9 @@ jobs:
     env:
       GIT_SERVER_DOMAIN: forgejo.yourdomain
       GIT_SERVER_SSH_PORT: 22
+      SSH_CONFIG_PATH: ${{ runner.temp }}/.ssh/config
+      SSH_KEY_PATH: ${{ runner.temp }}/.ssh/deploy_key
+      SSH_KNOWN_HOSTS_PATH: ${{ runner.temp }}/.ssh/known_hosts
     steps:
       # Install expect for handling passphrase
       - name: Install expect
@@ -25,26 +28,38 @@ jobs:
           SSH_KEY: ${{ secrets.DEPLOY_KEY }}
           SSH_KEY_PASSPHRASE: ${{ secrets.SSH_KEY_PASSPHRASE }}
         run: |
-          # Setup SSH directory
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
+          # Create SSH directory in temp
+          SSH_DIR="${{ runner.temp }}/.ssh"
+          mkdir -p "$SSH_DIR"
+          chmod 700 "$SSH_DIR"
           
-          # Start ssh-agent
-          eval "$(ssh-agent -s)"
+          # Save private key to file
+          echo "$SSH_KEY" > "$SSH_KEY_PATH"
+          chmod 600 "$SSH_KEY_PATH"
           
-          # Add deployment key
-          echo "$SSH_KEY" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
+          # Create SSH config
+          cat > "$SSH_CONFIG_PATH" << EOF
+          Host $GIT_SERVER_DOMAIN
+            IdentityFile $SSH_KEY_PATH
+            UserKnownHostsFile $SSH_KNOWN_HOSTS_PATH
+            StrictHostKeyChecking yes
+            Port $GIT_SERVER_SSH_PORT
+          EOF
+          chmod 600 "$SSH_CONFIG_PATH"
+          
+          # Add known hosts
+          ssh-keyscan -t rsa,ed25519 -p $GIT_SERVER_SSH_PORT $GIT_SERVER_DOMAIN > "$SSH_KNOWN_HOSTS_PATH"
+          chmod 644 "$SSH_KNOWN_HOSTS_PATH"
           
           # Create expect script for adding key with passphrase
-          cat > /tmp/add-key.exp << 'EOF'
+          cat > "${{ runner.temp }}/add-key.exp" << 'EOF'
           #!/usr/bin/expect -f
           
           # Set timeout
           set timeout 10
           
-          # Start ssh-add
-          spawn ssh-add ~/.ssh/deploy_key
+          # Start ssh-add with specific key file
+          spawn ssh-add $env(SSH_KEY_PATH)
           
           # Handle passphrase prompt
           expect {
@@ -64,27 +79,29 @@ jobs:
           interact
           EOF
           
-          chmod +x /tmp/add-key.exp
+          chmod +x "${{ runner.temp }}/add-key.exp"
+          
+          # Start ssh-agent
+          eval "$(ssh-agent -s)"
           
           # Run expect script
-          /tmp/add-key.exp
-          
-          # Add known hosts
-          ssh-keyscan -t rsa,ed25519 -p $GIT_SERVER_SSH_PORT $GIT_SERVER_DOMAIN >> ~/.ssh/known_hosts
-          chmod 644 ~/.ssh/known_hosts
+          "${{ runner.temp }}/add-key.exp"
           
           # Test SSH connection
-          ssh -T git@$GIT_SERVER_DOMAIN:$GIT_SERVER_SSH_PORT || true
+          ssh -F "$SSH_CONFIG_PATH" -T "git@$GIT_SERVER_DOMAIN" || true
 
       # Clone private repository
       - name: Clone private repository
+        env:
+          GIT_SSH_COMMAND: "ssh -F $SSH_CONFIG_PATH"
         run: |
-          git clone git@$GIT_SERVER_DOMAIN:$GIT_SERVER_SSH_PORT/owner/private-repo.git private-repo
+          git clone "git@$GIT_SERVER_DOMAIN:owner/private-repo.git" private-repo
           cd private-repo && git status
 
       # Cleanup sensitive files
       - name: Cleanup
         if: always()
         run: |
-          rm -f ~/.ssh/deploy_key
-          rm -f /tmp/add-key.exp
+          rm -rf "${{ runner.temp }}/.ssh"
+          rm -f "${{ runner.temp }}/add-key.exp"
+          eval "$(ssh-agent -k)" || true

@@ -53,7 +53,7 @@ There are two main approaches to using deploy keys in your workflows:
 This is the recommended approach as it provides a simpler and more secure way to handle SSH keys:
 
 ```yaml
-name: CI with webfactory/ssh-agent and actions/checkout
+name: CI with webfactory/ssh-agent
 on: [push]
 
 jobs:
@@ -61,6 +61,8 @@ jobs:
     runs-on: ubuntu-latest
     env:
       GIT_SERVER_DOMAIN: forgejo.yourdomain
+      SSH_CONFIG_PATH: ${{ runner.temp }}/.ssh/config
+      SSH_KNOWN_HOSTS_PATH: ${{ runner.temp }}/.ssh/known_hosts
     steps:
       - uses: actions/checkout@v4
       
@@ -68,18 +70,38 @@ jobs:
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
       
-      # Optional: Configure Git server
+      # Configure Git Server
       - name: Configure Git Server
         run: |
-          ssh-keyscan -t rsa,ed25519 $GIT_SERVER_DOMAIN >> ~/.ssh/known_hosts
+          # Create SSH directory in temp
+          SSH_DIR="${{ runner.temp }}/.ssh"
+          mkdir -p "$SSH_DIR"
+          chmod 700 "$SSH_DIR"
+          
+          # Create SSH config with custom paths
+          cat > "$SSH_CONFIG_PATH" << EOF
+          Host $GIT_SERVER_DOMAIN
+            UserKnownHostsFile $SSH_KNOWN_HOSTS_PATH
+            StrictHostKeyChecking yes
+          EOF
+          chmod 600 "$SSH_CONFIG_PATH"
+          
+          # Add known hosts
+          ssh-keyscan -t rsa,ed25519 $GIT_SERVER_DOMAIN > "$SSH_KNOWN_HOSTS_PATH"
+          chmod 644 "$SSH_KNOWN_HOSTS_PATH"
       
-      # Now you can use Git commands
+      # Now you can use Git commands or actions/checkout
       - name: Clone Private Repository
-        run: actions/checkout@v4
+        uses: actions/checkout@v4
         with:
-          github-server-url: https://$GIT_SERVER_DOMAIN
-          repository: owner/private-repo.git
+          repository: owner/private-repo
           ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          github-server-url: "https://${{ env.GIT_SERVER_DOMAIN }}"
+      
+      # Cleanup
+      - name: Cleanup
+        if: always()
+        run: rm -rf "${{ runner.temp }}/.ssh"
 ```
 
 ### 2. Manual SSH Setup with Expect
@@ -93,96 +115,123 @@ on: [push]
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      GIT_SERVER_DOMAIN: forgejo.yourdomain
+      GIT_SERVER_SSH_PORT: 22
+      SSH_CONFIG_PATH: ${{ runner.temp }}/.ssh/config
+      SSH_KEY_PATH: ${{ runner.temp }}/.ssh/deploy_key
+      SSH_KNOWN_HOSTS_PATH: ${{ runner.temp }}/.ssh/known_hosts
     steps:
-      - name: Setup SSH with expect
-        env:
-          SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
-          SSH_KEY_PASSPHRASE: ${{ secrets.SSH_KEY_PASSPHRASE }}
-          GIT_SERVER_DOMAIN: forgejo.yourdomain
-          GIT_SERVER_SSH_PORT: 22
+      # Install expect for passphrase handling
+      - name: Install expect
         run: |
-          # Install expect
-          sudo apt-get update && sudo apt-get install -y expect
+          sudo apt-get update
+          sudo apt-get install -y expect
+      
+      # Setup SSH with expect
+      - name: Setup SSH
+        env:
+          SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KEY_PASSPHRASE: ${{ secrets.SSH_KEY_PASSPHRASE }}
+        run: |
+          # Create SSH directory in temp
+          SSH_DIR="${{ runner.temp }}/.ssh"
+          mkdir -p "$SSH_DIR"
+          chmod 700 "$SSH_DIR"
           
-          # Setup SSH
-          mkdir -p ~/.ssh
-          chmod 700 ~/.ssh
-          echo "$SSH_PRIVATE_KEY" > ~/.ssh/deploy_key
-          chmod 600 ~/.ssh/deploy_key
+          # Save private key
+          echo "$SSH_KEY" > "$SSH_KEY_PATH"
+          chmod 600 "$SSH_KEY_PATH"
           
-          # Add key using expect script
-          expect -f - << 'EOF'
-          spawn ssh-add ~/.ssh/deploy_key
-          expect "Enter passphrase"
-          send "$env(SSH_KEY_PASSPHRASE)\r"
-          expect eof
-          interact
+          # Create SSH config
+          cat > "$SSH_CONFIG_PATH" << EOF
+          Host $GIT_SERVER_DOMAIN
+            IdentityFile $SSH_KEY_PATH
+            UserKnownHostsFile $SSH_KNOWN_HOSTS_PATH
+            StrictHostKeyChecking yes
+            Port $GIT_SERVER_SSH_PORT
           EOF
+          chmod 600 "$SSH_CONFIG_PATH"
           
           # Add known hosts
-          ssh-keyscan -t rsa,ed25519 -p $GIT_SERVER_SSH_PORT $GIT_SERVER_DOMAIN >> ~/.ssh/known_hosts
-          chmod 644 ~/.ssh/known_hosts
-          
-          # Clone private repository
-          git clone git@$GIT_SERVER_DOMAIN:$GIT_SERVER_SSH_PORT/owner/private-repo.git
-          cd private-repo
-          git status
-
-          # Clean up keys after use
-          rm -f ~/.ssh/deploy_key
-          rm -f /tmp/add-key.exp
+          ssh-keyscan -t rsa,ed25519 -p $GIT_SERVER_SSH_PORT $GIT_SERVER_DOMAIN > "$SSH_KNOWN_HOSTS_PATH"
+          chmod 644 "$SSH_KNOWN_HOSTS_PATH"
+      
+      # Clone repository using custom SSH command
+      - name: Clone Repository
+        env:
+          GIT_SSH_COMMAND: "ssh -F $SSH_CONFIG_PATH"
+        run: git clone "git@$GIT_SERVER_DOMAIN:owner/repo.git"
+      
+      # Cleanup
+      - name: Cleanup
+        if: always()
+        run: rm -rf "${{ runner.temp }}/.ssh"
 ```
 
 ## Best Practices
 
-1. **Key Security**
+1. **SSH Configuration**
+   - Use custom paths in `runner.temp` directory to avoid conflicts
+   - Set proper file permissions:
+     - `700` for SSH directory
+     - `600` for private keys and config files
+     - `644` for known_hosts file
+   - Use `StrictHostKeyChecking yes` for security
+   - Configure custom SSH command with `-F` flag
+
+2. **Key Security**
    - Use Ed25519 keys (more secure than RSA)
    - Consider using passphrases for production keys
    - Store keys securely in repository secrets
-   - Clean up keys after use
+   - Clean up keys and config files after use
+   - Never expose keys in logs or outputs
 
-2. **Access Control**
+3. **Access Control**
    - Grant minimal required permissions
    - Use read-only access when possible
    - Regularly rotate keys
    - Remove unused deploy keys
+   - Use separate keys for different environments
 
-3. **Error Handling**
+4. **Error Handling**
    - Add proper error handling in scripts
    - Use timeouts for SSH operations
    - Log SSH connection issues
-   - Clean up on failure
+   - Ensure cleanup runs with `if: always()`
+   - Handle SSH agent cleanup properly
 
 ## Troubleshooting
 
 1. **Permission Denied**
-   - Verify the public key is added to repository
-   - Check key permissions (600 for private key)
-   - Ensure key is loaded in ssh-agent
+   - Verify key permissions (600 for private key)
+   - Check if key is added to repository
+   - Verify SSH config file permissions
+   - Test SSH connection with verbose logging
 
 2. **Host Verification Failed**
-   - Add host to known_hosts using ssh-keyscan
-   - Verify the server's fingerprint
+   - Check known_hosts file permissions
+   - Verify server fingerprint
+   - Ensure proper StrictHostKeyChecking setting
+   - Check custom SSH config path
 
 3. **Passphrase Issues**
-   - Check if passphrase is correctly set in secrets
-   - Verify expect script syntax
-   - Try key without passphrase for testing
-
-## Using Deploy Keys with Fastlane Match
-
-For detailed instructions on using deploy keys with fastlane match, including example configurations and workflows, please see the [fastlane documentation](../fastlane/README.md).
+   - Verify passphrase in secrets
+   - Check expect script syntax
+   - Test key loading manually
+   - Verify SSH agent is running
 
 ## Additional Resources
 
 1. **SSH Documentation**
-   - [Forgejo SSH Guide](https://docs.codeberg.org/security/ssh-key/)
-   - [SSH Agent Forwarding](https://developer.github.com/v3/guides/using-ssh-agent-forwarding/)
-   - [Troubleshooting SSH Connections](https://docs.github.com/en/authentication/troubleshooting-ssh)
-   - [expect Command Guide](https://linux.die.net/man/1/expect)
-   - [ssh-add automatically without a password prompt](https://unix.stackexchange.com/a/90869)
-   - [expect](https://linux.die.net/man/1/expect)
+   - [OpenSSH Manual](https://www.openssh.com/manual.html)
+   - [SSH Config File](https://linux.die.net/man/5/ssh_config)
+   - [SSH Security Best Practices](https://goteleport.com/blog/ssh-security-best-practices/)
 
 2. **Action Documentation**
    - [webfactory/ssh-agent](https://github.com/webfactory/ssh-agent)
    - [actions/checkout](https://github.com/actions/checkout)
+
+3. **Related Guides**
+   - [Fastlane Match with Deploy Keys](../fastlane/README.md)
+   - [GitHub Actions Security Guide](https://docs.github.com/en/actions/security-guides)

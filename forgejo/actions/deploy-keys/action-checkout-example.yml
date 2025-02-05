@@ -1,5 +1,5 @@
 # Example workflow using actions/checkout for repository access
-name: Repository Checkout with Deploy Keys
+name: CI with webfactory/ssh-agent and actions/checkout
 on:
   push:
     branches: [ main ]
@@ -7,43 +7,52 @@ on:
     branches: [ main ]
 
 jobs:
-  checkout:
+  build:
     runs-on: ubuntu-latest
     env:
       GIT_SERVER_DOMAIN: forgejo.yourdomain
+      SSH_CONFIG_PATH: ${{ runner.temp }}/.ssh/config
+      SSH_KEY_PATH: ${{ runner.temp }}/.ssh/deploy_key
+      SSH_KNOWN_HOSTS_PATH: ${{ runner.temp }}/.ssh/known_hosts
     steps:
-      # Main repository checkout
-      - name: Checkout main repository
-        uses: actions/checkout@v4
-
-      # Setup SSH agent
-      - name: Setup SSH Agent
-        uses: webfactory/ssh-agent@v0.9.0
+      - uses: actions/checkout@v4
+      
+      - uses: webfactory/ssh-agent@v0.9.0
         with:
           ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
-
-      # Configure Git server
+      
+      # Configure Git Server
       - name: Configure Git Server
         run: |
-          ssh-keyscan -t rsa,ed25519 $GIT_SERVER_URL >> ~/.ssh/known_hosts
-          chmod 644 ~/.ssh/known_hosts
-
-      # Private repository checkout
-      - name: Clone private repository
-        run: actions/checkout@v4
+          # Create SSH directory in temp
+          SSH_DIR="${{ runner.temp }}/.ssh"
+          mkdir -p "$SSH_DIR"
+          chmod 700 "$SSH_DIR"
+          
+          # Create SSH config
+          cat > "$SSH_CONFIG_PATH" << EOF
+          Host $GIT_SERVER_DOMAIN
+            UserKnownHostsFile $SSH_KNOWN_HOSTS_PATH
+            StrictHostKeyChecking yes
+          EOF
+          chmod 600 "$SSH_CONFIG_PATH"
+          
+          # Add known hosts
+          ssh-keyscan -t rsa,ed25519 $GIT_SERVER_DOMAIN > "$SSH_KNOWN_HOSTS_PATH"
+          chmod 644 "$SSH_KNOWN_HOSTS_PATH"
+          
+          # Test SSH connection
+          ssh -F "$SSH_CONFIG_PATH" -T "git@$GIT_SERVER_DOMAIN" || true
+      
+      # Clone private repository using actions/checkout
+      - name: Clone Private Repository
+        uses: actions/checkout@v4
         with:
           repository: owner/private-repo
           ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
-          github-server-url: https://$GIT_SERVER_DOMAIN
-
-      # Verify checkouts
-      - name: Verify repositories
-        run: |
-          echo "Repository structure:"
-          tree -L 2
-          
-          echo "Main repository status:"
-          cd $GITHUB_WORKSPACE && git status
-          
-          echo "Private repository status:"
-          cd private-repo && git status
+          github-server-url: "https://${{ env.GIT_SERVER_DOMAIN }}"
+      
+      # Cleanup
+      - name: Cleanup
+        if: always()
+        run: rm -rf "${{ runner.temp }}/.ssh"
