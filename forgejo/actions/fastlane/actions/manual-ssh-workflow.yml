@@ -1,0 +1,69 @@
+name: iOS Build with Manual Match Setup
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  ios-build:
+    runs-on: macos-latest
+    env:
+      GIT_SERVER_DOMAIN: github.com
+      TEAM_ID: ${{ secrets.TEAM_ID }}
+      APP_IDENTIFIER: ${{ secrets.APP_IDENTIFIER }}
+      MATCH_REPO: ${{ secrets.MATCH_REPO }}
+      APPLE_DEVELOPER_USERNAME: ${{ secrets.APPLE_DEVELOPER_USERNAME }}
+      TEMP_KEYCHAIN_PASSWORD: ${{ secrets.TEMP_KEYCHAIN_PASSWORD }}
+    steps:
+      # Checkout main repository
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Setup Ruby environment
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: true    # This will install bundler and cache gems automatically
+
+      # Setup SSH manually
+      - name: Setup SSH for Match
+        run: |
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          
+          # Save private key to file
+          echo "${{ secrets.MATCH_GIT_PRIVATE_KEY }}" > ~/.ssh/match_key
+          chmod 600 ~/.ssh/match_key
+          
+          # Set environment variable to key file path
+          echo "MATCH_GIT_PRIVATE_KEY=~/.ssh/match_key" >> $GITHUB_ENV
+          
+          # Configure SSH
+          cat > ~/.ssh/config << EOF
+          Host $GIT_SERVER_DOMAIN
+            IdentityFile ~/.ssh/match_key
+            UseKeychain yes
+          EOF
+          chmod 600 ~/.ssh/config
+          
+          # Add known hosts
+          ssh-keyscan -t rsa,ed25519 $GIT_SERVER_DOMAIN >> ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+          
+          # Test SSH connection
+          ssh -T git@$GIT_SERVER_DOMAIN || true
+
+      # Build iOS app
+      - name: Build iOS App
+        env:
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+        run: bundle exec fastlane build_appstore
+
+      # Cleanup
+      - name: Cleanup
+        if: always()
+        run: |
+          rm -f ~/.ssh/match_key
+          bundle exec fastlane cleanup_keychain || true

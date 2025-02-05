@@ -1,0 +1,25 @@
+# For all available options run `fastlane match --help`
+# Remove the # in front of the line to enable the option
+
+git_url(ENV["MATCH_REPO"])
+app_identifier(ENV["APP_IDENTIFIER"])
+
+type("development") # The default type, can be: appstore, adhoc, enterprise or development
+
+# Your Apple Developer Portal username
+username(ENV["APPLE_DEVELOPER_USERNAME"])
+
+# The docs are available on https://docs.fastlane.tools/actions/match
+git_private_key(ENV["MATCH_GIT_PRIVATE_KEY"])
+
+# For all available options run `fastlane match --help`
+storage_mode("git")
+
+# Readonly mode will never create or update certificates and profiles
+readonly(is_ci)
+
+# Create a new keychain for CI
+if is_ci
+  keychain_name(ENV["TEMP_KEYCHAIN_NAME"] || "app-signing.keychain-db")
+  keychain_password(ENV["TEMP_KEYCHAIN_PASSWORD"])
+end

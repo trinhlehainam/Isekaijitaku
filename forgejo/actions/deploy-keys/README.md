@@ -169,6 +169,10 @@ jobs:
    - Verify expect script syntax
    - Try key without passphrase for testing
 
+## Using Deploy Keys with Fastlane Match
+
+For detailed instructions on using deploy keys with fastlane match, including example configurations and workflows, please see the [fastlane documentation](../fastlane/README.md).
+
 ## Additional Resources
 
 1. **SSH Documentation**

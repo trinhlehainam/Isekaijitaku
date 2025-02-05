@@ -1,0 +1,111 @@
+# Customise this file, documentation can be found here:
+# https://docs.fastlane.tools/
+
+default_platform(:ios)
+
+platform :ios do
+  # Environment variables for code signing
+  TEAM_ID = ENV["TEAM_ID"]
+  APP_IDENTIFIER = ENV["APP_IDENTIFIER"]
+  MATCH_REPO = ENV["MATCH_REPO"]
+  MATCH_TYPE = ENV["MATCH_TYPE"] || "development"
+  KEYCHAIN_NAME = "app-signing.keychain-db"
+  KEYCHAIN_PASSWORD = ENV["TEMP_KEYCHAIN_PASSWORD"] || SecureRandom.base64
+
+  # Setup keychain for CI environment
+  desc "Create a temporary keychain for code signing"
+  lane :setup_keychain do
+    create_keychain(
+      name: KEYCHAIN_NAME,
+      password: KEYCHAIN_PASSWORD,
+      default_keychain: true,
+      unlock: true,
+      timeout: 3600,
+      lock_when_sleeps: false
+    )
+  end
+
+  # Sync certificates and profiles using match
+  desc "Sync certificates using match"
+  lane :sync_certificates do |options|
+    # Create temporary keychain in CI
+    if is_ci
+      setup_keychain
+    end
+
+    # Sync certificates and profiles
+    match(
+      type: options[:type] || MATCH_TYPE,
+      app_identifier: APP_IDENTIFIER,
+      git_url: MATCH_REPO,
+      readonly: is_ci,
+      keychain_name: is_ci ? KEYCHAIN_NAME : nil,
+      keychain_password: is_ci ? KEYCHAIN_PASSWORD : nil,
+      git_private_key: ENV["MATCH_GIT_PRIVATE_KEY"]
+    )
+  end
+
+  # Build for development
+  desc "Build for development"
+  lane :build_development do
+    sync_certificates(type: "development")
+    
+    gym(
+      scheme: "YourAppScheme",
+      export_method: "development",
+      export_options: {
+        method: "development",
+        provisioningProfiles: {
+          APP_IDENTIFIER => "match Development #{APP_IDENTIFIER}"
+        }
+      }
+    )
+  end
+
+  # Build for App Store
+  desc "Build for App Store"
+  lane :build_appstore do
+    sync_certificates(type: "appstore")
+    
+    gym(
+      scheme: "YourAppScheme",
+      export_method: "app-store",
+      export_options: {
+        method: "app-store",
+        provisioningProfiles: {
+          APP_IDENTIFIER => "match AppStore #{APP_IDENTIFIER}"
+        }
+      }
+    )
+  end
+
+  # Build for Ad Hoc distribution
+  desc "Build for Ad Hoc distribution"
+  lane :build_adhoc do
+    sync_certificates(type: "adhoc")
+    
+    gym(
+      scheme: "YourAppScheme",
+      export_method: "ad-hoc",
+      export_options: {
+        method: "ad-hoc",
+        provisioningProfiles: {
+          APP_IDENTIFIER => "match AdHoc #{APP_IDENTIFIER}"
+        }
+      }
+    )
+  end
+
+  # Clean up keychain after build
+  desc "Clean up keychain"
+  lane :cleanup_keychain do
+    if is_ci
+      delete_keychain(name: KEYCHAIN_NAME)
+    end
+  end
+
+  # Error handling
+  error do |lane, exception, options|
+    cleanup_keychain if is_ci
+  end
+end

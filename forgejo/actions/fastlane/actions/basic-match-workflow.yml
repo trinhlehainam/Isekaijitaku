@@ -1,0 +1,61 @@
+name: iOS Build with Fastlane Match
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  ios-build:
+    runs-on: macos-latest
+    env:
+      GIT_SERVER_DOMAIN: github.com
+      TEAM_ID: ${{ secrets.TEAM_ID }}
+      APP_IDENTIFIER: ${{ secrets.APP_IDENTIFIER }}
+      MATCH_REPO: ${{ secrets.MATCH_REPO }}
+      APPLE_DEVELOPER_USERNAME: ${{ secrets.APPLE_DEVELOPER_USERNAME }}
+      TEMP_KEYCHAIN_PASSWORD: ${{ secrets.TEMP_KEYCHAIN_PASSWORD }}
+    steps:
+      # Checkout main repository
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Setup Ruby environment
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: true    # This will install bundler and cache gems automatically
+
+      # Setup SSH for Match
+      - name: Setup Match
+        run: |
+          # Save private key to file
+          echo "${{ secrets.MATCH_GIT_PRIVATE_KEY }}" > ~/.ssh/match_key
+          chmod 600 ~/.ssh/match_key
+          
+          # Set environment variable to key file path
+          echo "MATCH_GIT_PRIVATE_KEY=~/.ssh/match_key" >> $GITHUB_ENV
+
+      # Configure Git Server
+      - name: Configure Git Server
+        run: |
+          ssh-keyscan -t rsa,ed25519 $GIT_SERVER_DOMAIN >> ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+
+      # Test SSH connection
+      - name: Test SSH Connection
+        run: ssh -T git@$GIT_SERVER_DOMAIN || true
+
+      # Build iOS app
+      - name: Build iOS App
+        env:
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+        run: bundle exec fastlane build_appstore
+
+      # Example of manual cleanup if needed
+      - name: Cleanup
+        if: always()
+        run: |
+          rm -f ~/.ssh/match_key
+          bundle exec fastlane cleanup_keychain || true
