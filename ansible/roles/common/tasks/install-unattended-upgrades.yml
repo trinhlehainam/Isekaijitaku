@@ -1,47 +1,47 @@
 ---
 - name: Install required packages
-  apt:
-    name: 
+  ansible.builtin.apt:
+    name:
       - unattended-upgrades
       - apt-utils
     state: present
-    update_cache: yes
+    update_cache: true
 
 - name: Enable unattended-upgrades
-  service:
+  ansible.builtin.service:
     name: unattended-upgrades
-    enabled: yes
+    enabled: true
     state: started
 
 - name: Install notification script
-  template:
+  ansible.builtin.template:
     src: unattended-upgrades-notify.sh.j2
     dest: /usr/local/bin/unattended-upgrades-notify.sh
     owner: root
     group: root
-    mode: 0755
+    mode: "0755"
 
 - name: Install notification path unit
-  template:
+  ansible.builtin.template:
     src: unattended-upgrades-notify.path.j2
     dest: /etc/systemd/system/unattended-upgrades-notify.path
     owner: root
     group: root
-    mode: 0644
+    mode: "0644"
   notify: reload systemd
 
 - name: Install notification service unit
-  template:
+  ansible.builtin.template:
     src: unattended-upgrades-notify-service.j2
     dest: /etc/systemd/system/unattended-upgrades-notify.service
     owner: root
     group: root
-    mode: 0644
+    mode: "0644"
   notify: reload systemd
 
 - name: Enable and start notification path unit
-  systemd:
+  ansible.builtin.systemd:
     name: unattended-upgrades-notify.path
-    enabled: yes
+    enabled: true
     state: started
-    daemon_reload: yes
+    daemon_reload: true
