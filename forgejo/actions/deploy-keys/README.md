@@ -67,10 +67,28 @@ Common test responses:
 
 ### Docker-based Runners (GitHub-hosted or containerized self-hosted)
 
-For runners that execute in containers, you should create SSH configurations within the container as shown in the examples:
-- Create SSH config in `~/.ssh` during workflow execution
-- Clean up after use to maintain container isolation
-- Each workflow run starts with a fresh environment
+For runners that execute in containers, you should handle home directory variations:
+- Some runners may not have `$HOME` or `~` properly set
+- Use explicit home directory path via `RUNNER_HOME` environment variable
+- Ensure all SSH-related actions use the same home directory
+
+Example home directory setup:
+```yaml
+env:
+  RUNNER_HOME: ${{ github.workspace }}/.runner-home
+
+steps:
+  - name: Setup Home Directory
+    run: |
+      # Ensure we have a home directory
+      RUNNER_HOME="${RUNNER_HOME:-${HOME:-${{ github.workspace }}/.runner-home}}"
+      echo "RUNNER_HOME=$RUNNER_HOME" >> $GITHUB_ENV
+      mkdir -p "$RUNNER_HOME"
+      
+      # Export for child processes
+      export HOME="$RUNNER_HOME"
+      echo "HOME=$RUNNER_HOME" >> $GITHUB_ENV
+```
 
 ### Host Runners (Non-containerized self-hosted)
 
@@ -119,6 +137,54 @@ jobs:
           github-server-url: "https://forgejo.yourdomain"
 ```
 
+## SSH Agent Management
+
+There are two approaches to manage SSH agent in GitHub Actions:
+
+1. **Using webfactory/ssh-agent (Recommended)**
+   ```yaml
+   - name: Setup SSH Agent 
+     uses: webfactory/ssh-agent@v0.9.0
+     with:
+       ssh-private-key: ${{ secrets.DEPLOY_KEY }}
+   ```
+   - Automatically handles environment variables
+   - Works across all steps in the job
+   - Cleans up automatically in post-job phase
+
+2. **Manual SSH Agent Setup**
+   ```yaml
+   env:
+     SSH_AUTH_SOCK: /tmp/ssh-agent.sock  # Set consistent socket path
+   
+   steps:
+     - name: Start ssh-agent
+       run: |
+         eval "$(ssh-agent -s)"
+         # Export variables for other steps
+         echo "SSH_AUTH_SOCK=$SSH_AUTH_SOCK" >> $GITHUB_ENV
+         echo "SSH_AGENT_PID=$SSH_AGENT_PID" >> $GITHUB_ENV
+   ```
+   - Requires manual environment variable export
+   - Must use `$GITHUB_ENV` to persist variables
+   - Need explicit cleanup in post-job phase
+
+### Important Environment Variables
+
+1. **SSH_AUTH_SOCK**
+   - Socket path for SSH agent communication
+   - Must be consistent across steps
+   - Used by git, rsync, and other SSH tools
+
+2. **SSH_AGENT_PID**
+   - Process ID of the SSH agent
+   - Used for cleanup
+   - Needed to terminate agent properly
+
+### References
+- [shimataro/ssh-key-action](https://github.com/shimataro/ssh-key-action?tab=readme-ov-file#i-want-to-omit-known_hosts) - SSH key installation
+- [webfactory/ssh-agent](https://github.com/webfactory/ssh-agent?tab=readme-ov-file#exported-variables) - SSH agent management
+
 ## Using Deploy Keys in Workflows
 
 The following examples are for **containerized environments**. For host runners, see the section above.
@@ -135,28 +201,29 @@ jobs:
     env:
       GIT_SERVER_DOMAIN: forgejo.yourdomain
       GIT_SERVER_SSH_PORT: 2222
+      SSH_KEY_NAME: deploy-key
     steps:
       - name: Install SSH Key
-        uses: shimataro/ssh-key-action@v2
+        uses: https://github.com/shimataro/ssh-key-action@v2
         with:
           key: ${{ secrets.DEPLOY_KEY }}
-          known_hosts: ${{ vars.SSH_KNOWN_HOSTS }}
+          name: ${{ env.SSH_KEY_NAME }}
+          # https://github.com/shimataro/ssh-key-action?tab=readme-ov-file#i-want-to-omit-known_hosts
+          known_hosts: unnecessary
+          if_key_exists: fail # replace / ignore / fail
           config: |
             Host ${{ env.GIT_SERVER_DOMAIN }}
               Port ${{ env.GIT_SERVER_SSH_PORT }}
               StrictHostKeyChecking yes
       
-      - name: Clone Repository
-        uses: https://github.com/actions/checkout@v4
-        with:
-          repository: owner/private-repo
-          ssh-key: ${{ secrets.DEPLOY_KEY }}
-          github-server-url: "https://${{ env.GIT_SERVER_DOMAIN }}"
+      - name: Add SSH Known Hosts
+        run: |
+          ssh-keyscan -p ${{ env.GIT_SERVER_SSH_PORT }} -H ${{ env.GIT_SERVER_DOMAIN }} >> "${HOME}/.ssh/known_hosts"
 ```
 
 ### 2. Using Expect (For Keys With Passphrase)
 
-This approach uses `shimataro/ssh-key-action` for key installation and `expect` for passphrase handling:
+This approach uses `shimataro/ssh-key-action` for key installation and manual SSH agent setup with `expect`:
 
 ```yaml
 name: Checkout with Passphrase
@@ -166,93 +233,130 @@ jobs:
     env:
       GIT_SERVER_DOMAIN: forgejo.yourdomain
       GIT_SERVER_SSH_PORT: 2222
+      SSH_KEY_NAME: deploy-key
+      SSH_AUTH_SOCK: /tmp/ssh-agent.sock  # Consistent socket path
     steps:
       - name: Install SSH Key
-        uses: shimataro/ssh-key-action@v2
+        uses: https://github.com/shimataro/ssh-key-action@v2
         with:
           key: ${{ secrets.DEPLOY_KEY }}
-          known_hosts: ${{ vars.SSH_KNOWN_HOSTS }}
+          name: ${{ env.SSH_KEY_NAME }}
+          known_hosts: unnecessary  # We'll add known_hosts manually
+          if_key_exists: fail
           config: |
             Host ${{ env.GIT_SERVER_DOMAIN }}
               Port ${{ env.GIT_SERVER_SSH_PORT }}
               StrictHostKeyChecking yes
       
-      - name: Add Key with Passphrase
-        env:
-          SSH_KEY_PASSPHRASE: ${{ secrets.SSH_KEY_PASSPHRASE }}
+      - name: Add SSH Known Hosts
         run: |
-          # Install expect
-          sudo apt-get update
-          sudo apt-get install -y expect
-          
-          # Create expect script for passphrase
-          cat > /tmp/add-key.exp << 'EOF'
-          #!/usr/bin/expect -f
-          set timeout 10
-          spawn ssh-add ~/.ssh/id_rsa
-          expect "Enter passphrase"
-          send "$env(SSH_KEY_PASSPHRASE)\r"
-          expect eof
-          EOF
-          chmod 700 /tmp/add-key.exp
-          
-          # Run expect script
+          ssh-keyscan -p ${{ env.GIT_SERVER_SSH_PORT }} -H ${{ env.GIT_SERVER_DOMAIN }} >> "${HOME}/.ssh/known_hosts"
+
+      - name: Start ssh-agent
+        run: |
           eval "$(ssh-agent -s)"
-          /tmp/add-key.exp
-      
-      - name: Clone Repository
-        uses: https://github.com/actions/checkout@v4
-        with:
-          repository: owner/private-repo
-          ssh-key: ${{ secrets.DEPLOY_KEY }}
-          github-server-url: "https://${{ env.GIT_SERVER_DOMAIN }}"
+          # Export variables for other steps
+          echo "SSH_AUTH_SOCK=$SSH_AUTH_SOCK" >> $GITHUB_ENV
+          echo "SSH_AGENT_PID=$SSH_AGENT_PID" >> $GITHUB_ENV
 ```
 
 ## Important Notes
 
 1. **SSH Key Installation**
-   - Container runners: Use `shimataro/ssh-key-action` for simpler setup
-   - Host runners: Configure SSH globally on the host
-   - Never modify host SSH config from workflows
+   - Use `shimataro/ssh-key-action` for key installation
+   - Set `if_key_exists` to control behavior when key exists
+   - Manually add known hosts for custom SSH ports
+   - Keep SSH configuration consistent across steps
 
-2. **Key Types and Formats**
-   - Supports PEM(RSA), PKCS8, and RFC4716(OpenSSH) formats
-   - Without passphrase: Use direct installation
-   - With passphrase: Use expect script for key addition
+2. **Known Hosts Handling**
+   - `ssh-key-action` doesn't support custom ports for known_hosts
+   - Use manual `ssh-keyscan` with `-p` flag for custom ports
+   - Use `-H` flag to hash hostnames in known_hosts
+   - Add known hosts after key installation
 
-3. **actions/checkout Configuration**
-   - Always use the full URL `https://github.com/actions/checkout@v4`
-   - For container runners: Use `shimataro/ssh-key-action`
-   - For host runners: Use pre-configured SSH setup
-   - Use `github-server-url` with `https://` prefix
+3. **SSH Configuration**
+   - Set explicit key name via `SSH_KEY_NAME` environment variable
+   - Use `StrictHostKeyChecking yes` for security
+   - Configure custom ports in SSH config
+   - Verify host keys before first connection
 
 ## Best Practices
 
-1. **Runner Configuration**
-   - Container runners:
-     - Use `shimataro/ssh-key-action` for SSH setup
-     - Clean up sensitive files after use
-     - Use temporary directories for expect scripts
-   - Host runners:
-     - Configure SSH once at runner setup
-     - Maintain proper file permissions
-     - Keep SSH configuration under admin control
+1. **SSH Key Management**
+   - Use descriptive key names (e.g., `deploy-key`)
+   - Set appropriate `if_key_exists` behavior
+   - Handle key conflicts explicitly
+   - Clean up keys after use
 
-2. **Security**
-   - Never modify host system files from workflows
-   - Clean up sensitive files in container environments
-   - Use proper file permissions
-   - Store secrets securely in repository settings
-   - Never expose passphrases in logs
+2. **Known Hosts Security**
+   - Always verify host keys with `-H` flag
+   - Use `StrictHostKeyChecking yes`
+   - Add known hosts before any SSH operations
+   - Keep known_hosts file permissions at 644
 
-3. **SSH Configuration**
-   - Container runners:
-     - Use `shimataro/ssh-key-action` for consistent setup
-     - Clean up after use
-   - Host runners:
-     - Use global SSH configuration
-     - Maintain by system administrators
-     - Share configuration across workflows
+3. **Custom Port Configuration**
+   - Set port in SSH config for reuse
+   - Use `-p` flag with ssh-keyscan
+   - Verify custom port connectivity
+   - Document non-standard ports
+
+4. **SSH Agent Management**
+   - Use `webfactory/ssh-agent` when possible
+   - Set consistent socket paths
+   - Export environment variables properly
+   - Handle cleanup in post-job phase
+   - Use `$GITHUB_ENV` for variable persistence
+
+## Environment Variables in Expect Scripts
+
+When using expect scripts in GitHub Actions, you need to understand the difference between shell and expect environment variable syntax:
+
+1. **Shell Environment Variables**
+   ```bash
+   # In shell scripts, use standard shell syntax
+   echo "$HOME/.ssh/id_rsa"      # Correct
+   SSH_DIR="$HOME/.ssh"          # Correct
+   ```
+
+2. **Expect Environment Variables**
+   ```tcl
+   # In expect scripts, use $env() syntax
+   spawn ssh-add "$env(HOME)/.ssh/id_rsa"    # Correct
+   spawn ssh-add "$HOME/.ssh/id_rsa"         # Wrong
+   ```
+
+Example workflow using both:
+```yaml
+- name: Add Passphrase to ssh-agent
+  env:
+    SSH_KEY_PASSPHRASE: ${{ secrets.SSH_KEY_PASSPHRASE }}
+    HOME: ${{ env.RUNNER_HOME }}
+  run: |
+    # Shell script: use $HOME
+    SSH_DIR="$HOME/.ssh"
+    echo "Using SSH directory: $SSH_DIR"
+    
+    # Expect script: use $env(HOME)
+    cat > /tmp/add-key.exp << 'EOF'
+    #!/usr/bin/expect -f
+    set timeout 10
+    # Use $env() to access environment variables in expect
+    spawn ssh-add "$env(HOME)/.ssh/$env(SSH_KEY_NAME)"
+    expect "Enter passphrase"
+    send "$env(SSH_KEY_PASSPHRASE)\r"
+    expect eof
+    EOF
+    
+    # Shell script again: use $HOME
+    chmod 700 /tmp/add-key.exp
+    HOME="$HOME" SSH_KEY_NAME="$SSH_KEY_NAME" /tmp/add-key.exp
+```
+
+### Important Notes:
+- Shell scripts use standard shell variable syntax (`$VAR` or `${VAR}`)
+- Expect scripts must use `$env(VAR)` to access environment variables
+- GitHub Actions variables (`${{ env.VAR }}`) only work in workflow YAML
+- Environment variables must be explicitly passed to expect scripts
 
 ## Troubleshooting
 

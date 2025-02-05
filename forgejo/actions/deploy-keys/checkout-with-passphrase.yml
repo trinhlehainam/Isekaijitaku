@@ -15,18 +15,32 @@ jobs:
       GIT_SERVER_DOMAIN: forgejo.yourdomain
       GIT_SERVER_SSH_PORT: 2222
       SSH_KEY_NAME: deploy-key
+      SSH_AUTH_SOCK: /tmp/ssh-agent.sock
+
     steps:
       - name: Install SSH Key
         uses: https://github.com/shimataro/ssh-key-action@v2
         with:
           key: ${{ secrets.DEPLOY_KEY }}
           name: ${{ env.SSH_KEY_NAME }}
-          known_hosts: ${{ env.GIT_SERVER_DOMAIN }}
+          # https://github.com/shimataro/ssh-key-action?tab=readme-ov-file#i-want-to-omit-known_hosts
+          known_hosts: unnecessary
+          if_key_exists: fail # replace / ignore / fail; optional (defaults to fail)
           config: |
             Host ${{ env.GIT_SERVER_DOMAIN }}
               Port ${{ env.GIT_SERVER_SSH_PORT }}
               StrictHostKeyChecking yes
-      
+              
+      - name: Add SSH Known Hosts
+        run: |
+          ssh-keyscan -p ${{ env.GIT_SERVER_SSH_PORT }} -H ${{ env.GIT_SERVER_DOMAIN }} >> "${HOME}/.ssh/known_hosts"
+
+      - name: Start ssh-agent
+        run: |
+          eval "$(ssh-agent -s)"
+          echo "SSH_AUTH_SOCK=$SSH_AUTH_SOCK" >> $GITHUB_ENV
+          echo "SSH_AGENT_PID=$SSH_AGENT_PID" >> $GITHUB_ENV
+
       - name: Add Passphrase to ssh-agent
         env:
           SSH_KEY_PASSPHRASE: ${{ secrets.SSH_KEY_PASSPHRASE }}
@@ -36,19 +50,19 @@ jobs:
           sudo apt-get install -y expect
           
           # Create expect script for adding key with passphrase
-          cat > /tmp/add-key.exp << 'EOF'
+          $add_key_tmp=mktemp
+          cat > "$add_key_tmp" << 'EOF'
           #!/usr/bin/expect -f
           set timeout 10
-          spawn ssh-add "${HOME}/.ssh/${{ env.SSH_KEY_NAME }}"
+          spawn ssh-add "$env(HOME)/.ssh/${{ env.SSH_KEY_NAME }}"
           expect "Enter passphrase"
           send "$env(SSH_KEY_PASSPHRASE)\r"
           expect eof
           EOF
-          chmod 700 /tmp/add-key.exp
+          chmod 700 "$add_key_tmp"
           
           # Run expect script
-          eval "$(ssh-agent -s)"
-          /tmp/add-key.exp
+          "$add_key_tmp"
           
           # Test SSH connection (success message expected)
           ssh -T "git@$GIT_SERVER_DOMAIN" || true
