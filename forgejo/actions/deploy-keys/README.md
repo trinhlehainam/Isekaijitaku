@@ -44,130 +44,181 @@ This creates two files:
 5. If your key has a passphrase, add it as `SSH_KEY_PASSPHRASE`
 6. Save the secret(s)
 
+## Testing SSH Connection
+
+When testing your SSH connection with `ssh -T git@domain`, you might see a message like:
+
+```
+Hi USERNAME! You've successfully authenticated with the deploy key named KEY_NAME but Gitea/Forgejo does not provide shell access.
+```
+
+This is the **expected behavior** and indicates that:
+1. Your SSH key is valid and recognized
+2. Authentication was successful
+3. The server correctly denies shell access (this is a security feature)
+
+The command will exit with code 1, which is normal. You can safely proceed with using Git operations.
+
+Common test responses:
+- Gitea/Forgejo: "successfully authenticated with the deploy key... but does not provide shell access"
+- GitHub: "successfully authenticated, but GitHub does not provide shell access"
+
 ## Using Deploy Keys in Workflows
 
-There are two main approaches to using deploy keys in your workflows:
+There are two main approaches to using deploy keys in your workflows, both using `actions/checkout` but with different SSH key handling:
 
-### 1. Using webfactory/ssh-agent (Recommended)
+### 1. Using SSH Agent (For Keys Without Passphrase)
 
-This is the recommended approach as it provides a simpler and more secure way to handle SSH keys:
+This approach uses `webfactory/ssh-agent` to handle SSH keys without passphrases:
 
 ```yaml
-name: CI with webfactory/ssh-agent
-on: [push]
+name: Checkout with SSH Agent
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
-  build:
+  checkout:
     runs-on: ubuntu-latest
     env:
       GIT_SERVER_DOMAIN: forgejo.yourdomain
-      SSH_CONFIG_PATH: ${{ runner.temp }}/.ssh/config
-      SSH_KNOWN_HOSTS_PATH: ${{ runner.temp }}/.ssh/known_hosts
+      GIT_SERVER_SSH_PORT: 2222
     steps:
-      - uses: actions/checkout@v4
-      
       - uses: webfactory/ssh-agent@v0.9.0
         with:
-          ssh-private-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          ssh-private-key: ${{ secrets.DEPLOY_KEY }}
       
-      # Configure Git Server
-      - name: Configure Git Server
+      - name: Git SSH Setup
         run: |
-          # Create SSH directory in temp
-          SSH_DIR="${{ runner.temp }}/.ssh"
-          mkdir -p "$SSH_DIR"
-          chmod 700 "$SSH_DIR"
+          # Create SSH config in home directory
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
           
-          # Create SSH config with custom paths
-          cat > "$SSH_CONFIG_PATH" << EOF
+          # Configure SSH for custom port
+          cat > ~/.ssh/config << EOF
           Host $GIT_SERVER_DOMAIN
-            UserKnownHostsFile $SSH_KNOWN_HOSTS_PATH
+            HostName $GIT_SERVER_DOMAIN
+            Port $GIT_SERVER_SSH_PORT
             StrictHostKeyChecking yes
           EOF
-          chmod 600 "$SSH_CONFIG_PATH"
+          chmod 600 ~/.ssh/config
           
           # Add known hosts
-          ssh-keyscan -t rsa,ed25519 $GIT_SERVER_DOMAIN > "$SSH_KNOWN_HOSTS_PATH"
-          chmod 644 "$SSH_KNOWN_HOSTS_PATH"
+          ssh-keyscan -t rsa,ed25519 -p $GIT_SERVER_SSH_PORT $GIT_SERVER_DOMAIN >> ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+          
+          # Test SSH connection (success message expected)
+          ssh -T "git@$GIT_SERVER_DOMAIN" || true
       
-      # Now you can use Git commands or actions/checkout
-      - name: Clone Private Repository
-        uses: actions/checkout@v4
+      # Clone repository using actions/checkout
+      - name: Clone Repository
+        uses: https://github.com/actions/checkout@v4
         with:
-          repository: owner/private-repo
-          ssh-key: ${{ secrets.SSH_PRIVATE_KEY }}
+          repository: owner/repo
+          ssh-key: ${{ secrets.DEPLOY_KEY }}
           github-server-url: "https://${{ env.GIT_SERVER_DOMAIN }}"
-      
-      # Cleanup
-      - name: Cleanup
-        if: always()
-        run: rm -rf "${{ runner.temp }}/.ssh"
-```
+          ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
 
-### 2. Manual SSH Setup with Expect
+### 2. Using Expect (For Keys With Passphrase)
 
-For cases where you need more control over the SSH setup or need to handle keys with passphrases:
+This approach uses `expect` to handle SSH keys that have passphrases:
 
 ```yaml
-name: CI with Manual SSH
-on: [push]
+name: Checkout with Passphrase
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
 
 jobs:
-  build:
+  checkout:
     runs-on: ubuntu-latest
     env:
       GIT_SERVER_DOMAIN: forgejo.yourdomain
-      GIT_SERVER_SSH_PORT: 22
-      SSH_CONFIG_PATH: ${{ runner.temp }}/.ssh/config
-      SSH_KEY_PATH: ${{ runner.temp }}/.ssh/deploy_key
-      SSH_KNOWN_HOSTS_PATH: ${{ runner.temp }}/.ssh/known_hosts
+      GIT_SERVER_SSH_PORT: 2222
     steps:
-      # Install expect for passphrase handling
-      - name: Install expect
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y expect
-      
-      # Setup SSH with expect
-      - name: Setup SSH
+      - name: Git SSH Setup
         env:
-          SSH_KEY: ${{ secrets.SSH_PRIVATE_KEY }}
+          SSH_KEY: ${{ secrets.DEPLOY_KEY }}
           SSH_KEY_PASSPHRASE: ${{ secrets.SSH_KEY_PASSPHRASE }}
         run: |
-          # Create SSH directory in temp
-          SSH_DIR="${{ runner.temp }}/.ssh"
-          mkdir -p "$SSH_DIR"
-          chmod 700 "$SSH_DIR"
+          # Install expect
+          sudo apt-get update
+          sudo apt-get install -y expect
+          
+          # Create SSH directory
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
           
           # Save private key
-          echo "$SSH_KEY" > "$SSH_KEY_PATH"
-          chmod 600 "$SSH_KEY_PATH"
+          echo "$SSH_KEY" > ~/.ssh/deploy_key
+          chmod 600 ~/.ssh/deploy_key
           
-          # Create SSH config
-          cat > "$SSH_CONFIG_PATH" << EOF
+          # Configure SSH
+          cat > ~/.ssh/config << EOF
           Host $GIT_SERVER_DOMAIN
-            IdentityFile $SSH_KEY_PATH
-            UserKnownHostsFile $SSH_KNOWN_HOSTS_PATH
-            StrictHostKeyChecking yes
+            HostName $GIT_SERVER_DOMAIN
+            IdentityFile ~/.ssh/deploy_key
             Port $GIT_SERVER_SSH_PORT
+            StrictHostKeyChecking yes
           EOF
-          chmod 600 "$SSH_CONFIG_PATH"
+          chmod 600 ~/.ssh/config
           
           # Add known hosts
-          ssh-keyscan -t rsa,ed25519 -p $GIT_SERVER_SSH_PORT $GIT_SERVER_DOMAIN > "$SSH_KNOWN_HOSTS_PATH"
-          chmod 644 "$SSH_KNOWN_HOSTS_PATH"
+          ssh-keyscan -t rsa,ed25519 -p $GIT_SERVER_SSH_PORT $GIT_SERVER_DOMAIN >> ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+          
+          # Create expect script for adding key with passphrase
+          cat > /tmp/add-key.exp << 'EOF'
+          #!/usr/bin/expect -f
+          set timeout 10
+          spawn ssh-add ~/.ssh/deploy_key
+          expect "Enter passphrase"
+          send "$env(SSH_KEY_PASSPHRASE)\r"
+          expect eof
+          EOF
+          chmod 700 /tmp/add-key.exp
+          
+          # Run expect script
+          /tmp/add-key.exp
+          
+          # Test SSH connection (success message expected)
+          ssh -T "git@$GIT_SERVER_DOMAIN" || true
       
-      # Clone repository using custom SSH command
+      # Clone repository using actions/checkout
       - name: Clone Repository
-        env:
-          GIT_SSH_COMMAND: "ssh -F $SSH_CONFIG_PATH"
-        run: git clone "git@$GIT_SERVER_DOMAIN:owner/repo.git"
+        uses: https://github.com/actions/checkout@v4
+        with:
+          repository: owner/repo
+          ssh-key: ${{ secrets.DEPLOY_KEY }}
+          github-server-url: "https://${{ env.GIT_SERVER_DOMAIN }}"
+          ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
       
       # Cleanup
       - name: Cleanup
         if: always()
-        run: rm -rf "${{ runner.temp }}/.ssh"
+        run: |
+          rm -f ~/.ssh/deploy_key
+          rm -f /tmp/add-key.exp
+          rm -rf ~/.ssh
 ```
+
+## Important Notes
+
+1. **SSH Key Types**
+   - Without passphrase: Use the SSH Agent approach for simpler setup
+   - With passphrase: Use the Expect approach for secure key handling
+
+2. **actions/checkout Configuration**
+   - Always use the full URL `https://github.com/actions/checkout@v4`
+   - SSH configuration must be in `~/.ssh` directory
+   - Use `github-server-url` with `https://` prefix
+   - Store SSH known hosts in repository variables
 
 ## Best Practices
 
@@ -203,19 +254,25 @@ jobs:
 
 ## Troubleshooting
 
-1. **Permission Denied**
+1. **SSH Authentication**
+   - Message "successfully authenticated... but does not provide shell access" is expected
+   - Command exits with code 1, which is normal
+   - Use `ssh -T` for testing, or `ssh -vT` for verbose output
+   - Only Git operations (clone, push, pull) are allowed
+
+2. **Permission Denied**
    - Verify key permissions (600 for private key)
    - Check if key is added to repository
    - Verify SSH config file permissions
    - Test SSH connection with verbose logging
 
-2. **Host Verification Failed**
+3. **Host Verification Failed**
    - Check known_hosts file permissions
    - Verify server fingerprint
    - Ensure proper StrictHostKeyChecking setting
    - Check custom SSH config path
 
-3. **Passphrase Issues**
+4. **Passphrase Issues**
    - Verify passphrase in secrets
    - Check expect script syntax
    - Test key loading manually
@@ -229,7 +286,6 @@ jobs:
    - [SSH Security Best Practices](https://goteleport.com/blog/ssh-security-best-practices/)
 
 2. **Action Documentation**
-   - [webfactory/ssh-agent](https://github.com/webfactory/ssh-agent)
    - [actions/checkout](https://github.com/actions/checkout)
 
 3. **Related Guides**

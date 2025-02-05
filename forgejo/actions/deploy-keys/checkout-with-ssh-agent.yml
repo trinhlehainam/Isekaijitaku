@@ -1,0 +1,54 @@
+# Example workflow using actions/checkout for repository access
+name: Checkout with SSH Agent
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+  workflow_dispatch:
+
+jobs:
+  checkout:
+    runs-on: ubuntu-latest
+    env:
+      GIT_SERVER_DOMAIN: forgejo.yourdomain
+      GIT_SERVER_SSH_PORT: 2222
+    steps:
+      - uses: webfactory/ssh-agent@v0.9.0
+        with:
+          ssh-private-key: ${{ secrets.DEPLOY_KEY }}
+      
+      - name: Git SSH Setup
+        run: |
+          # Create SSH config in home directory
+          mkdir -p ~/.ssh
+          chmod 700 ~/.ssh
+          
+          # Configure SSH for custom port
+          cat > ~/.ssh/config << EOF
+          Host $GIT_SERVER_DOMAIN
+            Port $GIT_SERVER_SSH_PORT
+            StrictHostKeyChecking yes
+          EOF
+          chmod 600 ~/.ssh/config
+          
+          # Add known hosts
+          ssh-keyscan -t rsa,ed25519 -p $GIT_SERVER_SSH_PORT $GIT_SERVER_DOMAIN >> ~/.ssh/known_hosts
+          chmod 644 ~/.ssh/known_hosts
+          
+          # Test SSH connection (success message expected)
+          ssh -T "git@$GIT_SERVER_DOMAIN" || true
+      
+      # Clone repository using actions/checkout
+      - name: Clone Repository
+        uses: https://github.com/actions/checkout@v4
+        with:
+          repository: owner/private-repo
+          ssh-key: ${{ secrets.DEPLOY_KEY }}
+          github-server-url: "https://${{ env.GIT_SERVER_DOMAIN }}"
+          ssh-known-hosts: ${{ vars.SSH_KNOWN_HOSTS }}
+      
+      # Cleanup
+      - name: Cleanup
+        if: always()
+        run: rm -rf "~/.ssh"
