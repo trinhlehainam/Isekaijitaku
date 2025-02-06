@@ -319,18 +319,11 @@ When using expect scripts in GitHub Actions, you need to understand the differen
    ```
 
 2. **Expect Environment Variables**
-   ```tcl
-   # In expect scripts, use $env() syntax
-   spawn ssh-add "$env(HOME)/.ssh/id_rsa"    # Correct
-   spawn ssh-add "$HOME/.ssh/id_rsa"         # Wrong
-   ```
-
 Example workflow using both:
 ```yaml
 - name: Add Passphrase to ssh-agent
   env:
     SSH_KEY_PASSPHRASE: ${{ secrets.SSH_KEY_PASSPHRASE }}
-    HOME: ${{ env.RUNNER_HOME }}
   run: |
     # Shell script: use $HOME
     SSH_DIR="$HOME/.ssh"
@@ -349,7 +342,7 @@ Example workflow using both:
     
     # Shell script again: use $HOME
     chmod 700 /tmp/add-key.exp
-    HOME="$HOME" SSH_KEY_NAME="$SSH_KEY_NAME" /tmp/add-key.exp
+    /tmp/add-key.exp
 ```
 
 ### Important Notes:

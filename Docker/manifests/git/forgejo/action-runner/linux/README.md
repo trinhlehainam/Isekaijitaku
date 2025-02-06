@@ -215,14 +215,14 @@ container:
   # Resource constraints using Docker options
   options: >-
     -v /certs/client:/certs/client 
-    -v /usr/local/share/ca-certificates/step_root_ca.crt:/usr/local/share/ca-certificates/step_root_ca.crt 
+    -v /etc/ssl/certs:/etc/ssl/certs:ro
     --cpus=2.0 
     --memory=2g 
     --memory-swap=2.5g 
     --memory-reservation=1.5g
   valid_volumes:
     - /certs/client
-    - /usr/local/share/ca-certificates/step_root_ca.crt
+    - /etc/ssl/certs
 ```
 
 > Note: These settings are crucial for:
