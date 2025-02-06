@@ -1,0 +1,56 @@
+name: iOS Build with Match
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  ios-build:
+    runs-on: macos-latest
+    env:
+      GIT_SERVER_DOMAIN: forgejo.yourdomain
+      TEAM_ID: ${{ secrets.TEAM_ID }}
+      APP_IDENTIFIER: ${{ secrets.APP_IDENTIFIER }}
+      MATCH_REPOSITORY: ${{ secrets.MATCH_REPOSITORY }}
+      APPLE_DEVELOPER_USERNAME: ${{ secrets.APPLE_DEVELOPER_USERNAME }}
+      TEMP_KEYCHAIN_PASSWORD: ${{ secrets.TEMP_KEYCHAIN_PASSWORD }}
+
+    steps:
+      # Checkout main repository
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      # Setup Ruby environment
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: '3.2'
+          bundler-cache: true
+
+      # Setup SSH key for fastlane match
+      - name: Install SSH Key
+        uses: https://github.com/shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.SSH_KEY }}
+          name: id_match_key
+          known_hosts: unnecessary
+          if_key_exists: fail
+
+      - name: Add Known Hosts
+        run: |
+          ssh-keyscan -H ${{ env.GIT_SERVER_DOMAIN }} >> ~/.ssh/known_hosts
+
+      # Build iOS app using fastlane match
+      - name: Build iOS App
+        env:
+          MATCH_PASSWORD: ${{ secrets.SSH_KEY_PASSPHRASE }}
+          MATCH_GIT_PRIVATE_KEY: ~/.ssh/id_match_key
+        run: bundle exec fastlane build_appstore
+
+      # Cleanup
+      - name: Cleanup
+        if: always()
+        run: |
+          rm -rf ~/.ssh
+          bundle exec fastlane cleanup_keychain || true

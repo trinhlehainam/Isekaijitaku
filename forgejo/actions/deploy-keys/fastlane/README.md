@@ -140,86 +140,81 @@ end
 
 ### 5. GitHub Actions Workflow
 
-Create `.github/workflows/ios.yml`:
+The repository includes a GitHub Actions workflow (`match-workflow.yml`) that handles iOS builds using fastlane match. The workflow uses fastlane match's built-in SSH capabilities for secure repository access:
 
+1. **SSH Key Installation**: Uses `shimataro/ssh-key-action@v2` to install the SSH key
+2. **SSH Operations**: All SSH operations are handled by fastlane match internally
+
+Required secrets:
+- `SSH_KEY`: The deploy key for accessing the certificates repository
+- `SSH_KEY_PASSPHRASE`: Passphrase for the SSH key (also used as match password)
+- `TEAM_ID`: Your Apple Developer Team ID
+- `APP_IDENTIFIER`: Your app's bundle identifier
+- `MATCH_REPOSITORY`: URL of your certificates repository
+- `APPLE_DEVELOPER_USERNAME`: Your Apple Developer account email
+- `TEMP_KEYCHAIN_PASSWORD`: Password for temporary keychain
+
+Example workflow file (`match-workflow.yml`):
 ```yaml
-name: iOS Build
-on: [push]
+name: iOS Build with Match
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
 
 jobs:
-  build:
+  ios-build:
     runs-on: macos-latest
     env:
-      MATCH_REPO: ${{ secrets.MATCH_REPO }}
+      GIT_SERVER_DOMAIN: github.com
       TEAM_ID: ${{ secrets.TEAM_ID }}
       APP_IDENTIFIER: ${{ secrets.APP_IDENTIFIER }}
+      MATCH_REPOSITORY: ${{ secrets.MATCH_REPOSITORY }}
       APPLE_DEVELOPER_USERNAME: ${{ secrets.APPLE_DEVELOPER_USERNAME }}
       TEMP_KEYCHAIN_PASSWORD: ${{ secrets.TEMP_KEYCHAIN_PASSWORD }}
-      SSH_CONFIG_PATH: ${{ runner.temp }}/.ssh/config
-      SSH_KEY_PATH: ${{ runner.temp }}/.ssh/match_key
-      SSH_KNOWN_HOSTS_PATH: ${{ runner.temp }}/.ssh/known_hosts
+
     steps:
       - uses: actions/checkout@v4
-      
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: '3.2'
-          bundler-cache: true    # This will install bundler and cache gems automatically
+          bundler-cache: true
 
-      - name: Setup Match
-        run: |
-          # Create SSH directory in temp
-          SSH_DIR="${{ runner.temp }}/.ssh"
-          mkdir -p "$SSH_DIR"
-          chmod 700 "$SSH_DIR"
-          
-          # Save private key to file
-          echo "${{ secrets.MATCH_GIT_PRIVATE_KEY }}" > "$SSH_KEY_PATH"
-          chmod 600 "$SSH_KEY_PATH"
-          
-          # Set environment variable to key file path
-          echo "MATCH_GIT_PRIVATE_KEY=$SSH_KEY_PATH" >> $GITHUB_ENV
-          
-          # Configure Git Server
-          ssh-keyscan -t rsa,ed25519 github.com > "$SSH_KNOWN_HOSTS_PATH"
-          chmod 644 "$SSH_KNOWN_HOSTS_PATH"
-          
-          # Create SSH config
-          cat > "$SSH_CONFIG_PATH" << EOF
-          Host github.com
-            IdentityFile $SSH_KEY_PATH
-            UserKnownHostsFile $SSH_KNOWN_HOSTS_PATH
-            StrictHostKeyChecking yes
-          EOF
-          chmod 600 "$SSH_CONFIG_PATH"
+      - name: Install SSH Key
+        uses: https://github.com/shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.SSH_KEY }}
+          name: id_match_key
+          known_hosts: unnecessary
+          if_key_exists: replace
 
-      - name: Build App
+      - name: Build iOS App
         env:
-          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
-          GIT_SSH_COMMAND: "ssh -F $SSH_CONFIG_PATH"
+          MATCH_PASSWORD: ${{ secrets.SSH_KEY_PASSPHRASE }}
+          MATCH_GIT_PRIVATE_KEY: ~/.ssh/id_match_key
         run: bundle exec fastlane build_appstore
-
-      - name: Cleanup
-        if: always()
-        run: |
-          rm -rf "${{ runner.temp }}/.ssh"
-          bundle exec fastlane cleanup_keychain || true
 ```
+
+### Notes
+
+- SSH key installation is handled by `shimataro/ssh-key-action`
+- All SSH operations are managed by fastlane match
+- The SSH key passphrase is also used as the match password for simplicity
+- SSH keys are automatically cleaned up after the workflow completes
+- The temporary keychain is created and managed by fastlane
+- All sensitive data is stored as GitHub Secrets
 
 ## GitHub Actions Integration
 
-See the [workflow examples](./actions/) for different integration approaches:
-- [Basic Match Setup](./actions/basic-match-workflow.yml)
-- [Advanced Setup with Manual SSH](./actions/manual-ssh-workflow.yml)
-
-## Required Secrets
+### Required Secrets
 
 Set up these secrets in your GitHub repository:
-- `MATCH_GIT_PRIVATE_KEY`: The private key content for accessing the certificates repository
-- `MATCH_PASSWORD`: The password to decrypt the certificates
-- `MATCH_REPO`: The Git URL of your certificates repository (e.g., `git@github.com:your-org/certificates.git`)
+- `SSH_KEY`: The private key content for accessing the certificates repository
+- `SSH_KEY_PASSPHRASE`: Passphrase for the SSH key (also used as match password)
 - `TEAM_ID`: Your Apple Developer Team ID
 - `APP_IDENTIFIER`: Your app's bundle identifier
+- `MATCH_REPOSITORY`: The Git URL of your certificates repository
 - `APPLE_DEVELOPER_USERNAME`: Your Apple Developer account email
 - `TEMP_KEYCHAIN_PASSWORD`: A secure password for the temporary keychain
 
