@@ -24,9 +24,9 @@ your-ios-project/
 1. Create a new private repository for storing certificates
 2. Generate a deploy key pair specifically for fastlane match:
 ```bash
-ssh-keygen -t ed25519 -C "fastlane-match@yourdomain.com" -f match_key -N ""
+ssh-keygen -t ed25519 -C "fastlane-match@yourdomain.com" -f match_key
 ```
-3. Add the public key (`match_key.pub`) to your certificates repository as a deploy key with write access
+3. Add the public key (`match_key.pub`) to your certificates repository as a deploy key with `write access`
 4. Store the private key (`match_key`) securely - you'll need it for GitHub Secrets
 
 ### 2. Configure Ruby Dependencies
