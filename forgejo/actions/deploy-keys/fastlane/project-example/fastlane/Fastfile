@@ -1,6 +1,3 @@
-# Customise this file, documentation can be found here:
-# https://docs.fastlane.tools/
-
 default_platform(:ios)
 
 platform :ios do
@@ -41,71 +38,19 @@ platform :ios do
       readonly: is_ci,
       keychain_name: is_ci ? KEYCHAIN_NAME : nil,
       keychain_password: is_ci ? KEYCHAIN_PASSWORD : nil,
-      git_private_key: ENV["MATCH_GIT_PRIVATE_KEY"]
+      git_private_key: ENV["DEPLOY_KEY"]
     )
   end
 
-  # Build for development
-  desc "Build for development"
-  lane :build_development do
+  # Sync development certificates
+  desc "Sync development certificates"
+  lane :sync_development do
     sync_certificates(type: "development")
-    
-    gym(
-      scheme: "YourAppScheme",
-      export_method: "development",
-      export_options: {
-        method: "development",
-        provisioningProfiles: {
-          APP_IDENTIFIER => "match Development #{APP_IDENTIFIER}"
-        }
-      }
-    )
   end
 
-  # Build for App Store
-  desc "Build for App Store"
-  lane :build_appstore do
+  # Sync distribution certificates
+  desc "Sync distribution certificates"
+  lane :sync_distribution do
     sync_certificates(type: "appstore")
-    
-    gym(
-      scheme: "YourAppScheme",
-      export_method: "app-store",
-      export_options: {
-        method: "app-store",
-        provisioningProfiles: {
-          APP_IDENTIFIER => "match AppStore #{APP_IDENTIFIER}"
-        }
-      }
-    )
-  end
-
-  # Build for Ad Hoc distribution
-  desc "Build for Ad Hoc distribution"
-  lane :build_adhoc do
-    sync_certificates(type: "adhoc")
-    
-    gym(
-      scheme: "YourAppScheme",
-      export_method: "ad-hoc",
-      export_options: {
-        method: "ad-hoc",
-        provisioningProfiles: {
-          APP_IDENTIFIER => "match AdHoc #{APP_IDENTIFIER}"
-        }
-      }
-    )
-  end
-
-  # Clean up keychain after build
-  desc "Clean up keychain"
-  lane :cleanup_keychain do
-    if is_ci
-      delete_keychain(name: KEYCHAIN_NAME)
-    end
-  end
-
-  # Error handling
-  error do |lane, exception, options|
-    cleanup_keychain if is_ci
   end
 end
