@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>Label</key>
+    <string>com.gitea.act_runner.colima</string>
+    <key>ProgramArguments</key>
+    <array>
+        <string>/usr/local/scripts/start-act-runner-colima.sh</string>
+    </array>
+    <key>RunAtLoad</key>
+    <true/>
+    <key>KeepAlive</key>
+    <false/>
+    <key>UserName</key>
+    <string>_act_runner</string>
+    <key>GroupName</key>
+    <string>_act_runner</string>
+    <key>StandardOutPath</key>
+    <string>/var/log/act_runner/colima.log</string>
+    <key>StandardErrorPath</key>
+    <string>/var/log/act_runner/colima.error</string>
+    <key>WorkingDirectory</key>
+    <string>/var/lib/act_runner</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+        <key>HOME</key>
+        <string>/var/lib/act_runner</string>
+    </dict>
+</dict>
+</plist>
