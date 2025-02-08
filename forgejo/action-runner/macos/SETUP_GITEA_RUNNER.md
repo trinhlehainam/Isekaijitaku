@@ -264,6 +264,7 @@ COLIMA_CPU=4
 COLIMA_MEMORY=8
 COLIMA_DISK=100
 COLIMA_VM_TYPE=vz
+COLIMA_ROSETTA=true
 
 # Optional configurations
 #
@@ -324,6 +325,10 @@ start_colima() {
     cmd+=("--memory" "${COLIMA_MEMORY:-8}")
     cmd+=("--disk" "${COLIMA_DISK:-100}")
     cmd+=("--vm-type" "${COLIMA_VM_TYPE:-vz}")
+
+    if [ "${COLIMA_VM_TYPE:-vz}" = "vz" ] && [ -n "${COLIMA_ROSETTA}" ]; then
+        cmd+=("--vz-rosetta")
+    fi
 
     if [ -n "${COLIMA_MOUNT_TYPE}" ]; then
         cmd+=("--mount-type" "${COLIMA_MOUNT_TYPE}")

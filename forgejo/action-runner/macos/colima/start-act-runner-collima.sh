@@ -17,7 +17,7 @@ error() {
 
 # Function to check if network is available
 check_network() {
-    for i in $(seq 1 30); do
+    for _ in $(seq 1 30); do
         if ping -c 1 1.1.1.1 >/dev/null 2>&1; then
             return 0
         fi
@@ -43,6 +43,10 @@ start_colima() {
     cmd+=("--memory" "${COLIMA_MEMORY:-8}")
     cmd+=("--disk" "${COLIMA_DISK:-100}")
     cmd+=("--vm-type" "${COLIMA_VM_TYPE:-vz}")
+    
+    if [ "${COLIMA_VM_TYPE:-vz}" = "vz" ] && [ -n "${COLIMA_ROSETTA}" ]; then
+        cmd+=("--vz-rosetta")
+    fi
 
     if [ -n "${COLIMA_MOUNT_TYPE}" ]; then
         cmd+=("--mount-type" "${COLIMA_MOUNT_TYPE}")
