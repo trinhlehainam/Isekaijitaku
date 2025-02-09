@@ -11,9 +11,8 @@ error() {
 }
 
 # Source fnm and pyenv
-log "Sourcing fnm and pyenv"
+log "Sourcing fnm"
 source /etc/act_runner/fnm.sh
-source /etc/act_runner/pyenv.sh
 
 # Start act_runner daemon
 log "Starting act_runner daemon"
