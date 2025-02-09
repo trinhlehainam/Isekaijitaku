@@ -158,7 +158,7 @@ This setup is particularly important when your workflows involve:
 2. Setup and Install Linux runner:
 - Follow [this guide](../linux/README.md) to install and configure the Linux runner
 
-4. Register the Linux runner:
+3. Register the Linux runner:
 ```bash
 # Register with Forgejo
 sudo -u _act_runner colima ssh "sudo -u act_runner /usr/local/bin/act_runner register \
@@ -169,7 +169,7 @@ sudo -u _act_runner colima ssh "sudo -u act_runner /usr/local/bin/act_runner reg
   --labels 'ubuntu-latest:docker://gitea/runner-images:ubuntu-latest'"
 ```
 
-3. Install Linux runner service:
+4. Install Linux runner service:
 ```bash
 # Copy service template
 sudo -u _act_runner colima ssh "cat > /opt/act_runner/act_runner.service" < act_runner/act_runner.service
