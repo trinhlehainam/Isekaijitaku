@@ -1,0 +1,36 @@
+# Network configurations for the virtual machine.
+network:
+  dns:
+    # Use Tailscale DNS (If Tailscale is running on MacOS host)
+    - 100.100.100.100
+    - 1.1.1.1
+    - 1.0.0.1
+
+# Custom provision scripts for the virtual machine.
+# Provisioning scripts are executed on startup and therefore needs to be idempotent.
+#
+# EXAMPLE - script executed as root
+# provision:
+#   - mode: system
+#     script: apt-get install htop vim
+#
+# EXAMPLE - script executed as user
+# provision:
+#   - mode: user
+#     script: |
+#       [ -f ~/.provision ] && exit 0;
+#       echo provisioning as $USER...
+#       touch ~/.provision
+#
+# Default: []
+provision:
+  - mode: system
+    script: |
+      # Disable systemd-resolved DNS stub listener
+      sed -i 's/#DNSStubListener=yes/DNSStubListener=no/' /etc/systemd/resolved.conf
+      systemctl restart systemd-resolved
+      # Install custom root CA
+      cp /var/lib/act_runner/.ca-certificates/* /usr/local/share/ca-certificates/
+      update-ca-certificates
+      systemctl daemon-reload
+      systemctl restart docker

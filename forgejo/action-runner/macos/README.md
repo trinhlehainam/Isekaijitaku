@@ -28,6 +28,7 @@ macos/
 │   └── start_act_runner.sh   # Service startup
 ├── colima/              # Colima configurations
 │   ├── colima.env       # Colima environment configuration
+│   ├── start-act-runner-collima.sh       # Colima service startup
 │   └── com.gitea.act_runner.colima.plist    # Colima service config
 └── actions/             # Test actions
     └── test.yaml        # Test workflow
@@ -42,68 +43,79 @@ Use this setup when you want to:
 
 ### Installation Steps
 
+#### Colima Installation
+
 1. Install and configure Colima:
 ```bash
-# Install Colima
 brew install colima
-
-# Create directories
-sudo mkdir -p /opt/act_runner/colima
-sudo chown -R _act_runner:_act_runner /opt/act_runner
-
-# Copy Colima configuration
-sudo cp colima/colima.env /opt/act_runner/colima/
-sudo chown _act_runner:_act_runner /opt/act_runner/colima/colima.env
-
-# Copy and load Colima service
-sudo cp colima/com.gitea.act_runner.colima.plist /Library/LaunchDaemons/
-sudo launchctl load /Library/LaunchDaemons/com.gitea.act_runner.colima.plist
-
-# Wait for Colima to start
-sleep 10
 ```
 
-2. Check your system architecture:
+2. Clean up any existing configurations:
+```bash
+sudo rm -rf /tmp/colima
+sudo rm -f /tmp/colima.yaml
+
+# Create directories
+sudo mkdir -p /etc/colima
+sudo chown -R _act_runner:_act_runner /etc/colima
+
+# Copy Colima configuration
+sudo cp colima/colima.env /etc/colima/
+sudo chown _act_runner:_act_runner /etc/colima/colima.env
+```
+
+3. Copy and load Colima service:
+```bash
+sudo cp colima/com.gitea.act_runner.colima.plist /Library/LaunchDaemons/
+sudo launchctl load /Library/LaunchDaemons/com.gitea.act_runner.colima.plist
+```
+
+4. Restart the runner service:
+```bash
+sudo launchctl unload /Library/LaunchDaemons/com.gitea.act_runner.colima.plist
+sudo -u _act_runner DOCKER_HOST=unix:///var/lib/act_runner/.colima/default/docker.sock colima stop
+sudo launchctl load /Library/LaunchDaemons/com.gitea.act_runner.colima.plist
+```
+
+#### Runner Installation
+
+1. Check your system architecture:
 ```bash
 ./act_runner/check_arch.sh
 ```
 
-3. Install the runner:
+2. Install the runner:
 ```bash
 sudo ./act_runner/install.sh
 ```
 
-4. Create system user:
+3. Create system user:
 ```bash
 sudo ./act_runner/create_user.sh
 ```
 
-5. Configure Docker access for act_runner:
-```bash
-# Create docker group if it doesn't exist
-sudo dscl . -create /Groups/docker
-sudo dscl . -create /Groups/docker PrimaryGroupID 1001
-sudo dscl . -create /Groups/docker GroupMembership _act_runner
-
-# Set environment for act_runner
-sudo mkdir -p /etc/act_runner
-sudo tee /etc/act_runner/environment << EOF
-DOCKER_HOST="unix://${HOME}/.colima/default/docker.sock"
-EOF
-sudo chown -R _act_runner:_act_runner /etc/act_runner
-```
-
-6. Start the runner service:
-```bash
-sudo launchctl load /Library/LaunchDaemons/com.gitea.act_runner.plist
-```
-
-7. Register the runner:
+4. Register the runner:
 ```bash
 sudo -u _act_runner act_runner register \
   --instance <instance_url> \
   --token <token> \
   --labels "macos-latest:host"
+```
+
+5. Start the runner service:
+```bash
+sudo launchctl load /Library/LaunchDaemons/com.gitea.act_runner.plist
+```
+
+6. Check the status of the runner service:
+```bash
+sudo launchctl list | grep com.gitea.act_runner
+```
+
+7. Restart the runner service:
+```bash
+sudo launchctl unload /Library/LaunchDaemons/com.gitea.act_runner.plist
+sudo launchctl load /Library/LaunchDaemons/com.gitea.act_runner.plist
 ```
 
 ## Option 2: Additional Linux Runner (Inside Colima)
@@ -144,37 +156,39 @@ This setup is particularly important when your workflows involve:
 1. Copy Linux setup files to Colima VM:
 ```bash
 # Create directory in Colima VM
-colima ssh "sudo mkdir -p /opt/act_runner"
+sudo -u _act_runner colima ssh "sudo mkdir -p /opt/act_runner"
 
 # Copy Linux setup files
-colima ssh "cat > /opt/act_runner/install_act_runner.sh" < ../linux/scripts/install_act_runner.sh
-colima ssh "cat > /opt/act_runner/setup_system.sh" < ../linux/scripts/setup_system.sh
-colima ssh "cat > /opt/act_runner/config.yaml" < ../linux/templates/config.yaml
-colima ssh "sudo chmod +x /opt/act_runner/*.sh"
+sudo -u _act_runner colima ssh "cat > /opt/act_runner/install_act_runner.sh" < ../linux/scripts/install_act_runner.sh
+sudo -u _act_runner colima ssh "cat > /opt/act_runner/setup_system.sh" < ../linux/scripts/setup_system.sh
+sudo -u _act_runner colima ssh "cat > /opt/act_runner/config.yaml" < ../linux/templates/config.yaml
+sudo -u _act_runner colima ssh "sudo chmod +x /opt/act_runner/*.sh"
 ```
 
 2. Install and configure Linux runner:
 ```bash
 # Run installation scripts
-colima ssh "cd /opt/act_runner && sudo ./install_act_runner.sh"
-colima ssh "cd /opt/act_runner && sudo ./setup_system.sh"
+sudo -u _act_runner colima ssh "cd /opt/act_runner && sudo ./install_act_runner.sh"
+sudo -u _act_runner colima ssh "cd /opt/act_runner && sudo ./setup_system.sh"
 
 # Copy service template
-colima ssh "cat > /opt/act_runner/act_runner.service" < ../linux/templates/act_runner.service
-colima ssh "sudo mv /opt/act_runner/act_runner.service /etc/systemd/system/"
-
-# Start service
-colima ssh "sudo systemctl daemon-reload"
-colima ssh "sudo systemctl enable --now act_runner"
+sudo -u _act_runner colima ssh "cat > /opt/act_runner/act_runner.service" < ../linux/templates/act_runner.service
+sudo -u _act_runner colima ssh "sudo mv /opt/act_runner/act_runner.service /etc/systemd/system/"
 ```
 
 3. Register the Linux runner:
 ```bash
 # Register with Forgejo
-colima ssh "sudo -u act_runner /usr/local/bin/act_runner register \
+sudo -u _act_runner colima ssh "sudo -u act_runner /usr/local/bin/act_runner register \
   --instance <instance_url> \
   --token <token> \
   --labels 'ubuntu-latest:docker://gitea/runner-images:ubuntu-latest'"
+```
+
+4. Start the runner service:
+```bash
+sudo -u _act_runner colima ssh "sudo systemctl daemon-reload"
+sudo -u _act_runner colima ssh "sudo systemctl enable --now act_runner"
 ```
 
 ### Managing Multiple Runners
@@ -202,14 +216,14 @@ jobs:
 ## Troubleshooting
 
 ### MacOS Host Runner
-- Check Colima status: `colima status`
+- Check Colima status: `sudo -u _act_runner DOCKER_HOST=unix:///var/lib/act_runner/.colima/default/docker.sock colima status`
 - Check service status: `sudo launchctl list | grep act_runner`
 - View logs: `sudo tail -f /var/lib/act_runner/log/act_runner.log`
 
 ### Linux Runner
-- Check runner status: `colima ssh "systemctl status act_runner"`
-- View logs: `colima ssh "journalctl -u act_runner -f"`
-- Check Docker access: `colima ssh "sudo -u act_runner docker ps"`
+- Check runner status: `sudo -u _act_runner DOCKER_HOST=unix:///var/lib/act_runner/.colima/default/docker.sock colima ssh "systemctl status act_runner"`
+- View logs: `sudo -u _act_runner DOCKER_HOST=unix:///var/lib/act_runner/.colima/default/docker.sock colima ssh "journalctl -u act_runner -f"`
+- Check Docker access: `sudo -u _act_runner DOCKER_HOST=unix:///var/lib/act_runner/.colima/default/docker.sock colima ssh "sudo -u act_runner docker ps"`
 
 ## References
 - [[202501061959 Set up MacOS as private server with Tailscale and Docker]]
