@@ -112,8 +112,32 @@ Use this setup when you need:
 - Full Docker CLI support in your actions
 - Docker-in-Docker capabilities
 - Linux-specific features
+- Proper file mounting behavior with Docker containers
 
-This setup installs an additional act_runner service inside the existing Colima VM that's used by the MacOS runner.
+### Why Use This Option?
+
+This setup addresses several critical limitations when running Docker containers on MacOS through Colima:
+
+1. **File System Mount Behavior**: 
+   - Colima VM only mounts the MacOS user's home directory that is used to run Colima into the VM
+   - When sharing Docker socket with other users or processes, bind-mounted files must be inside the Colima user's home directory
+   - Files outside this directory won't be accessible inside the VM
+
+2. **Docker Mount Issues**: 
+   - When running Linux Docker containers on MacOS that use Colima's Docker socket, file mounting can behave unexpectedly
+   - Docker tries to mount files from inside the Colima VM's filesystem instead of the MacOS host or Docker container filesystem
+   - This can lead to errors like "mount target is a directory" or missing files because the paths don't exist in the VM's filesystem
+
+3. **Solution**:
+   - Installing a dedicated act runner inside the Colima VM ensures all file operations happen within the VM's filesystem
+   - File mounts in Docker containers work correctly because both the runner and Docker daemon share the same filesystem
+   - Eliminates path translation issues between MacOS and Linux environments
+
+This setup is particularly important when your workflows involve:
+- Mounting local directories into containers
+- Building Docker images with local context
+- Running complex Docker Compose setups
+- Working with file-heavy operations in containers
 
 ### Installation Steps
 
