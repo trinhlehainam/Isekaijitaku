@@ -36,8 +36,7 @@ runner:
   # If it's empty when registering, it will ask for inputting labels.
   # If it's empty when execute `daemon`, will use labels in `.runner` file.
   labels:
-    - "macos-sonoma-m1:host"
-    - "ubuntu-22.04-large:docker://ghcr.io/catthehacker/ubuntu:act-22.04"
+    - "ubuntu-22.04:host"
 
 cache:
   # Enable cache server to use actions/cache.
