@@ -9,6 +9,10 @@ curl -o- https://fnm.vercel.app/install | bash
 echo "Installing NodeJS..."
 fnm install 22
 
+# Solve corepack error: Cannot Find Matching Keyid
+# https://vercel.com/guides/corepack-errors-github-actions#how-to-fix-it
+npm install -g corepack@latest
+
 # Download and install pnpm:
 echo "Installing pnpm..."
 corepack enable pnpm

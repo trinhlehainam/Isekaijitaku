@@ -153,39 +153,30 @@ This setup is particularly important when your workflows involve:
 
 ### Installation Steps
 
-1. Copy Linux setup files to Colima VM:
-```bash
-# Create directory in Colima VM
-sudo -u _act_runner colima ssh "sudo mkdir -p /opt/act_runner"
+1. Install requirements tools for Runner in Colima VM: unzip, git-lfs
 
-# Copy Linux setup files
-sudo -u _act_runner colima ssh "cat > /opt/act_runner/install_act_runner.sh" < ../linux/scripts/install_act_runner.sh
-sudo -u _act_runner colima ssh "cat > /opt/act_runner/setup_system.sh" < ../linux/scripts/setup_system.sh
-sudo -u _act_runner colima ssh "cat > /opt/act_runner/config.yaml" < ../linux/templates/config.yaml
-sudo -u _act_runner colima ssh "sudo chmod +x /opt/act_runner/*.sh"
-```
+2. Setup and Install Linux runner:
+- Follow [this guide](../linux/README.md) to install and configure the Linux runner
 
-2. Install and configure Linux runner:
-```bash
-# Run installation scripts
-sudo -u _act_runner colima ssh "cd /opt/act_runner && sudo ./install_act_runner.sh"
-sudo -u _act_runner colima ssh "cd /opt/act_runner && sudo ./setup_system.sh"
-
-# Copy service template
-sudo -u _act_runner colima ssh "cat > /opt/act_runner/act_runner.service" < ../linux/templates/act_runner.service
-sudo -u _act_runner colima ssh "sudo mv /opt/act_runner/act_runner.service /etc/systemd/system/"
-```
-
-3. Register the Linux runner:
+4. Register the Linux runner:
 ```bash
 # Register with Forgejo
 sudo -u _act_runner colima ssh "sudo -u act_runner /usr/local/bin/act_runner register \
+  --no-interactive \
   --instance <instance_url> \
   --token <token> \
+  --name <runner_name> \
   --labels 'ubuntu-latest:docker://gitea/runner-images:ubuntu-latest'"
 ```
 
-4. Start the runner service:
+3. Install Linux runner service:
+```bash
+# Copy service template
+sudo -u _act_runner colima ssh "cat > /opt/act_runner/act_runner.service" < act_runner/act_runner.service
+sudo -u _act_runner colima ssh "sudo mv /opt/act_runner/act_runner.service /etc/systemd/system/"
+```
+
+5. Start the runner service:
 ```bash
 sudo -u _act_runner colima ssh "sudo systemctl daemon-reload"
 sudo -u _act_runner colima ssh "sudo systemctl enable --now act_runner"

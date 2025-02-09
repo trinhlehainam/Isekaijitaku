@@ -19,9 +19,4 @@ echo "Creating configuration file from template..."
 SCRIPT_DIR="$(dirname "$(readlink -f "$0")")"
 sudo cp "${SCRIPT_DIR}/../templates/config.yaml" /etc/act_runner/config.yaml
 
-# Create log directory
-echo "Setting up log directory..."
-sudo mkdir -p /var/lib/act_runner/log
-sudo chown -R act_runner:act_runner /var/lib/act_runner
-
 echo "System setup completed successfully!"

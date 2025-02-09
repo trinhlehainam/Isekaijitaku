@@ -65,7 +65,7 @@ Before starting the service, register the runner with your Gitea/Forgejo instanc
 sudo -u act_runner -s
 
 # Register the runner (interactive mode)
-act_runner register --config /etc/act_runner/config.yaml
+act_runner register --no-interactive --instance <instance_url> --token <registration_token> --name <runner_name> --config /etc/act_runner/config.yaml
 
 # Exit act_runner user shell
 exit
@@ -200,10 +200,10 @@ sudo tail -f /var/lib/act_runner/log/act_runner.log
 
 ## References
 
-1. [Gitea Actions Documentation](https://docs.gitea.com/usage/actions/overview)
-2. [Gitea Act Runner Documentation](https://docs.gitea.com/usage/actions/act-runner)
-3. [NodeJS Download](https://nodejs.org/en/download)
-4. [Fast Node Manager (fnm)](https://github.com/Schniz/fnm)
-5. [PNPM Documentation](https://pnpm.io/installation)
-6. [Systemd Documentation](https://www.freedesktop.org/software/systemd/man/systemd.service.html)
-7. [Docker Post-installation steps](https://docs.docker.com/engine/install/linux-postinstall/)
+- [Gitea Act Runner Documentation](https://docs.gitea.com/usage/actions/act-runner)
+- [NodeJS Download](https://nodejs.org/en/download)
+- [Fast Node Manager (fnm)](https://github.com/Schniz/fnm)
+- [PNPM Documentation](https://pnpm.io/installation)
+- [Systemd Documentation](https://www.freedesktop.org/software/systemd/man/systemd.service.html)
+- [Docker Post-installation steps](https://docs.docker.com/engine/install/linux-postinstall/)
+- [Install git-lfs Ubuntu](https://askubuntu.com/a/1418540)

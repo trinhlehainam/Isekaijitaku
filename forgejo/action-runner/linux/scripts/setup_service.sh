@@ -9,4 +9,9 @@ sudo cp "${SCRIPT_DIR}/../templates/act_runner.service" /etc/systemd/system/act_
 echo "Reloading systemd configuration..."
 sudo systemctl daemon-reload
 
+# Enable and start the service
+echo "Enabling and starting the service..."
+sudo systemctl enable act_runner.service
+sudo systemctl start act_runner.service
+
 echo "Service setup completed successfully!"
