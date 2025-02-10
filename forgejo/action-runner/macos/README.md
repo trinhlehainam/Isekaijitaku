@@ -17,22 +17,22 @@ This guide explains how to set up Gitea Action Runner on MacOS to work with a Fo
 
 ```
 macos/
-├── act_runner/           # Core runner components
-│   ├── check_arch.sh     # CPU architecture detection
-│   ├── create_user.sh    # System user creation
-│   ├── install.sh        # Runner installation
-│   ├── config.yaml       # Runner configuration
-│   ├── com.gitea.act_runner.plist    # Main service config
-│   ├── nvm.sh           # Node.js setup
-│   ├── pyenv.sh         # Python setup
-│   └── start_act_runner.sh   # Service startup
-├── colima/              # Colima configurations
-│   ├── colima.env       # Colima environment configuration
-│   ├── start-act-runner-collima.sh       # Colima service startup
-│   └── com.gitea.act_runner.colima.plist    # Colima service config
-└── actions/             # Test actions
-    └── test.yaml        # Test workflow
-```
+├── act_runner/                             # Core runner components
+│   ├── check_arch.sh                       # CPU architecture detection
+│   ├── create_user.sh                      # System user creation
+│   ├── install_act_runner.sh               # Runner installation
+│   ├── config.yaml                         # Runner configuration
+│   ├── com.gitea.act_runner.plist          # Main service config
+│   ├── install_nodejs.sh                   # Node.js installation
+│   ├── fnm.sh                              # Node.js setup
+│   ├── pyenv.sh                            # Python setup
+│   └── start_act_runner.sh                 # Service startup
+├── colima/                                 # Colima configurations
+│   ├── colima.env                          # Colima environment configuration
+│   ├── start-act-runner-collima.sh         # Colima service startup
+│   └── com.gitea.act_runner.colima.plist   # Colima service config
+└── actions/                                # Test actions
+    └── test.yaml                           # Test workflow
 
 ## Option 1: MacOS Host Runner
 
@@ -222,3 +222,6 @@ jobs:
 - [Colima - Container Runtime for macOS](https://github.com/abiosoft/colima)
 - [MacOS Daemon Management](https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPSystemStartup/Chapters/CreatingLaunchdJobs.html)
 - [Docker Engine Installation](https://docs.docker.com/engine/install/)
+
+## TODO:
+- [ ] (https://github.com/PowerShell/PowerShell/issues/17655)
