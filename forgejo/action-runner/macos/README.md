@@ -18,12 +18,13 @@ This guide explains how to set up Gitea Action Runner on MacOS to work with a Fo
 ```
 macos/
 ├── act_runner/                             # Core runner components
-│   ├── check_arch.sh                       # CPU architecture detection
-│   ├── create_user.sh                      # System user creation
-│   ├── install_act_runner.sh               # Runner installation
+│   ├── scripts/                            
+│   │   ├── check_arch.sh                   # CPU architecture detection
+│   │   ├── create_user.sh                  # System user creation
+│   │   ├── install_nodejs.sh               # Node.js installation
+│   │   └── install_act_runner.sh           # Runner installation
 │   ├── config.yaml                         # Runner configuration
 │   ├── com.gitea.act_runner.plist          # Main service config
-│   ├── install_nodejs.sh                   # Node.js installation
 │   ├── fnm.sh                              # Node.js setup
 │   ├── pyenv.sh                            # Python setup
 │   └── start_act_runner.sh                 # Service startup
@@ -92,6 +93,26 @@ sudo ./act_runner/install.sh
 3. Create system user:
 ```bash
 sudo ./act_runner/create_user.sh
+```
+
+3.1 To add _act_runner to a group, run:
+```bash
+# Add to admin group
+sudo dseditgroup -o edit -a _act_runner -t user admin
+# Add to wheel group
+sudo dseditgroup -o edit -a _act_runner -t user wheel
+# Add to _unity group
+sudo dseditgroup -o edit -a _act_runner -t user _unity
+```
+
+3.2 To remove _act_runner from a group, run:
+```bash
+# Remove from admin group
+sudo dseditgroup -o edit -d _act_runner -t user admin
+# Remove from wheel group
+sudo dseditgroup -o edit -d _act_runner -t user wheel
+# Remove from _unity group
+sudo dseditgroup -o edit -d _act_runner -t user _unity
 ```
 
 4. Register the runner:
@@ -222,6 +243,4 @@ jobs:
 - [Colima - Container Runtime for macOS](https://github.com/abiosoft/colima)
 - [MacOS Daemon Management](https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPSystemStartup/Chapters/CreatingLaunchdJobs.html)
 - [Docker Engine Installation](https://docs.docker.com/engine/install/)
-
-## TODO:
-- [ ] (https://github.com/PowerShell/PowerShell/issues/17655)
+- [How to add user to a group from Mac OS X command line](https://superuser.com/a/214311)
