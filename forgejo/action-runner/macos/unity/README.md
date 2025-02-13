@@ -1,0 +1,5 @@
+- Problem when using amd64 docker container in arm64 (M1)
+- Use MacOS admin user to install Unity on host and share Unity binary with _act_runner user
+- Set Unity installed path to /Applications/Unity/Hub/Editor  
+- To install Unity with command line, Unity Hub is required.
+    - MacOS need to login with admin to start Unity Hub session to use Unity Hub CLI
