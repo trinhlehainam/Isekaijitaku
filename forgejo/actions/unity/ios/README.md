@@ -74,3 +74,9 @@ The workflow can be triggered:
 - iOS builds require a macOS runner
 - App Store rate limits apply for uploads
 - Make sure your Unity license is properly configured
+
+## References
+- [Fastlane Match](https://docs.fastlane.tools/actions/match/)
+- [Fastlane Code Signing Xcode settings](https://docs.fastlane.tools/codesigning/xcode-project/)
+- [Fastlane App Store Deployment](https://docs.fastlane.tools/getting-started/ios/appstore-deployment/)
+- [GameCI iOS Deployment](https://game.ci/docs/github/deployment/ios)

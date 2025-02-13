@@ -11,9 +11,14 @@ jobs:
       SSH_KEY_NAME: match-deploy-key
       SSH_AUTH_SOCK: /tmp/ssh-agent.sock
     steps:
+      # Require to fetch fastlane configuration files
       - uses: actions/checkout@v4
 
-      - uses: ruby/setup-ruby@v1
+      # Make sure that the operating system has libyaml-0 and libgmp installed
+      # On MacOS: brew install libyaml gmp
+      # Need to setup cache directory on self-hosted runners
+      # Reference: https://github.com/ruby/setup-ruby?tab=readme-ov-file#using-self-hosted-runners
+      - uses: https://github.com/ruby/setup-ruby@v1
         with:
           ruby-version: 3.2
           bundler-cache: true
@@ -45,6 +50,10 @@ jobs:
         run: |
           bundle exec fastlane ios sync_certificates
         env:
+          # https://docs.fastlane.tools/getting-started/ios/setup/#set-up-environment-variables
+          LC_ALL: en_US.UTF-8
+          LANG: en_US.UTF-8
+
           APPSTORE_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
           APPSTORE_KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
           APPSTORE_P8: ${{ secrets.APPSTORE_P8 }}

@@ -1,7 +1,7 @@
 # https://game.ci/docs/github/deployment/ios#5-configure-fastlane-to-build
 
 match_org, match_repo = (ENV["MATCH_REPOSITORY"]||"").split("/")
-git_server_domain = ENV("GIT_SERVER_DOMAIN")
+git_server_domain = ENV["GIT_SERVER_DOMAIN"]
 
 platform :ios do
   desc "Sync codesigning certificates"
