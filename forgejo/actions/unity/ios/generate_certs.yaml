@@ -1,27 +1,48 @@
 name: Generate iOS Certs
 
 on:
-  workflow_run:
-    workflows: ['iOS One-Time Setup']
-    types:
-      - completed
   workflow_dispatch:
 
 jobs:
   generate_certs:
     runs-on: macos-latest
+    env:
+      GIT_SERVER_SSH_PORT: 2222
+      SSH_KEY_NAME: match-deploy-key
+      SSH_AUTH_SOCK: /tmp/ssh-agent.sock
     steps:
       - uses: actions/checkout@v4
+
       - uses: ruby/setup-ruby@v1
         with:
           ruby-version: 3.2
           bundler-cache: true
 
+      # https://stackoverflow.com/a/11385736
+      - name: Setup GIT_SERVER_DOMAIN 
+        run: |
+          echo "GIT_SERVER_DOMAIN=$(echo $GITHUB_SERVER_URL | awk -F[/:] '{print $4}')" >> $GITHUB_ENV
+
+      - name: Install SSH Key
+        uses: https://github.com/shimataro/ssh-key-action@v2
+        with:
+          key: ${{ secrets.DEPLOY_KEY }}
+          name: ${{ env.SSH_KEY_NAME }}
+          # https://github.com/shimataro/ssh-key-action?tab=readme-ov-file#i-want-to-omit-known_hosts
+          known_hosts: unnecessary
+          if_key_exists: fail # replace / ignore / fail; optional (defaults to fail)
+          config: |
+            Host ${{ env.GIT_SERVER_DOMAIN }}
+              Port ${{ env.GIT_SERVER_SSH_PORT }}
+              StrictHostKeyChecking yes
+
+      - name: Add SSH Known Hosts
+        run: |
+          ssh-keyscan -p ${{ env.GIT_SERVER_SSH_PORT }} -H ${{ env.GIT_SERVER_DOMAIN }} >> "${HOME}/.ssh/known_hosts"
+
       - name: Build iOS
         shell: bash
         run: |
-          eval "$(ssh-agent -s)"
-          ssh-add - <<< "${MATCH_DEPLOY_KEY}"
           bundle exec fastlane ios sync_certificates
         env:
           APPSTORE_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
@@ -30,8 +51,7 @@ jobs:
 
           IOS_BUNDLE_ID: ${{ secrets.IOS_BUNDLE_ID }}
 
-          GH_PAT: ${{ secrets.GH_PAT }}
-          GITHUB_REPOSITORY: ${{ env.GITHUB_REPOSITORY }}
           MATCH_REPOSITORY: ${{ secrets.MATCH_REPOSITORY }}
-          MATCH_DEPLOY_KEY: ${{ secrets.MATCH_DEPLOY_KEY }}
-          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          MATCH_DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
+          MATCH_PASSWORD: ${{ secrets.SSH_KEY_PASSPHRASE }}
+          MATCH_GIT_PRIVATE_KEY: ${{ env.HOME }}/.ssh/${{ env.SSH_KEY_NAME }}

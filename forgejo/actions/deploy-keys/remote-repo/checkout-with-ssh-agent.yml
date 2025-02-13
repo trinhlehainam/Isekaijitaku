@@ -12,9 +12,13 @@ jobs:
     # This workflow is designed for containerized environments
     runs-on: ubuntu-latest
     env:
-      GIT_SERVER_DOMAIN: forgejo.yourdomain
       GIT_SERVER_SSH_PORT: 2222
     steps:
+      - name: Setup GIT_SERVER_DOMAIN
+        # https://stackoverflow.com/a/11385736
+        run: |
+          echo "GIT_SERVER_DOMAIN=$(echo $GITHUB_SERVER_URL | awk -F[/:] '{print $4}')" >> $GITHUB_ENV
+
       - name: Install SSH Key
         uses: https://github.com/shimataro/ssh-key-action@v2
         with:
@@ -47,7 +51,6 @@ jobs:
         with:
           repository: owner/private-repo
           ssh-key: ${{ secrets.DEPLOY_KEY }}
-          github-server-url: "https://${{ env.GIT_SERVER_DOMAIN }}"
           ssh-known-hosts: ${{ env.GIT_SERVER_DOMAIN }}
       
       # Cleanup

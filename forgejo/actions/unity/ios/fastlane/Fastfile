@@ -1,20 +1,9 @@
 # https://game.ci/docs/github/deployment/ios#5-configure-fastlane-to-build
 
-org, repo = (ENV["GITHUB_REPOSITORY"]||"").split("/")
 match_org, match_repo = (ENV["MATCH_REPOSITORY"]||"").split("/")
+git_server_domain = ENV("GIT_SERVER_DOMAIN")
 
 platform :ios do
-  lane :init_ci do
-    github_action(
-      api_token: ENV["GH_PAT"],
-      org: org,
-      repo: repo,
-      match_org: match_org,
-      match_repo: match_repo,
-      writable_deploy_key: true
-    )
-  end
-
   desc "Sync codesigning certificates"
   lane :sync_certificates do
     app_store_connect_api_key(
@@ -26,7 +15,7 @@ platform :ios do
     match(
       type: "appstore",
       storage_mode: "git",
-      git_url: "git@github.com:#{match_org}/#{match_repo}.git",
+      git_url: "ssh://git@#{git_server_domain}:2222/#{match_org}/#{match_repo}.git",
       app_identifier: ENV["IOS_BUNDLE_ID"]
     )
   end
