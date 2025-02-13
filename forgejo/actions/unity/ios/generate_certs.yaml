@@ -10,6 +10,7 @@ jobs:
       GIT_SERVER_SSH_PORT: 2222
       SSH_KEY_NAME: match-deploy-key
       SSH_AUTH_SOCK: /tmp/ssh-agent.sock
+
     steps:
       # Require to fetch fastlane configuration files
       - uses: actions/checkout@v4
@@ -45,7 +46,42 @@ jobs:
         run: |
           ssh-keyscan -p ${{ env.GIT_SERVER_SSH_PORT }} -H ${{ env.GIT_SERVER_DOMAIN }} >> "${HOME}/.ssh/known_hosts"
 
-      - name: Build iOS
+      - name: Start ssh-agent
+        run: |
+          eval "$(ssh-agent -s)"
+          echo "SSH_AUTH_SOCK=$SSH_AUTH_SOCK" >> $GITHUB_ENV
+          echo "SSH_AGENT_PID=$SSH_AGENT_PID" >> $GITHUB_ENV
+
+      - name: Install expect to add key to ssh-agent with passphrase
+        run: |
+          # Install expect
+          sudo apt-get update
+          sudo apt-get install -y expect
+
+      - name: Add Passphrase to ssh-agent
+        env:
+          SSH_KEY_PASSPHRASE: ${{ secrets.SSH_KEY_PASSPHRASE }}
+        run: |
+          # Create expect script for adding key with passphrase
+          add_key_tmp=mktemp
+          cat > "$add_key_tmp" << 'EOF'
+          #!/usr/bin/expect -f
+          set timeout 10
+          spawn ssh-add "$env(HOME)/.ssh/${{ env.SSH_KEY_NAME }}"
+          expect "Enter passphrase"
+          send "$env(SSH_KEY_PASSPHRASE)\r"
+          expect eof
+          EOF
+          chmod 700 "$add_key_tmp"
+          
+          # Run expect script
+          expect "$add_key_tmp"
+          rm -f "$add_key_tmp"
+          
+          # Test SSH connection (success message expected)
+          ssh -T "git@$GIT_SERVER_DOMAIN" || true
+
+      - name: Generate iOS Certs
         shell: bash
         run: |
           bundle exec fastlane ios sync_certificates
@@ -61,6 +97,5 @@ jobs:
           IOS_BUNDLE_ID: ${{ secrets.IOS_BUNDLE_ID }}
 
           MATCH_REPOSITORY: ${{ secrets.MATCH_REPOSITORY }}
-          MATCH_DEPLOY_KEY: ${{ secrets.DEPLOY_KEY }}
-          MATCH_PASSWORD: ${{ secrets.SSH_KEY_PASSPHRASE }}
-          MATCH_GIT_PRIVATE_KEY: ${{ env.HOME }}/.ssh/${{ env.SSH_KEY_NAME }}
+          # Match password use for encrypt and decrypt files in git repository
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}

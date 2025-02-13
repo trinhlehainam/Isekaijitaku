@@ -45,14 +45,16 @@ jobs:
           echo "SSH_AUTH_SOCK=$SSH_AUTH_SOCK" >> $GITHUB_ENV
           echo "SSH_AGENT_PID=$SSH_AGENT_PID" >> $GITHUB_ENV
 
-      - name: Add Passphrase to ssh-agent
-        env:
-          SSH_KEY_PASSPHRASE: ${{ secrets.SSH_KEY_PASSPHRASE }}
+      - name: Install expect to add key to ssh-agent with passphrase
         run: |
           # Install expect
           sudo apt-get update
           sudo apt-get install -y expect
-          
+
+      - name: Add Passphrase to ssh-agent
+        env:
+          SSH_KEY_PASSPHRASE: ${{ secrets.SSH_KEY_PASSPHRASE }}
+        run: |
           # Create expect script for adding key with passphrase
           add_key_tmp=mktemp
           cat > "$add_key_tmp" << 'EOF'
