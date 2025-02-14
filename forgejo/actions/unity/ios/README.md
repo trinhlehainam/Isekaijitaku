@@ -80,3 +80,4 @@ The workflow can be triggered:
 - [Fastlane Code Signing Xcode settings](https://docs.fastlane.tools/codesigning/xcode-project/)
 - [Fastlane App Store Deployment](https://docs.fastlane.tools/getting-started/ios/appstore-deployment/)
 - [GameCI iOS Deployment](https://game.ci/docs/github/deployment/ios)
+- [Build and Deploy the App to TestFlight using GitHub Actions with Fastlane](https://medium.com/swiftable/build-and-deploy-the-app-to-testflight-using-github-actions-with-fastlane-and-app-distribution-ff1786a8bf72)

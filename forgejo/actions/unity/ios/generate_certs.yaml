@@ -81,34 +81,6 @@ jobs:
           # Test SSH connection (success message expected)
           ssh -T "git@$GIT_SERVER_DOMAIN" || true
 
-      - name: Setup CI Fastlane keychain
-        shell: bash
-        run: |
-          temp_bin_path=$(mktemp -d)
-          touch "$temp_bin_path/security"
-          cat > "$temp_bin_path/security" << 'EOF'
-          #!/bin/bash
-          if [[ $@ == *default-keychain* ]]; then
-            /usr/bin/security "$@" -d user
-          else
-            /usr/bin/security "$@"
-          fi
-          EOF
-          chmod +x "$temp_bin_path/security"
-          old_path="$PATH"
-          export PATH="$temp_bin_path:$PATH"
-
-          command -v security
-          security default
-
-          bundle exec fastlane run setup_ci
-          
-          export PATH="$old_path"
-        env:
-          # https://docs.fastlane.tools/getting-started/ios/setup/#set-up-environment-variables
-          LC_ALL: en_US.UTF-8
-          LANG: en_US.UTF-8
-
       - name: Generate iOS Certs
         shell: bash
         run: |
