@@ -1,19 +1,37 @@
-name: Generate iOS Certs
-
-on:
-  workflow_dispatch:
-
 jobs:
-  generate_certs:
-    runs-on: macos-latest
-    env:
-      GIT_SERVER_SSH_PORT: 2222
-      SSH_KEY_NAME: match-deploy-key
-      SSH_AUTH_SOCK: /tmp/ssh-agent.sock
-
+  buildForiOSPlatform:
+    name: Build for iOS
+    runs-on: ubuntu-latest
     steps:
-      # Require to fetch fastlane configuration files
       - uses: actions/checkout@v4
+
+      - uses: actions/cache@v3
+        with:
+          path: Library
+          key: Library-iOS
+
+      - uses: game-ci/unity-builder@v4
+        with:
+          targetPlatform: iOS
+
+      - uses: actions/upload-artifact@v3
+        with:
+          name: build-iOS
+          path: build/iOS
+
+  releaseToAppStore:
+    name: Release to the App Store
+    runs-on: macos-latest
+    needs: buildForiOSPlatform
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      - name: Download iOS Artifact
+        uses: actions/download-artifact@v3
+        with:
+          name: build-iOS
+          path: build/iOS
 
       # Make sure that the operating system has libyaml-0 and libgmp installed
       # On MacOS: brew install libyaml gmp
@@ -81,49 +99,30 @@ jobs:
           # Test SSH connection (success message expected)
           ssh -T "git@$GIT_SERVER_DOMAIN" || true
 
-      - name: Setup CI Fastlane keychain
-        shell: bash
-        run: |
-          temp_bin_path=$(mktemp -d)
-          touch "$temp_bin_path/security"
-          cat > "$temp_bin_path/security" << 'EOF'
-          #!/bin/bash
-          if [[ $@ == *default-keychain* ]]; then
-            /usr/bin/security "$@" -d user
-          else
-            /usr/bin/security "$@"
-          fi
-          EOF
-          chmod +x "$temp_bin_path/security"
-          old_path="$PATH"
-          export PATH="$temp_bin_path:$PATH"
-
-          command -v security
-          security default
-
-          bundle exec fastlane run setup_ci
-          
-          export PATH="$old_path"
+      - name: Fix File Permissions and Run fastlane
         env:
-          # https://docs.fastlane.tools/getting-started/ios/setup/#set-up-environment-variables
-          LC_ALL: en_US.UTF-8
-          LANG: en_US.UTF-8
+          APPLE_CONNECT_EMAIL: ${{ secrets.APPLE_CONNECT_EMAIL }}
+          APPLE_DEVELOPER_EMAIL: ${{ secrets.APPLE_DEVELOPER_EMAIL }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
 
-      - name: Generate iOS Certs
-        shell: bash
-        run: |
-          bundle exec fastlane ios sync_certificates
-        env:
-          # https://docs.fastlane.tools/getting-started/ios/setup/#set-up-environment-variables
-          LC_ALL: en_US.UTF-8
-          LANG: en_US.UTF-8
+          MATCH_REPOSITORY: ${{ secrets.MATCH_REPOSITORY }}
+          # Match password use for encrypt and decrypt files in git repository
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
 
           APPSTORE_ISSUER_ID: ${{ secrets.APPSTORE_ISSUER_ID }}
           APPSTORE_KEY_ID: ${{ secrets.APPSTORE_KEY_ID }}
           APPSTORE_P8: ${{ secrets.APPSTORE_P8 }}
 
-          IOS_BUNDLE_ID: ${{ secrets.IOS_BUNDLE_ID }}
+          IOS_BUILD_PATH: ${{ format('{0}/build/iOS', github.workspace) }}
+          IOS_BUNDLE_ID: com.company.application # Change it to match your Unity bundle id
+          PROJECT_NAME: Your Project Name # Change it to match your project's name
+        run: |
+          find $IOS_BUILD_PATH -type f -name "**.sh" -exec chmod +x {} \;
+          find $IOS_BUILD_PATH -type f -iname "usymtool" -exec chmod +x {} \;
+          bundle exec fastlane ios release
 
-          MATCH_REPOSITORY: ${{ secrets.MATCH_REPOSITORY }}
-          # Match password use for encrypt and decrypt files in git repository
-          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+      - name: Cleanup to avoid storage limit
+        if: always()
+        uses: geekyeggo/delete-artifact@v2
+        with:
+          name: build-iOS
