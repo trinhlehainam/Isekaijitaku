@@ -126,3 +126,8 @@ jobs:
         uses: geekyeggo/delete-artifact@v2
         with:
           name: build-iOS
+
+      - name: Cleanup ssh-agent
+        if: always()
+        run: |
+          eval "$(ssh-agent -k)" || true

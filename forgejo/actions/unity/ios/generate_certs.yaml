@@ -99,3 +99,8 @@ jobs:
           MATCH_REPOSITORY: ${{ secrets.MATCH_REPOSITORY }}
           # Match password use for encrypt and decrypt files in git repository
           MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+
+      - name: Cleanup ssh-agent
+        if: always()
+        run: |
+          eval "$(ssh-agent -k)" || true
