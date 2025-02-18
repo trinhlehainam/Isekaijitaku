@@ -244,3 +244,5 @@ jobs:
 - [MacOS Daemon Management](https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPSystemStartup/Chapters/CreatingLaunchdJobs.html)
 - [Docker Engine Installation](https://docs.docker.com/engine/install/)
 - [How to add user to a group from Mac OS X command line](https://superuser.com/a/214311)
+- [](https://stackoverflow.com/a/52115968)
+- [](https://stackoverflow.com/questions/6827874/missing-certificates-and-keys-in-the-keychain-while-using-jenkins-hudson-as-cont)

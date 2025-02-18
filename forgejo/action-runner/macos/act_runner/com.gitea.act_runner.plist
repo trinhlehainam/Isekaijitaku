@@ -8,6 +8,8 @@
     <array>
         <string>/usr/local/bin/start_act_runner.sh</string>
     </array>
+    <key>SessionCreate</key>
+    <true/>
     <key>RunAtLoad</key>
     <true/>
     <key>KeepAlive</key>
