@@ -35,14 +35,21 @@ macos/
 └── actions/                                # Test actions
     └── test.yaml                           # Test workflow
 
-## Option 1: MacOS Host Runner
+## Setup Options
 
-Use this setup when you want to:
-- Run actions directly on macOS host
-- Use Docker functionality through Colima
-- Run Linux containers without needing Docker CLI inside actions
+There are two ways to setup Gitea Action Runner on macOS, depending on your workflow requirements:
 
-### Installation Steps
+## Option 1: LaunchDaemon Setup (For Non-GUI Tasks)
+
+Use this setup when your workflows **do not** require GUI access (e.g., CLI-based tasks, backend services, Docker containers).
+
+### Benefits
+- Runs at system boot
+- System-wide access
+- Suitable for server environments
+- Ideal for Docker-based workflows
+
+### Setup Steps
 
 #### Colima Installation
 
@@ -137,6 +144,43 @@ sudo launchctl list | grep com.gitea.act_runner
 ```bash
 sudo launchctl unload /Library/LaunchDaemons/com.gitea.act_runner.plist
 sudo launchctl load /Library/LaunchDaemons/com.gitea.act_runner.plist
+```
+
+## Option 2: LaunchAgent Setup (For GUI-Required Tasks)
+
+Use this setup when your workflows **require** GUI access (e.g., iOS builds, macOS app signing, UI testing).
+
+### Benefits
+- Access to GUI applications and services
+- iOS simulator interactions
+- Code signing operations
+- Screen recording capabilities
+- Access to user's keychain and certificates
+
+### Setup Steps
+
+1. Create required directories:
+```bash
+# Create user-specific directories
+mkdir -p ~/Library/Application\ Support/GiteaActionRunner
+mkdir -p ~/Library/Logs/GiteaActionRunner
+
+# Copy configuration
+cp /var/lib/act_runner/config.yaml ~/Library/Application\ Support/GiteaActionRunner/
+```
+
+2. Install LaunchAgent:
+```bash
+# Copy LaunchAgent plist
+cp ./act_runner/com.gitea.act_runner.agent.plist ~/Library/LaunchAgents/
+
+# Load LaunchAgent
+launchctl load ~/Library/LaunchAgents/com.gitea.act_runner.agent.plist
+```
+
+3. Verify status:
+```bash
+launchctl list | grep act_runner
 ```
 
 ## Option 2: Additional Linux Runner (Inside Colima)
@@ -238,11 +282,10 @@ jobs:
 - Check Docker access: `sudo -u _act_runner DOCKER_HOST=unix:///var/lib/act_runner/.colima/default/docker.sock colima ssh "sudo -u act_runner docker ps"`
 
 ## References
+- [[202502190227 Setup LaunchAgents to setup CI server on Macbook]]
 - [[202501061959 Set up MacOS as private server with Tailscale and Docker]]
 - [Gitea Action Runner Documentation](https://docs.gitea.com/usage/actions/act-runner)
 - [Colima - Container Runtime for macOS](https://github.com/abiosoft/colima)
 - [MacOS Daemon Management](https://developer.apple.com/library/archive/documentation/MacOSX/Conceptual/BPSystemStartup/Chapters/CreatingLaunchdJobs.html)
 - [Docker Engine Installation](https://docs.docker.com/engine/install/)
 - [How to add user to a group from Mac OS X command line](https://superuser.com/a/214311)
-- [](https://stackoverflow.com/a/52115968)
-- [](https://stackoverflow.com/questions/6827874/missing-certificates-and-keys-in-the-keychain-while-using-jenkins-hudson-as-cont)

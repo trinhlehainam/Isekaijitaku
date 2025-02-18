@@ -30,10 +30,6 @@
         <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
         <key>HOME</key>
         <string>/var/lib/act_runner</string>
-        <key>NVM_DIR</key>
-        <string>/var/lib/act_runner/.nvm</string>
-        <key>PYENV_ROOT</key>
-        <string>/var/lib/act_runner/.pyenv</string>
     </dict>
 </dict>
 </plist>
