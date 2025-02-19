@@ -152,7 +152,7 @@ services:
   # https://forum.collaboraonline.com/t/docker-compose-file-example-needed/2976/4
   collabora:
     # https://hub.docker.com/r/collabora/code/tags
-    image: collabora/code:24.04.12.2.1
+    image: collabora/code:24.04.12.3.1
     container_name: collabora
     hostname: collabora
     environment:

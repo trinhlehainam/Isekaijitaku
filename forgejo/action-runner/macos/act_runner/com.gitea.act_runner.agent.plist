@@ -15,10 +15,10 @@
     <key>KeepAlive</key>
     <true/>
     <key>WorkingDirectory</key>
-    <string>~/Library/Application Support/GiteaActionRunner</string>
+    <string>/Users/GiteaActionsRunner/Library/Application Support/GiteaActionsRunner</string>
     <key>StandardOutPath</key>
-    <string>~/Library/Logs/GiteaActionRunner/act_runner.log</string>
+    <string>/Users/GiteaActionsRunner/Library/Logs/GiteaActionsRunner/act_runner.log</string>
     <key>StandardErrorPath</key>
-    <string>~/Library/Logs/GiteaActionRunner/act_runner.error</string>
+    <string>/Users/GiteaActionsRunner/Library/Logs/GiteaActionsRunner/act_runner.error</string>
 </dict>
 </plist>

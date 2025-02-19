@@ -7,7 +7,7 @@ services:
   vaultwarden:
     container_name: vaultwarden
     # https://hub.docker.com/r/vaultwarden/server/tags
-    image: vaultwarden/server:1.33.0-alpine
+    image: vaultwarden/server:1.33.2-alpine
     restart: unless-stopped
     depends_on:
       # https://docs.docker.com/compose/how-tos/startup-order/
