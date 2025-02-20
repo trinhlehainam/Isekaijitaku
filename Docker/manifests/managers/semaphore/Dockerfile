@@ -1,4 +1,5 @@
-FROM tailscale/tailscale:v1.78.3 as tailscale
+# https://hub.docker.com/r/tailscale/tailscale/tags
+FROM tailscale/tailscale:v1.80.0 as tailscale
 
 FROM semaphoreui/semaphore:v2.11.3
 
