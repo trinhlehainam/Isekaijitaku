@@ -147,7 +147,6 @@ sudo launchctl unload /Library/LaunchDaemons/com.gitea.act_runner.plist
 sudo launchctl load /Library/LaunchDaemons/com.gitea.act_runner.plist
 ```
 
-
 ## Option 2: LaunchAgent Setup (For GUI-Required Tasks)
 
 Use this setup when your workflows **require** GUI access (e.g., iOS builds, macOS app signing, UI testing).

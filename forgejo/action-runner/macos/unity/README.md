@@ -1,3 +1,4 @@
+- Test colima Rosetta2 setup, need to install Rosetta2 to enable running x86_64 emulator on colima.
 - Problem when using amd64 docker container in arm64 (M1)
 - Use MacOS admin user to install Unity on host and share Unity binary with _act_runner user
 - Set Unity installed path to /Applications/Unity/Hub/Editor  

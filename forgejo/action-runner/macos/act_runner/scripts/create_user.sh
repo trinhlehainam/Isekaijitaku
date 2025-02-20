@@ -1,5 +1,7 @@
 #!/bin/bash
 
+# TODO: add option to create daemon or agent (GUI) user.
+
 # Check if script is run as root
 if [ "$EUID" -ne 0 ]; then 
     echo "Please run as root"
