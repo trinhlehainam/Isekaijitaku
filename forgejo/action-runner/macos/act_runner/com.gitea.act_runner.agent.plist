@@ -6,7 +6,10 @@
     <string>com.gitea.act_runner</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/usr/local/bin/start_act_runner.sh</string>
+        <string>/usr/local/bin/act_runner</string>
+        <string>daemon</string>
+        <string>--config</string>
+        <string>/Users/GiteaActionsRunner/.act_runner/config.yaml</string>
     </array>
     <key>SessionCreate</key>
     <true/>
@@ -15,10 +18,15 @@
     <key>KeepAlive</key>
     <true/>
     <key>WorkingDirectory</key>
-    <string>/Users/GiteaActionsRunner/Library/Application Support/GiteaActionsRunner</string>
+    <string>/Users/GiteaActionsRunner/.act_runner</string>
     <key>StandardOutPath</key>
     <string>/Users/GiteaActionsRunner/Library/Logs/GiteaActionsRunner/act_runner.log</string>
     <key>StandardErrorPath</key>
     <string>/Users/GiteaActionsRunner/Library/Logs/GiteaActionsRunner/act_runner.error</string>
+    <key>EnvironmentVariables</key>
+    <dict>
+        <key>PATH</key>
+        <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
+    </dict>
 </dict>
 </plist>

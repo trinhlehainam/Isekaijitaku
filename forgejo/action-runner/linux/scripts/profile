@@ -1,9 +1,9 @@
-#!/usr/bin/sh
+#!/bin/bash
 FNM_PATH="$HOME/.local/share/fnm"
 if [ -d "$FNM_PATH" ]; then
   export PATH="$FNM_PATH:$PATH"
   # https://github.com/Schniz/fnm?tab=readme-ov-file#shell-setup
-  # Runner execute command without shell, and `fnm env`` will failed if there is no shell
+  # Runner execute command without shell, and `fnm env` will failed if there is no shell
   # Explicitly tell fnm generate env for bash
   eval "$(fnm env --shell bash)"
 fi

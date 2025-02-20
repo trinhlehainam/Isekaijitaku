@@ -10,10 +10,9 @@ error() {
     echo "$(date '+%Y-%m-%d %H:%M:%S'): [ERROR] $1" >&2
 }
 
-# Source fnm and pyenv
-log "Sourcing fnm and pyenv"
-source /etc/act_runner/fnm.sh
-source /etc/act_runner/pyenv.sh
+# Profile config environment variables
+log "Sourcing profile"
+[[ -f /etc/act_runner/profile ]] && source /etc/act_runner/profile
 
 # Start act_runner daemon
 log "Starting act_runner daemon"

@@ -34,12 +34,13 @@ macos/
 │   └── com.gitea.act_runner.colima.plist   # Colima service config
 └── actions/                                # Test actions
     └── test.yaml                           # Test workflow
+```
 
 ## Setup Options
 
 There are two ways to setup Gitea Action Runner on macOS, depending on your workflow requirements:
 
-## Option 1: LaunchDaemon Setup (For Non-GUI Tasks)
+## Option 1a: LaunchDaemon Setup (For Non-GUI Tasks)
 
 Use this setup when your workflows **do not** require GUI access (e.g., CLI-based tasks, backend services, Docker containers).
 
@@ -146,6 +147,7 @@ sudo launchctl unload /Library/LaunchDaemons/com.gitea.act_runner.plist
 sudo launchctl load /Library/LaunchDaemons/com.gitea.act_runner.plist
 ```
 
+
 ## Option 2: LaunchAgent Setup (For GUI-Required Tasks)
 
 Use this setup when your workflows **require** GUI access (e.g., iOS builds, macOS app signing, UI testing).
@@ -183,7 +185,7 @@ launchctl load ~/Library/LaunchAgents/com.gitea.act_runner.agent.plist
 launchctl list | grep act_runner
 ```
 
-## Option 2: Additional Linux Runner (Inside Colima)
+## Optional: Additional Linux Runner (Inside Colima)
 
 Use this setup when you need:
 - Full Docker CLI support in your actions
@@ -226,25 +228,25 @@ This setup is particularly important when your workflows involve:
 3. Register the Linux runner:
 ```bash
 # Register with Forgejo
-sudo -u _act_runner colima ssh "sudo -u act_runner /usr/local/bin/act_runner register \
+sudo -u act_runner /usr/local/bin/act_runner register \
   --no-interactive \
   --instance <instance_url> \
   --token <token> \
   --name <runner_name> \
-  --labels 'ubuntu-latest:docker://gitea/runner-images:ubuntu-latest'"
+  --labels <labels>
 ```
 
 4. Install Linux runner service:
 ```bash
 # Copy service template
-sudo -u _act_runner colima ssh "cat > /opt/act_runner/act_runner.service" < act_runner/act_runner.service
-sudo -u _act_runner colima ssh "sudo mv /opt/act_runner/act_runner.service /etc/systemd/system/"
+cat > /opt/act_runner/act_runner.service" < act_runner/act_runner.service
+sudo mv /opt/act_runner/act_runner.service /etc/systemd/system/
 ```
 
 5. Start the runner service:
 ```bash
-sudo -u _act_runner colima ssh "sudo systemctl daemon-reload"
-sudo -u _act_runner colima ssh "sudo systemctl enable --now act_runner"
+sudo systemctl daemon-reload
+sudo systemctl enable --now act_runner
 ```
 
 ### Managing Multiple Runners
