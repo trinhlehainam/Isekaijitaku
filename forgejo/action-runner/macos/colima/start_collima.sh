@@ -1,8 +1,8 @@
 #!/bin/bash
 
 # Source environment variables
-if [ -f /etc/act_runner/colima.env ]; then
-    source /etc/act_runner/colima.env
+if [ -f /etc/act_runner/colima.cfg ]; then
+    source /etc/act_runner/colima.cfg
 fi
 
 # Function to log messages

@@ -1,19 +1,15 @@
 #!/bin/bash
 
-# Function to log messages
 log() {
     echo "$(date '+%Y-%m-%d %H:%M:%S'): [INFO] $1"
 }
 
-# Function to log errors
 error() {
     echo "$(date '+%Y-%m-%d %H:%M:%S'): [ERROR] $1" >&2
 }
 
-# Source fnm and pyenv
-log "Sourcing fnm"
-source /etc/_act_runner/fnm.sh
+log "Sourcing profile"
+[[ -f /home/lima.linux/.act_runner/profile ]] && source /home/lima.linux/.act_runner/profile
 
-# Start act_runner daemon
 log "Starting act_runner daemon"
-/usr/local/bin/act_runner daemon --config /etc/_act_runner/config.yaml 2>&1
+/usr/local/bin/act_runner daemon --config /home/lima.linux/.act_runner/config.yaml 2>&1

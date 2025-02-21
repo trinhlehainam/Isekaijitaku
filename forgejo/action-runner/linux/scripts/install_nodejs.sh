@@ -1,4 +1,6 @@
 #!/bin/bash
+# Install tools requirements
+sudo apt install curl unzip
 
 # https://github.com/Schniz/fnm?tab=readme-ov-file#using-a-script-macoslinux
 # Download and run the NodeSource setup script

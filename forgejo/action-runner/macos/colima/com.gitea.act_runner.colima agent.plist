@@ -6,28 +6,22 @@
     <string>com.gitea.act_runner.colima</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/usr/local/scripts/start_act_runner_colima.sh</string>
+        <string>/Users/GiteaActionsRunner/.act_runner/start_colima.sh</string>
     </array>
     <key>RunAtLoad</key>
     <true/>
     <key>KeepAlive</key>
     <false/>
-    <key>UserName</key>
-    <string>_act_runner</string>
-    <key>GroupName</key>
-    <string>_act_runner</string>
     <key>StandardOutPath</key>
-    <string>/var/log/act_runner/colima.log</string>
+    <string>/Users/GiteaActionsRunner/Library/Logs/GiteaActionsRunner/colima.log</string>
     <key>StandardErrorPath</key>
-    <string>/var/log/act_runner/colima.error</string>
+    <string>/Users/GiteaActionsRunner/Library/Logs/GiteaActionsRunner/colima.error</string>
     <key>WorkingDirectory</key>
-    <string>/var/lib/act_runner</string>
+    <string>/Users/GiteaActionsRunner</string>
     <key>EnvironmentVariables</key>
     <dict>
         <key>PATH</key>
         <string>/opt/homebrew/bin:/usr/local/bin:/usr/bin:/bin:/usr/sbin:/sbin</string>
-        <key>HOME</key>
-        <string>/var/lib/act_runner</string>
     </dict>
 </dict>
 </plist>

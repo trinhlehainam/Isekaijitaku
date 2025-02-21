@@ -6,7 +6,7 @@
     <string>com.gitea.act_runner</string>
     <key>ProgramArguments</key>
     <array>
-        <string>/Users/GiteaActionsRunner/.act_runner/start.sh</string>
+        <string>/Users/GiteaActionsRunner/.act_runner/start_act_runner.sh</string>
     </array>
     <key>SessionCreate</key>
     <true/>
