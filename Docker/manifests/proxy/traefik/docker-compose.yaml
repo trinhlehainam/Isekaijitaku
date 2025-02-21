@@ -116,7 +116,7 @@ services:
   # https://www.crowdsec.net/blog/enhance-docker-compose-security
   crowdsec:
     # https://hub.docker.com/r/crowdsecurity/crowdsec/tags
-    image: crowdsecurity/crowdsec:v1.6.4
+    image: 'crowdsecurity/crowdsec:v1.6.5'
     container_name: "crowdsec"
     restart: unless-stopped
     environment:
