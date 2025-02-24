@@ -32,7 +32,6 @@ vagrant up
    This will:
    - Create two Ubuntu 22.04 VMs
    - Configure private network (192.168.56.11 and 192.168.56.12)
-   - Install Python3 and unattended-upgrades
    - Simulate packages requiring reboot
 
 2. Test Ansible connection:
@@ -63,7 +62,9 @@ ansible-playbook -i inventory/vagrant.yml playbooks/update-full.yml
 ```bash
 ansible-playbook -i inventory/vagrant.yml playbooks/reboot.yml
 ```
-   - Checks reboot status
+   - Reboots the system if required
+   - Updates all packages
+   - Checks if reboot is required
    - Shows packages requiring reboot
    - Performs reboot if required
    - Waits for system to come back online
@@ -85,3 +86,7 @@ vagrant destroy -f
 - Test environment simulates packages requiring reboot
 - The check-updates playbook is designed to work even after unattended-upgrades is removed
 - All playbooks handle errors gracefully and continue execution
+
+## References
+- https://github.com/joelhandwell/ubuntu_vagrant_boxes/issues/1#issuecomment-292370353
+- https://stackoverflow.com/a/40325864

@@ -40,7 +40,9 @@
           - Reboot required: {{ reboot_required_file.stat.exists }}
           {% if reboot_required_file.stat.exists %}
           - Packages requiring reboot:
-            {{ reboot_required_pkgs.stdout_lines | default([]) | to_nice_yaml }}
+            {% for pkg in reboot_required_pkgs.stdout_lines %}
+            - {{ pkg }}
+            {% endfor %}
           {% endif %}
       ansible.builtin.debug:
         msg: "{{ msg.split('\n') }}"

@@ -46,9 +46,11 @@
           {% if remove_output.changed %}
           - Unattended-upgrades has been removed
           {% endif %}
-          {% if upgradable_packages.stdout_lines | length > 0 %}
+          {% if upgradable_packages.stdout_lines | length > 1 %}
           - Available Updates:
-            {{ upgradable_packages.stdout_lines | to_nice_yaml }}
+            {% for pkg in upgradable_packages.stdout_lines[1:] %}
+            - {{ pkg }}
+            {% endfor %}
           {% else %}
           - No updates available
           {% endif %}
