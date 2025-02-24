@@ -24,12 +24,23 @@ Vagrant.configure("2") do |config|
       node.vm.provision "shell", inline: <<-SHELL
         # python and unattended-upgrades are installed by default in "ubuntu/jammy64" image
 
+        # Update package list
+        apt-get update
+
+        # Install nodejs to test check-updates
+        # Nodejs version 12 will be installed with default DEB repository in "ubuntu/jammy64" image
+        apt-get install nodejs -y
+        
+        # Update nodejs DEB repository
+        # https://deb.nodesource.com/
+        curl -fsSL https://deb.nodesource.com/setup_20.x | bash - 
+
         # Simulate packages requiring reboot
+        echo "Set up a reboot requirement"
         touch /var/run/reboot-required
         echo "linux-image-generic" > /var/run/reboot-required.pkgs
         echo "linux-headers-generic" >> /var/run/reboot-required.pkgs
         echo "dbus" >> /var/run/reboot-required.pkgs
-        echo "Successfully created a reboot requirement"
       SHELL
     end
   end

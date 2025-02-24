@@ -27,7 +27,7 @@
       when: reboot_required_file.stat.exists
       changed_when: false
 
-    - name: Show update summary
+    - name: Show full system update summary
       vars:
         msg: |
           Full System Update Summary:
