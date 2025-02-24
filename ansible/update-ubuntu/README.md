@@ -1,93 +1,83 @@
-# Ubuntu Update Automation with Ansible
+# Ansible Update Ubuntu Test Environment
 
-This project contains Ansible playbooks to automate Ubuntu system updates with different strategies.
-
-## Project Structure
-```
-.
-├── inventory/
-│   ├── production.yml    # Production inventory
-│   └── vagrant.yml      # Test inventory for Vagrant VMs
-├── playbooks/
-│   ├── check-updates.yml   # Display available updates
-│   ├── update-security.yml # Security updates only
-│   ├── update-full.yml    # Full system update
-│   └── reboot.yml         # Handle system reboots
-└── Vagrantfile          # Vagrant configuration for test environment
-```
+This project sets up a test environment for Ansible playbooks to manage Ubuntu system updates using Vagrant virtual machines.
 
 ## Prerequisites
-- Ansible 2.9+
-- Vagrant 2.3+ (for testing)
-- VirtualBox 6.1+ (for testing)
+
+- VirtualBox
+- Vagrant
+- Ansible
+- WSL (if running on Windows)
+
+## Directory Structure
+
+```
+.
+├── Vagrantfile           # Vagrant VM configuration
+├── inventory/
+│   ├── vagrant.yml      # Ansible inventory for Vagrant VMs
+│   └── production.yml   # Production inventory
+└── playbooks/
+    ├── check-updates.yml   # Check available updates
+    ├── update-full.yml    # Perform full system update
+    └── reboot.yml         # Handle system reboots
+```
+
+## Test Environment Setup
+
+1. Start the Vagrant VMs:
+   ```bash
+   vagrant up
+   ```
+   This will:
+   - Create two Ubuntu 22.04 VMs
+   - Configure private network (192.168.56.11 and 192.168.56.12)
+   - Install Python3 and other requirements
+   - Set up unattended-upgrades
+   - Simulate packages requiring reboot
+
+2. Test Ansible connection:
+   ```bash
+   ansible all -i inventory/vagrant.yml -m ping
+   ```
 
 ## Available Playbooks
 
-### Check Available Updates
-Display list of available package updates:
-```bash
-# Using command line
-ansible-playbook -i inventory/vagrant.yml playbooks/check-updates.yml --diff
+1. Check Available Updates:
+   ```bash
+   ansible-playbook -i inventory/vagrant.yml playbooks/check-updates.yml
+   ```
+   - Stops unattended-upgrades service
+   - Shows available package updates
 
-# Using Semaphore/Tower
-Playbook: playbooks/check-updates.yml
-Inventory: Select appropriate inventory
+2. Perform Full System Update:
+   ```bash
+   ansible-playbook -i inventory/vagrant.yml playbooks/update-full.yml
+   ```
+   - Updates all packages
+   - Checks if reboot is required
+   - Shows packages requiring reboot
+
+3. Handle System Reboots:
+   ```bash
+   ansible-playbook -i inventory/vagrant.yml playbooks/reboot.yml
+   ```
+   - Checks reboot status
+   - Performs reboot if required
+   - Waits for system to come back online
+
+## Cleanup
+
+To remove the test VMs:
+```bash
+vagrant destroy -f
 ```
 
-### Security Updates Only
-Apply only security-related updates and check if reboot is needed:
-```bash
-# Using command line
-ansible-playbook -i inventory/vagrant.yml playbooks/update-security.yml --diff
+## Notes
 
-# Using Semaphore/Tower
-Playbook: playbooks/update-security.yml
-Inventory: Select appropriate inventory
-```
-
-### Full System Update
-Perform a complete system update and check if reboot is needed:
-```bash
-# Using command line
-ansible-playbook -i inventory/vagrant.yml playbooks/update-full.yml --diff
-
-# Using Semaphore/Tower
-Playbook: playbooks/update-full.yml
-Inventory: Select appropriate inventory
-```
-
-### System Reboot
-Handle system reboots when required:
-```bash
-# Using command line
-ansible-playbook -i inventory/vagrant.yml playbooks/reboot.yml --diff
-
-# Using Semaphore/Tower
-Playbook: playbooks/reboot.yml
-Inventory: Select appropriate inventory
-```
-
-## Usage Notes
-
-### Command Line Options
-When running from command line, useful options include:
-- `--diff`: Show what changes will be made
-- `-v`: Verbose mode
-- `--check`: Dry run mode
-- `--limit`: Limit to specific hosts
-
-### Ansible Server Platforms
-When using Ansible automation platforms (Semaphore UI or Ansible Tower):
-1. Import the playbooks into your project
-2. Configure your inventory in the platform
-3. Set any required variables in the platform
-4. Schedule or run the playbooks as needed
-
-### Typical Workflow
-1. Check available updates: `check-updates.yml`
-2. Apply updates using either:
-   - `update-security.yml` for security updates only
-   - `update-full.yml` for all updates
-3. If updates indicate a reboot is needed, use `reboot.yml` to perform the reboot
-
-The playbooks are designed to work with both command-line execution and automation platforms without requiring additional configuration files.
+- The test environment uses Vagrant's insecure private key for SSH authentication
+- VMs are configured with private network IPs:
+  - ubuntu1: 192.168.56.11
+  - ubuntu2: 192.168.56.12
+- Unattended-upgrades is installed and configured by default
+- Test environment simulates packages requiring reboot
