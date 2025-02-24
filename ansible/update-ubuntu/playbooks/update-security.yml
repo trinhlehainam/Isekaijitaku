@@ -1,14 +1,8 @@
 ---
-- name: Update Ubuntu servers security packages and handle restarts
+- name: Update Ubuntu servers security packages
   hosts: ubuntu_servers
   become: true
   tasks:
-    - name: Disable unattended-upgrades service
-      ansible.builtin.service:
-        name: unattended-upgrades
-        state: stopped
-        enabled: false
-
     - name: Update apt cache
       ansible.builtin.apt:
         update_cache: true
@@ -38,21 +32,13 @@
         var: reboot_required_pkgs.stdout_lines
       when: reboot_required_file.stat.exists
 
-    - name: Set reboot fact
-      ansible.builtin.set_fact:
-        reboot_needed: "{{ reboot_required_file.stat.exists }}"
-
     - name: Show security update summary
       ansible.builtin.debug:
         msg: |
           Security Update Summary:
           - Security updates applied: {{ upgrade_output.changed }}
-          - Reboot required: {{ reboot_needed | bool }}
-
-    - name: Reboot system if required
-      ansible.builtin.reboot:
-        msg: "Rebooting due to security updates requiring restart"
-        reboot_timeout: 300
-        pre_reboot_delay: 5
-        post_reboot_delay: 30
-      when: reboot_needed | bool
+          - Reboot required: {{ reboot_required_file.stat.exists }}
+          {% if reboot_required_file.stat.exists %}
+          - Packages requiring reboot:
+            {{ reboot_required_pkgs.stdout_lines | default([]) | to_nice_yaml }}
+          {% endif %}

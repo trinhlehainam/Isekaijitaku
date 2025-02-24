@@ -12,7 +12,7 @@ This project contains Ansible playbooks to automate Ubuntu system updates with d
 │   ├── check-updates.yml   # Display available updates
 │   ├── update-security.yml # Security updates only
 │   ├── update-full.yml    # Full system update
-│   └── restart.yml        # Handle system restarts
+│   └── reboot.yml         # Handle system reboots
 └── Vagrantfile          # Vagrant configuration for test environment
 ```
 
@@ -35,7 +35,7 @@ Inventory: Select appropriate inventory
 ```
 
 ### Security Updates Only
-Apply only security-related updates:
+Apply only security-related updates and check if reboot is needed:
 ```bash
 # Using command line
 ansible-playbook -i inventory/vagrant.yml playbooks/update-security.yml --diff
@@ -46,7 +46,7 @@ Inventory: Select appropriate inventory
 ```
 
 ### Full System Update
-Perform a complete system update:
+Perform a complete system update and check if reboot is needed:
 ```bash
 # Using command line
 ansible-playbook -i inventory/vagrant.yml playbooks/update-full.yml --diff
@@ -56,14 +56,14 @@ Playbook: playbooks/update-full.yml
 Inventory: Select appropriate inventory
 ```
 
-### System Restart
-Check and handle system restarts:
+### System Reboot
+Handle system reboots when required:
 ```bash
 # Using command line
-ansible-playbook -i inventory/vagrant.yml playbooks/restart.yml --diff
+ansible-playbook -i inventory/vagrant.yml playbooks/reboot.yml --diff
 
 # Using Semaphore/Tower
-Playbook: playbooks/restart.yml
+Playbook: playbooks/reboot.yml
 Inventory: Select appropriate inventory
 ```
 
@@ -71,7 +71,7 @@ Inventory: Select appropriate inventory
 
 ### Command Line Options
 When running from command line, useful options include:
-- `--diff`: Show what changed
+- `--diff`: Show what changes will be made
 - `-v`: Verbose mode
 - `--check`: Dry run mode
 - `--limit`: Limit to specific hosts
@@ -88,6 +88,6 @@ When using Ansible automation platforms (Semaphore UI or Ansible Tower):
 2. Apply updates using either:
    - `update-security.yml` for security updates only
    - `update-full.yml` for all updates
-3. If needed, handle restarts separately with `restart.yml`
+3. If updates indicate a reboot is needed, use `reboot.yml` to perform the reboot
 
 The playbooks are designed to work with both command-line execution and automation platforms without requiring additional configuration files.

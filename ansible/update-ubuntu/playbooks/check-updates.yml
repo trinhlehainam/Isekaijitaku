@@ -1,8 +1,23 @@
 ---
-- name: Check available updates on Ubuntu servers
+- name: Check available updates and manage unattended-upgrades on Ubuntu servers
   hosts: ubuntu_servers
   become: true
   tasks:
+    - name: Stop and disable unattended-upgrades service
+      ansible.builtin.service:
+        name: unattended-upgrades
+        state: stopped
+        enabled: false
+
+    - name: Remove unattended-upgrades package
+      ansible.builtin.apt:
+        name: 
+          - unattended-upgrades
+          - update-notifier-common
+        state: absent
+        purge: true
+      register: remove_output
+
     - name: Update apt cache
       ansible.builtin.apt:
         update_cache: true
@@ -13,16 +28,16 @@
       register: upgradable_packages
       changed_when: false
 
-    - name: Display upgradable packages
+    - name: Display check summary
       ansible.builtin.debug:
         msg: |
-          Available Updates:
-          {% for line in upgradable_packages.stdout_lines %}
-          {{ line }}
-          {% endfor %}
-      when: upgradable_packages.stdout_lines | length > 0
-
-    - name: Display no updates message
-      ansible.builtin.debug:
-        msg: "No updates available"
-      when: upgradable_packages.stdout_lines | length == 0
+          System Update Status:
+          {% if remove_output.changed %}
+          - Unattended-upgrades has been removed
+          {% endif %}
+          {% if upgradable_packages.stdout_lines | length > 0 %}
+          - Available Updates:
+            {{ upgradable_packages.stdout_lines | to_nice_yaml }}
+          {% else %}
+          - No updates available
+          {% endif %}
