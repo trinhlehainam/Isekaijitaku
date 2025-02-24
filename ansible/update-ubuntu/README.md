@@ -26,43 +26,45 @@ This project sets up a test environment for Ansible playbooks to manage Ubuntu s
 ## Test Environment Setup
 
 1. Start the Vagrant VMs:
-   ```bash
-   vagrant up
-   ```
+```bash
+vagrant up
+```
    This will:
    - Create two Ubuntu 22.04 VMs
    - Configure private network (192.168.56.11 and 192.168.56.12)
-   - Install Python3 and other requirements
-   - Set up unattended-upgrades
+   - Install Python3 and unattended-upgrades
    - Simulate packages requiring reboot
 
 2. Test Ansible connection:
-   ```bash
-   ansible all -i inventory/vagrant.yml -m ping
-   ```
+```bash
+ansible all -i inventory/vagrant.yml -m ping
+```
 
-## Available Playbooks
+## Testing Playbooks
 
 1. Check Available Updates:
-   ```bash
-   ansible-playbook -i inventory/vagrant.yml playbooks/check-updates.yml
-   ```
-   - Stops unattended-upgrades service
+```bash
+ansible-playbook -i inventory/vagrant.yml playbooks/check-updates.yml
+```
+   - Stops unattended-upgrades service if running
+   - Removes unattended-upgrades package
    - Shows available package updates
+   - Can be run multiple times, even after unattended-upgrades is removed
 
 2. Perform Full System Update:
-   ```bash
-   ansible-playbook -i inventory/vagrant.yml playbooks/update-full.yml
-   ```
+```bash
+ansible-playbook -i inventory/vagrant.yml playbooks/update-full.yml
+```
    - Updates all packages
    - Checks if reboot is required
    - Shows packages requiring reboot
 
 3. Handle System Reboots:
-   ```bash
-   ansible-playbook -i inventory/vagrant.yml playbooks/reboot.yml
-   ```
+```bash
+ansible-playbook -i inventory/vagrant.yml playbooks/reboot.yml
+```
    - Checks reboot status
+   - Shows packages requiring reboot
    - Performs reboot if required
    - Waits for system to come back online
 
@@ -81,3 +83,5 @@ vagrant destroy -f
   - ubuntu2: 192.168.56.12
 - Unattended-upgrades is installed and configured by default
 - Test environment simulates packages requiring reboot
+- The check-updates playbook is designed to work even after unattended-upgrades is removed
+- All playbooks handle errors gracefully and continue execution

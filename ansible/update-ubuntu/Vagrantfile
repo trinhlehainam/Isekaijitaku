@@ -28,19 +28,25 @@ Vagrant.configure("2") do |config|
         # Install Python3 and other requirements for Ansible
         apt-get install -y python3 python3-pip
 
-        # Hold back kernel updates to simulate packages requiring reboot
-        apt-mark hold linux-generic linux-headers-generic linux-image-generic
+        # Install unattended-upgrades
+        apt-get install -y unattended-upgrades
 
-        # Install packages that will require reboot
-        DEBIAN_FRONTEND=noninteractive apt-get install -y \
-          linux-headers-generic \
-          linux-image-generic \
-          dbus
+        # Enable and start unattended-upgrades service
+        systemctl enable unattended-upgrades
+        systemctl start unattended-upgrades
+        
+        # Verify unattended-upgrades is running
+        if ! systemctl is-active --quiet unattended-upgrades; then
+          echo "Error: unattended-upgrades service is not running"
+          exit 1
+        fi
 
-        # Create reboot-required file to simulate pending reboot
+        # Simulate packages requiring reboot
         touch /var/run/reboot-required
         echo "linux-image-generic" > /var/run/reboot-required.pkgs
+        echo "linux-headers-generic" >> /var/run/reboot-required.pkgs
         echo "dbus" >> /var/run/reboot-required.pkgs
+        echo "Successfully created a reboot requirement"
       SHELL
     end
   end

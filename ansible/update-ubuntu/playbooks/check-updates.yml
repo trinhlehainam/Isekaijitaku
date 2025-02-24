@@ -3,11 +3,21 @@
   hosts: ubuntu_servers
   become: true
   tasks:
+    - name: Check unattended-upgrades service status
+      ansible.builtin.service_facts:
+      register: service_facts
+
     - name: Stop and disable unattended-upgrades service
       ansible.builtin.service:
         name: unattended-upgrades
         state: stopped
         enabled: false
+      when: "'unattended-upgrades.service' in service_facts.ansible_facts.services"
+
+    - name: Check if unattended-upgrades package is installed
+      ansible.builtin.package_facts:
+        manager: apt
+      register: pkg_facts
 
     - name: Remove unattended-upgrades package
       ansible.builtin.apt:
@@ -16,6 +26,7 @@
           - update-notifier-common
         state: absent
         purge: true
+      when: "'unattended-upgrades' in ansible_facts.packages"
       register: remove_output
 
     - name: Update apt cache
@@ -29,7 +40,7 @@
       changed_when: false
 
     - name: Display check summary
-      ansible.builtin.debug:
+      vars:
         msg: |
           System Update Status:
           {% if remove_output.changed %}
@@ -41,3 +52,5 @@
           {% else %}
           - No updates available
           {% endif %}
+      ansible.builtin.debug:
+        msg: "{{ msg.split('\n') }}"
