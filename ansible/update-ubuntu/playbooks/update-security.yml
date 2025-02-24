@@ -33,7 +33,7 @@
       when: reboot_required_file.stat.exists
 
     - name: Show security update summary
-      ansible.builtin.debug:
+      vars:
         msg: |
           Security Update Summary:
           - Security updates applied: {{ upgrade_output.changed }}
@@ -42,3 +42,5 @@
           - Packages requiring reboot:
             {{ reboot_required_pkgs.stdout_lines | default([]) | to_nice_yaml }}
           {% endif %}
+      ansible.builtin.debug:
+        msg: "{{ msg.split('\n') }}"

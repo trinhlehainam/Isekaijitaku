@@ -24,13 +24,15 @@
         reboot_needed: "{{ reboot_required_file.stat.exists }}"
 
     - name: Show reboot status
-      ansible.builtin.debug:
+      vars:
         msg: |
           Reboot Status:
           - Reboot required: {{ reboot_needed | bool }}
           {% if reboot_needed %}
           - Packages requiring reboot: {{ reboot_required_pkgs.stdout_lines | default([]) | length }}
           {% endif %}
+      ansible.builtin.debug:
+        msg: "{{ msg.split('\n') }}"
 
     - name: Reboot system if required
       ansible.builtin.reboot:
