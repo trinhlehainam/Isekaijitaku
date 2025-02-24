@@ -1,0 +1,28 @@
+---
+- name: Check available updates on Ubuntu servers
+  hosts: ubuntu_servers
+  become: true
+  tasks:
+    - name: Update apt cache
+      ansible.builtin.apt:
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Get list of upgradable packages
+      ansible.builtin.command: apt list --upgradable
+      register: upgradable_packages
+      changed_when: false
+
+    - name: Display upgradable packages
+      ansible.builtin.debug:
+        msg: |
+          Available Updates:
+          {% for line in upgradable_packages.stdout_lines %}
+          {{ line }}
+          {% endfor %}
+      when: upgradable_packages.stdout_lines | length > 0
+
+    - name: Display no updates message
+      ansible.builtin.debug:
+        msg: "No updates available"
+      when: upgradable_packages.stdout_lines | length == 0
