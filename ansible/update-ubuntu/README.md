@@ -12,7 +12,8 @@ This project provides Ansible roles for managing Ubuntu system updates, includin
 ```
 .
 ├── inventory/
-│   └── vagrant.yml      # Inventory file for Vagrant VMs
+│   └── dev/             # Inventory group for development VMs
+│       └── vagrant.yml  # Inventory file for Vagrant VMs
 ├── roles/
 │   ├── check-updates/   # Role for checking available updates
 │   ├── security-update/ # Role for applying security updates
@@ -39,7 +40,7 @@ This project provides Ansible roles for managing Ubuntu system updates, includin
 
 2. Test Ansible connection:
    ```bash
-   ansible all -i inventory/vagrant.yml -m ping
+   ansible all -i inventory/dev/vagrant.yml -m ping
    ```
 
 ## Usage
@@ -48,22 +49,22 @@ The main playbook `site.yml` includes four roles that can be run together or ind
 
 1. Check for updates (always runs):
    ```bash
-   ansible-playbook -i inventory/vagrant.yml site.yml
+   ansible-playbook -i inventory/dev/vagrant.yml site.yml
    ```
 
 2. Apply security updates only:
    ```bash
-   ansible-playbook -i inventory/vagrant.yml site.yml --tags security
+   ansible-playbook -i inventory/dev/vagrant.yml site.yml --tags security
    ```
 
 3. Apply all system updates:
    ```bash
-   ansible-playbook -i inventory/vagrant.yml site.yml --tags update
+   ansible-playbook -i inventory/dev/vagrant.yml site.yml --tags update
    ```
 
 4. Handle system reboots:
    ```bash
-   ansible-playbook -i inventory/vagrant.yml site.yml --tags reboot
+   ansible-playbook -i inventory/dev/vagrant.yml site.yml --tags reboot
    ```
 
 ## Role Details
@@ -97,22 +98,22 @@ The main playbook `site.yml` includes four roles that can be run together or ind
 
 2. Verify Connectivity:
    ```bash
-   ansible all -i inventory/vagrant.yml -m ping
+   ansible all -i inventory/dev/vagrant.yml -m ping
    ```
 
 3. Test Each Role:
    ```bash
    # Check updates
-   ansible-playbook -i inventory/vagrant.yml site.yml --tags check
+   ansible-playbook -i inventory/dev/vagrant.yml site.yml --tags check
 
    # Apply security updates
-   ansible-playbook -i inventory/vagrant.yml site.yml --tags security
+   ansible-playbook -i inventory/dev/vagrant.yml site.yml --tags security
 
    # Apply system updates
-   ansible-playbook -i inventory/vagrant.yml site.yml --tags update
+   ansible-playbook -i inventory/dev/vagrant.yml site.yml --tags update
 
    # Handle reboots
-   ansible-playbook -i inventory/vagrant.yml site.yml --tags reboot
+   ansible-playbook -i inventory/dev/vagrant.yml site.yml --tags reboot
    ```
 
 4. Clean Up:
