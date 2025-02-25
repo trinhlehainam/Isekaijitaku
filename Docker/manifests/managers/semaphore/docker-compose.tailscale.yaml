@@ -74,6 +74,7 @@ services:
       semaphore-tailscale:
         condition: service_healthy
         restart: true
+    restart: always
     environment:
       SEMAPHORE_DB_DIALECT: postgres
       SEMAPHORE_DB_HOST: semaphore-postgres

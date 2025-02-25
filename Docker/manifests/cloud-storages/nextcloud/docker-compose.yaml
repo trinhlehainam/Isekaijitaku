@@ -138,13 +138,18 @@ services:
       - "traefik.enable=true"
       - "traefik.docker.network=proxy"
       - "traefik.http.services.nextcloud-whiteboard.loadbalancer.server.port=3002"
+      ## Middlewares
+      # https://github.com/nextcloud/whiteboard?tab=readme-ov-file#traefik-v3
+      - "traefik.http.middlewares.nextcloud-strip-whiteboard.stripprefix.prefixes=/whiteboard"
       ## Router
       ### Private
-      - "traefik.http.routers.nextcloud-whiteboard-local.rule=Host(`nextcloud-whiteboard.yourdomain.local`)"
+      - "traefik.http.routers.nextcloud-whiteboard-local.rule=Host(`nextcloud-whiteboard.yourdomain.local`) && PathPrefix(`/whiteboard`)"
+      - "traefik.http.routers.nextcloud-whiteboard-local.middlewares=nextcloud-strip-whiteboard"
       - "traefik.http.routers.nextcloud-whiteboard-local.entrypoints=websecure"
       - "traefik.http.routers.nextcloud-whiteboard-local.tls.certresolver=stepca"
       ### Public
-      - "traefik.http.routers.nextcloud-whiteboard.rule=Host(`nextcloud-whiteboard.yourdomain`)"
+      - "traefik.http.routers.nextcloud-whiteboard.rule=Host(`nextcloud-whiteboard.yourdomain`) && PathPrefix(`/whiteboard`)"
+      - "traefik.http.routers.nextcloud-whiteboard.middlewares=nextcloud-strip-whiteboard"
       - "traefik.http.routers.nextcloud-whiteboard.entrypoints=websecure"
       - "traefik.http.routers.nextcloud-whiteboard.tls.certresolver=cloudflare"
       
