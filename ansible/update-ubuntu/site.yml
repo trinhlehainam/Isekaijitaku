@@ -7,7 +7,6 @@
   roles:
     - role: check-updates
       tags: check
-    - check-updates
     - role: security-update
       tags: security
     - role: system-update

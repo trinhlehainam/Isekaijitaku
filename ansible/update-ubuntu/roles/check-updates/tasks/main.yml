@@ -7,7 +7,7 @@
     name: unattended-upgrades
     state: stopped
     enabled: false
-  when: "'unattended-upgrades.service' in service_facts.ansible_facts.services"
+  when: "'unattended-upgrades.service' in ansible_facts.services"
 
 - name: Check if unattended-upgrades package is installed
   ansible.builtin.package_facts:
@@ -23,10 +23,10 @@
 
 - name: Update apt cache
   ansible.builtin.apt:
-    update_cache: true
-  changed_when: false
+    update_cache: yes
+    cache_valid_time: 3600
 
-- name: Get list of upgradable packages
+- name: Check for available updates
   ansible.builtin.shell: apt list --upgradable
   register: upgradable_packages
   changed_when: false
@@ -34,7 +34,7 @@
 - name: Display check summary
   vars:
     msg: |
-      System Update Status:
+      Check Update Status:
       {% if remove_output.changed %}
       - Unattended-upgrades has been removed
       {% endif %}
