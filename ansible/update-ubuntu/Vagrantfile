@@ -33,8 +33,16 @@ Vagrant.configure("2") do |config|
           sed -i 's/^#*PasswordAuthentication .*/PasswordAuthentication yes/' /etc/ssh/sshd_config
           sed -i 's/^#*PasswordAuthentication .*/PasswordAuthentication yes/' /etc/ssh/sshd_config.d/60-cloudimg-settings.conf
           sed -i 's/^#*PubkeyAuthentication .*/PubkeyAuthentication no/' /etc/ssh/sshd_config
-          # Set password for ubuntu1
-          echo "vagrant:vagrant" | chpasswd
+
+          # Create dummy user with sudo access but requires password
+          useradd -m -s /bin/bash dummy
+          echo "dummy:dummy" | chpasswd
+          # Add dummy to sudo group
+          usermod -aG sudo dummy
+          # Configure sudo to require password for dummy user
+          echo "dummy ALL=(ALL) ALL" > /etc/sudoers.d/dummy
+          chmod 0440 /etc/sudoers.d/dummy
+
           # Restart SSH service
           systemctl restart sshd
         fi
