@@ -55,6 +55,122 @@ ansible_ssh_private_key_file: ~/.vagrant.d/insecure_private_key
 - Authenticates using Vagrant's insecure private key
 - Sudo access without password (vagrant user in sudoers)
 
+## Running Playbook Roles
+
+Each role can be run independently using tags. Here's how to run each role:
+
+### 1. Check Updates (check)
+Checks system for available updates and removes unattended-upgrades:
+```bash
+# Check updates on all hosts
+ansible-playbook -i inventory/dev/hosts.yml site.yml \
+  --vault-password-file .vault_pass \
+  -t check -b
+
+# Check updates on specific host
+ansible-playbook -i inventory/dev/hosts.yml site.yml \
+  --vault-password-file .vault_pass \
+  -t check -b \
+  --limit ubuntu1
+```
+
+### 2. Security Updates (security)
+Applies security updates only:
+```bash
+# Apply security updates on all hosts
+ansible-playbook -i inventory/dev/hosts.yml site.yml \
+  --vault-password-file .vault_pass \
+  -t security -b
+
+# Apply security updates on specific host
+ansible-playbook -i inventory/dev/hosts.yml site.yml \
+  --vault-password-file .vault_pass \
+  -t security -b \
+  --limit ubuntu1
+```
+
+### 3. System Updates (update)
+Performs full system update:
+```bash
+# Update all hosts
+ansible-playbook -i inventory/dev/hosts.yml site.yml \
+  --vault-password-file .vault_pass \
+  -t update -b
+
+# Update specific host
+ansible-playbook -i inventory/dev/hosts.yml site.yml \
+  --vault-password-file .vault_pass \
+  -t update -b \
+  --limit ubuntu1
+```
+
+### 4. System Reboot (reboot)
+Reboots system if required after updates:
+```bash
+# Check and reboot all hosts if needed
+ansible-playbook -i inventory/dev/hosts.yml site.yml \
+  --vault-password-file .vault_pass \
+  -t reboot -b
+
+# Check and reboot specific host if needed
+ansible-playbook -i inventory/dev/hosts.yml site.yml \
+  --vault-password-file .vault_pass \
+  -t reboot -b \
+  --limit ubuntu1
+```
+
+### Running Multiple Roles
+You can combine multiple roles by specifying multiple tags:
+```bash
+# Run check and security updates only
+ansible-playbook -i inventory/dev/hosts.yml site.yml \
+  --vault-password-file .vault_pass \
+  -t check,security -b
+
+# Full update cycle (all roles)
+ansible-playbook -i inventory/dev/hosts.yml site.yml \
+  --vault-password-file .vault_pass \
+  -t check,security,update,reboot -b
+```
+
+### Role Output Examples
+
+1. Check Updates Output:
+   ```
+   Check Update Status:
+   - Unattended-upgrades has been removed
+   - Available Updates:
+     - package1/updates 1.2.3-1 amd64
+     - package2/security 2.3.4-2 amd64
+   ```
+
+2. Security Updates Output:
+   ```
+   Security Update Summary:
+   - Security updates applied: True
+   - Changed packages: 2
+   - Packages requiring reboot:
+     - linux-image-generic
+     - dbus
+   ```
+
+3. System Updates Output:
+   ```
+   Full System Update Summary:
+   - Updates applied: True
+   - Changed packages: 5
+   - Packages requiring reboot:
+     - linux-image-generic
+     - linux-headers-generic
+   ```
+
+4. Reboot Status Output:
+   ```
+   Reboot Status:
+   - Reboot required: True
+   - Packages requiring reboot: 3
+   ```
+
 ## Playbook Tags
 
 The playbook includes the following tags for granular control:
