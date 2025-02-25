@@ -1,0 +1,7 @@
+---
+all:
+  children:
+    ubuntu_servers:
+      hosts:
+        ubuntu1:
+        ubuntu2:
