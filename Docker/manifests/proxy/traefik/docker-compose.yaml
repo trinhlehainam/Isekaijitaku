@@ -10,7 +10,7 @@ services:
   #   - enable step-ca acme provisioner: "docker compose run --rm step-ca step ca provisioner add acme --type ACME"
   step-ca:
     # https://hub.docker.com/r/smallstep/step-ca/tags
-    image: 'smallstep/step-ca:0.28.1'
+    image: 'smallstep/step-ca:0.28.2'
     container_name: step-ca
     restart: unless-stopped
     security_opt:
