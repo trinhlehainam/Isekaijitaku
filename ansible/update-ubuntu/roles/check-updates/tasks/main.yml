@@ -1,0 +1,50 @@
+---
+- name: Check unattended-upgrades service status
+  ansible.builtin.service_facts:
+
+- name: Stop and disable unattended-upgrades service
+  ansible.builtin.service:
+    name: unattended-upgrades
+    state: stopped
+    enabled: false
+  when: "'unattended-upgrades.service' in service_facts.ansible_facts.services"
+
+- name: Check if unattended-upgrades package is installed
+  ansible.builtin.package_facts:
+    manager: apt
+
+- name: Remove unattended-upgrades package
+  ansible.builtin.apt:
+    name: unattended-upgrades
+    state: absent
+    purge: true
+  when: "'unattended-upgrades' in ansible_facts.packages"
+  register: remove_output
+
+- name: Update apt cache
+  ansible.builtin.apt:
+    update_cache: true
+  changed_when: false
+
+- name: Get list of upgradable packages
+  ansible.builtin.shell: apt list --upgradable
+  register: upgradable_packages
+  changed_when: false
+
+- name: Display check summary
+  vars:
+    msg: |
+      System Update Status:
+      {% if remove_output.changed %}
+      - Unattended-upgrades has been removed
+      {% endif %}
+      {% if upgradable_packages.stdout_lines | length > 1 %}
+      - Available Updates:
+        {% for pkg in upgradable_packages.stdout_lines[1:] %}
+        - {{ pkg }}
+        {% endfor %}
+      {% else %}
+      - No updates available
+      {% endif %}
+  ansible.builtin.debug:
+    msg: "{{ msg.split('\n') }}"

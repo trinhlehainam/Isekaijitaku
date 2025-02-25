@@ -1,91 +1,143 @@
-# Ansible Update Ubuntu Test Environment
+# Ubuntu Update Management with Ansible
 
-This project sets up a test environment for Ansible playbooks to manage Ubuntu system updates using Vagrant virtual machines.
+This project provides Ansible roles for managing Ubuntu system updates, including security updates, unattended-upgrades, and system reboots.
 
 ## Prerequisites
 
-- VirtualBox
-- Vagrant
+- Vagrant with VirtualBox provider
 - Ansible
-- WSL (if running on Windows)
 
-## Directory Structure
+## Project Structure
 
 ```
 .
-├── Vagrantfile           # Vagrant VM configuration
 ├── inventory/
-│   ├── vagrant.yml      # Ansible inventory for Vagrant VMs
-│   └── production.yml   # Production inventory
-└── playbooks/
-    ├── check-updates.yml   # Check available updates
-    ├── update-full.yml    # Perform full system update
-    └── reboot.yml         # Handle system reboots
+│   └── vagrant.yml      # Inventory file for Vagrant VMs
+├── roles/
+│   ├── check-updates/   # Role for checking available updates
+│   ├── security-update/ # Role for applying security updates
+│   ├── system-update/   # Role for applying system updates
+│   └── reboot/          # Role for handling system reboots
+├── site.yml            # Main playbook
+├── Vagrantfile         # Vagrant configuration
+└── README.md
 ```
 
 ## Test Environment Setup
 
-1. Start the Vagrant VMs:
-```bash
-vagrant up
-```
+1. Create test VMs:
+   ```bash
+   vagrant destroy -f  # Clean up any existing VMs
+   vagrant up         # Create new VMs
+   ```
    This will:
    - Create two Ubuntu 22.04 VMs
-   - Configure private network (192.168.56.11 and 192.168.56.12)
+   - Configure network settings
+   - Install and hold back specific packages
    - Simulate packages requiring reboot
+   - Configure SSH access
 
 2. Test Ansible connection:
-```bash
-ansible all -i inventory/vagrant.yml -m ping
-```
+   ```bash
+   ansible all -i inventory/vagrant.yml -m ping
+   ```
 
-## Testing Playbooks
+## Usage
 
-1. Check Available Updates:
-```bash
-ansible-playbook -i inventory/vagrant.yml playbooks/check-updates.yml
-```
-   - Stops unattended-upgrades service if running
-   - Removes unattended-upgrades package
-   - Shows available package updates
-   - Can be run multiple times, even after unattended-upgrades is removed
+The main playbook `site.yml` includes four roles that can be run together or individually using tags:
 
-2. Perform Full System Update:
-```bash
-ansible-playbook -i inventory/vagrant.yml playbooks/update-full.yml
-```
-   - Updates all packages
-   - Checks if reboot is required
-   - Shows packages requiring reboot
+1. Check for updates (always runs):
+   ```bash
+   ansible-playbook -i inventory/vagrant.yml site.yml
+   ```
 
-3. Handle System Reboots:
-```bash
-ansible-playbook -i inventory/vagrant.yml playbooks/reboot.yml
-```
-   - Reboots the system if required
-   - Updates all packages
-   - Checks if reboot is required
-   - Shows packages requiring reboot
-   - Performs reboot if required
-   - Waits for system to come back online
+2. Apply security updates only:
+   ```bash
+   ansible-playbook -i inventory/vagrant.yml site.yml --tags security
+   ```
 
-## Cleanup
+3. Apply all system updates:
+   ```bash
+   ansible-playbook -i inventory/vagrant.yml site.yml --tags update
+   ```
 
-To remove the test VMs:
-```bash
-vagrant destroy -f
-```
+4. Handle system reboots:
+   ```bash
+   ansible-playbook -i inventory/vagrant.yml site.yml --tags reboot
+   ```
+
+## Role Details
+
+### check-updates
+- Manages unattended-upgrades service
+- Checks for available system updates
+- Shows update status summary
+
+### security-update
+- Applies security updates only
+- Uses Ubuntu security repository
+- Shows security update summary
+
+### system-update
+- Performs full system update
+- Checks if reboot is required
+- Shows update summary
+
+### reboot
+- Checks reboot status
+- Shows packages requiring reboot
+- Performs controlled system reboot if required
+
+## Testing Process
+
+1. Initial Setup:
+   ```bash
+   vagrant destroy -f && vagrant up
+   ```
+
+2. Verify Connectivity:
+   ```bash
+   ansible all -i inventory/vagrant.yml -m ping
+   ```
+
+3. Test Each Role:
+   ```bash
+   # Check updates
+   ansible-playbook -i inventory/vagrant.yml site.yml --tags check
+
+   # Apply security updates
+   ansible-playbook -i inventory/vagrant.yml site.yml --tags security
+
+   # Apply system updates
+   ansible-playbook -i inventory/vagrant.yml site.yml --tags update
+
+   # Handle reboots
+   ansible-playbook -i inventory/vagrant.yml site.yml --tags reboot
+   ```
+
+4. Clean Up:
+   ```bash
+   vagrant destroy -f
+   ```
+
+## Troubleshooting
+
+1. VM Boot Timeout:
+   - The Vagrantfile includes an increased boot timeout (600 seconds)
+   - If timeout occurs, try destroying and recreating the VMs
+
+2. SSH Connection Issues:
+   - Verify VM IP addresses and SSH configuration
+   - Check that the VM is running: `vagrant status`
+   - Try reprovisioning: `vagrant provision`
 
 ## Notes
 
-- The test environment uses Vagrant's insecure private key for SSH authentication
-- VMs are configured with private network IPs:
-  - ubuntu1: 192.168.56.11
-  - ubuntu2: 192.168.56.12
-- Unattended-upgrades is installed and configured by default
-- Test environment simulates packages requiring reboot
-- The check-updates playbook is designed to work even after unattended-upgrades is removed
-- All playbooks handle errors gracefully and continue execution
+- Roles are designed to be idempotent and can be run multiple times
+- The check-updates role is included in all operations
+- Security updates can be applied independently of full system updates
+- System reboot is only performed if required
+- All roles handle errors gracefully and continue execution
 
 ## References
 - https://github.com/joelhandwell/ubuntu_vagrant_boxes/issues/1#issuecomment-292370353

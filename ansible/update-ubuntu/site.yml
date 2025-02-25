@@ -1,0 +1,16 @@
+---
+- name: Manage Ubuntu system updates
+  hosts: ubuntu_servers
+  become: true
+  gather_facts: true
+
+  roles:
+    - role: check-updates
+      tags: check
+    - check-updates
+    - role: security-update
+      tags: security
+    - role: system-update
+      tags: update
+    - role: reboot
+      tags: reboot

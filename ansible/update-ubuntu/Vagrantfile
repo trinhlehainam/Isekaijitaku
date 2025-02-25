@@ -5,6 +5,7 @@ Vagrant.configure("2") do |config|
   # General Vagrant VM configuration.
   config.vm.box = "ubuntu/jammy64"
   config.ssh.insert_key = false
+  config.vm.boot_timeout = 600
   config.vm.synced_folder '.', '/vagrant', disabled: true
   config.vm.provider :virtualbox do |v|
     v.memory = 512

@@ -1,0 +1,32 @@
+---
+- name: Perform full system update
+  ansible.builtin.apt:
+    upgrade: dist
+    update_cache: true
+  register: upgrade_output
+
+- name: Check if reboot is required
+  ansible.builtin.stat:
+    path: /var/run/reboot-required
+  register: reboot_required_file
+
+- name: Get list of packages requiring reboot
+  ansible.builtin.command: cat /var/run/reboot-required.pkgs
+  register: reboot_required_pkgs
+  when: reboot_required_file.stat.exists
+  changed_when: false
+
+- name: Show full system update summary
+  vars:
+    msg: |
+      Full System Update Summary:
+      - Updates applied: {{ upgrade_output.changed }}
+      - Changed packages: {{ upgrade_output.changed_packages | default([]) | length }}
+      {% if reboot_required_file.stat.exists %}
+      - Packages requiring reboot:
+        {% for pkg in reboot_required_pkgs.stdout_lines %}
+        - {{ pkg }}
+        {% endfor %}
+      {% endif %}
+  ansible.builtin.debug:
+    msg: "{{ msg.split('\n') }}"

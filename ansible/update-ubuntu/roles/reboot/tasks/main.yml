@@ -1,0 +1,27 @@
+---
+- name: Check if reboot is required
+  ansible.builtin.stat:
+    path: /var/run/reboot-required
+  register: reboot_required_file
+
+- name: Get list of packages requiring reboot
+  ansible.builtin.command: cat /var/run/reboot-required.pkgs
+  register: reboot_required_pkgs
+  when: reboot_required_file.stat.exists
+  changed_when: false
+
+- name: Show reboot status
+  vars:
+    msg: |
+      Reboot Status:
+      - Reboot required: {{ reboot_required_file.stat.exists | bool }}
+      {% if reboot_required_file.stat.exists %}
+      - Packages requiring reboot: {{ reboot_required_pkgs.stdout_lines | default([]) | length }}
+      {% endif %}
+  ansible.builtin.debug:
+    msg: "{{ msg.split('\n') }}"
+
+- name: Reboot system if required
+  ansible.builtin.reboot:
+    msg: "Performing controlled system reboot"
+  when: reboot_required_file.stat.exists
