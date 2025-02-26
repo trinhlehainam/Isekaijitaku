@@ -162,42 +162,94 @@ ansible-playbook -i inventory/local/hosts.yml site.yml \
    - Packages requiring reboot: 3
    ```
 
+## Implementation Notes
+
+### Reboot Role Implementation
+
+The reboot role has been simplified to use a more elegant approach for handling dependencies between hosts:
+
+1. **Checking Reboot Requirements**:
+   - The role checks for the presence of `/var/run/reboot-required` to determine if a reboot is needed
+   - It also reads the list of packages that require a reboot from `/var/run/reboot-required.pkgs`
+
+2. **Reboot Orchestration**:
+   - For hosts without dependencies, the reboot process is straightforward
+   - For hosts with dependencies (defined via `wait_for_inventory_hostname`), the role:
+     - Creates a temporary status directory to track reboot status
+     - Waits for the dependent host to complete its reboot by checking for a status file
+     - Verifies the dependent host is fully operational by checking network connectivity
+     - Only then proceeds with its own reboot
+
+3. **Status Tracking**:
+   - Each host creates a status file in `/tmp/ansible_reboot_control/` after successfully rebooting
+   - The directory is cleaned up when all hosts have been processed
+
+4. **Benefits of this Approach**:
+   - No need for complex marker files or SSH connectivity checks
+   - Clear separation of concerns between reboot logic and dependency management
+   - Improved reliability with two-phase verification (file existence and network connectivity)
+   - Simplified cleanup process
+
 ## Reboot Orchestration
 
-### Dependent Reboots with Marker Files
+The playbook includes a reboot role that handles system reboots when required. The role checks for the presence of the `/var/run/reboot-required` file, which indicates that a reboot is needed after package updates.
 
-The reboot role supports controlled reboot sequencing with the following features:
+### Reboot Dependencies
 
-- Hosts can be configured to wait for other hosts to complete their reboot before proceeding
-- Uses a marker file system to track reboot completion
-- Automatically handles dependencies between hosts
+In some cases, you may want to ensure that certain hosts reboot before others. For example, if you have a database server that needs to be back online before application servers reboot. This is handled through the `wait_for_inventory_hostname` variable.
 
-### Configuration
+#### How it works
 
-To configure a host to wait for another host to reboot first:
+1. Define the `wait_for_inventory_hostname` variable in the host vars for any host that should wait for another host to reboot first.
+2. The reboot role will:
+   - Check if a reboot is required
+   - Create a temporary status directory to track reboot status
+   - For hosts without dependencies, reboot immediately
+   - For hosts with a `wait_for_inventory_hostname` defined:
+     - Wait for that host to complete its reboot (by checking for a status file)
+     - Verify the host is online by checking network connectivity
+     - Then proceed with its own reboot
+   - Create a status file to indicate successful reboot
+   - Clean up all status files when all hosts have been processed
+
+#### Example Configuration
+
+To make `ubuntu3` wait for `ubuntu1` to reboot first:
+
+1. Create a host vars file for `ubuntu3`:
 
 ```yaml
 # inventory/local/host_vars/ubuntu3/main.yml
-wait_for_host: ubuntu1
+wait_for_inventory_hostname: ubuntu1
 ```
 
-This ensures that critical infrastructure is back online before dependent services reboot.
+2. The reboot role will automatically handle the dependency, ensuring that `ubuntu3` waits for `ubuntu1` to complete its reboot before proceeding with its own reboot.
 
-### How It Works
+### Testing
 
-1. When a host reboots successfully, it creates a marker file in `/tmp/reboot_control/`
-2. Dependent hosts check for the existence of this marker file before proceeding with their own reboot
-3. If the marker file doesn't exist, the dependent host will wait until it appears
-4. This approach eliminates race conditions and ensures proper reboot ordering
+To test the reboot orchestration:
 
-### Example Configuration
+1. Ensure all VMs are running:
+   ```
+   vagrant up
+   ```
 
-```yaml
-# Host that waits for ubuntu1 (ubuntu3)
-wait_for_host: ubuntu1
-```
+2. Run the test script:
+   ```
+   ./tests/vagrant_reboot_test.sh
+   ```
 
-By default, all hosts reboot in parallel unless configured with `wait_for_host`.
+The test script will:
+- Clean up any existing reboot status files
+- Create reboot-required files on all VMs
+- Run the playbook with the reboot tag
+- Verify that all hosts have been rebooted successfully
+- Check that the reboot status files have been properly cleaned up
+
+The test is successful if:
+1. All hosts are rebooted
+2. ubuntu3 waits for ubuntu1 to reboot before proceeding
+3. All temporary status files are cleaned up after the process
 
 ## Playbook Tags
 
@@ -221,7 +273,10 @@ The playbook includes the following tags for granular control:
 ### reboot
 - Checks if reboot is required
 - Lists packages requiring reboot
-- Supports dependent reboots using `wait_for_host` and marker files
+- Supports dependent reboots using `wait_for_inventory_hostname`
+- Uses a two-phase verification for dependent hosts:
+  - Checks for a status file indicating the dependent host has rebooted
+  - Verifies network connectivity to ensure the host is fully operational
 - Performs controlled reboots with proper timeouts
 
 ## Usage
