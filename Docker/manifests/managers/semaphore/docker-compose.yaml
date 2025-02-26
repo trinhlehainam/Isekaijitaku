@@ -1,7 +1,7 @@
 services:
   semaphore:
     # https://hub.docker.com/r/semaphoreui/semaphore/tags
-    image: semaphoreui/semaphore:v2.11.3
+    image: semaphoreui/semaphore:v2.12.14
     container_name: semaphore
     # https://github.com/semaphoreui/semaphore/blob/develop/deployment/docker/server/Dockerfile
     entrypoint:
@@ -32,6 +32,7 @@ services:
         restart: true
     restart: always
     environment:
+      TZ: Asia/Tokyo
       SEMAPHORE_DB_DIALECT: postgres
       SEMAPHORE_DB_HOST: semaphore-postgres
       SEMAPHORE_DB_NAME: semaphore
