@@ -30,6 +30,7 @@ ansible-project/
 │   ├── common/                 # Shared configurations
 │   └── app_specific/           # Application roles
 ├── Vagrantfile                 # VM definitions for testing
+├── .vault_pass                 # Vault password file (optional, never commit to VCS)
 └── tests/                      # Testing scripts and validation
 ```
 
@@ -94,6 +95,95 @@ Vagrant.configure("2") do |config|
 end
 ```
 
+## Vault Security Requirements
+
+### 1. Detecting Vault Usage
+
+Before running any Ansible commands, I'll automatically check if the project uses encrypted data:
+
+```bash
+# Check if project uses encrypted data
+if grep -r "\$ANSIBLE_VAULT;" --include="*.yml" --include="*.yaml" . &>/dev/null || \
+   grep -r "!vault |" --include="*.yml" --include="*.yaml" ./inventory* ./inventories* &>/dev/null; then
+  echo "Encrypted data detected in project"
+  VAULT_PARAM="--vault-password-file=.vault_pass"
+else
+  VAULT_PARAM=""
+fi
+
+# Check for encrypted files and variables in inventory
+echo "Checking for fully encrypted files:"
+grep -r "\$ANSIBLE_VAULT;" --include="*.yml" --include="*.yaml" ./inventory* ./inventories* || echo "No fully encrypted files found"
+
+echo "Checking for encrypted variables:"
+grep -r "!vault |" --include="*.yml" --include="*.yaml" ./inventory* ./inventories* || echo "No encrypted variables found"
+```
+
+### 2. Vault Setup Recommendations
+
+When encrypted data is detected or when you need to store sensitive data:
+
+- Create a `.vault_pass` file with secure permissions:
+  ```bash
+  # Generate secure password and set correct permissions
+  openssl rand -base64 32 > .vault_pass
+  chmod 600 .vault_pass
+  ```
+- Add `.vault_pass` to `.gitignore` to prevent accidental commits
+- Use `--vault-password-file=.vault_pass` with all relevant Ansible commands
+
+### 3. Contextual Command Execution
+
+When executing Ansible commands, I'll automatically determine if vault parameters are needed:
+
+```bash
+# Function to run ansible commands with appropriate vault options
+run_ansible_command() {
+  if [ -f .vault_pass ] || grep -r "\$ANSIBLE_VAULT;" --include="*.yml" --include="*.yaml" . &>/dev/null || \
+     grep -r "!vault |" --include="*.yml" --include="*.yaml" ./inventory* ./inventories* &>/dev/null; then
+    ansible-playbook "$@" --vault-password-file=.vault_pass
+  else
+    ansible-playbook "$@"
+  fi
+}
+```
+
+### 4. Vault File Validation
+
+When vault usage is detected, I'll first check:
+
+```yaml
+# Pre-run validation for vault files
+- name: Check vault requirements
+  hosts: localhost
+  gather_facts: false
+  tasks:
+    - name: Check if any inventory files are encrypted
+      shell: grep -r "$ANSIBLE_VAULT;" --include="*.yml" --include="*.yaml" ./inventory* ./inventories* || true
+      register: vault_grep
+      changed_when: false
+      
+    - name: Set fact for vault detection
+      set_fact:
+        vault_detected: "{{ vault_grep.stdout|length > 0 }}"
+        
+    - name: Verify vault password file exists
+      stat:
+        path: .vault_pass
+      register: vault_file
+      when: vault_detected
+      
+    - name: Fail if vault password file is missing but encrypted files exist
+      fail:
+        msg: "ERROR: Encrypted files detected but .vault_pass file is missing. Run 'openssl rand -base64 32 > .vault_pass && chmod 600 .vault_pass' to create it."
+      when: vault_detected and not vault_file.stat.exists
+      
+    - name: Check vault password file permissions
+      fail:
+        msg: "ERROR: .vault_pass file has incorrect permissions. Run 'chmod 600 .vault_pass' to fix."
+      when: vault_detected and vault_file.stat.exists and vault_file.stat.mode != '0600'
+```
+
 ## Testing Workflow
 
 ### 1. Vagrant Environment Setup
@@ -113,10 +203,11 @@ test_sequence:
     
   - name: Connection Verification
     commands:
-      - ansible -i inventories/vagrant/hosts.yml all -m ping
-      - ansible -i inventories/vagrant/hosts.yml all -m setup
+      - ansible -i inventories/local/hosts.yml all -m ping
+      - ansible -i inventories/local/hosts.yml all -m setup
     retries: 3
     delay: 5  # Seconds between retries
+    vault_check: true  # Will add --vault-password-file if needed
     
   - name: Connection Troubleshooting
     if_failed:
@@ -136,16 +227,19 @@ playbook_testing:
   
   execution_phases:
     - name: Dry Run
-      command: ansible-playbook -i inventories/vagrant/hosts.yml playbooks/site.yml --check --diff
+      command: ansible-playbook -i inventories/local/hosts.yml playbooks/site.yml --check --diff
+      vault_check: true  # Will add --vault-password-file if needed
       
     - name: First Run
-      command: ansible-playbook -i inventories/vagrant/hosts.yml playbooks/site.yml -v
+      command: ansible-playbook -i inventories/local/hosts.yml playbooks/site.yml -v
+      vault_check: true  # Will add --vault-password-file if needed
       validation:
         - Check all tasks executed successfully
         - Verify expected services are running
         
     - name: Idempotency Check
-      command: ansible-playbook -i inventories/vagrant/hosts.yml playbooks/site.yml -v
+      command: ansible-playbook -i inventories/local/hosts.yml playbooks/site.yml -v
+      vault_check: true  # Will add --vault-password-file if needed
       validation:
         - Ensure no tasks report as "changed"
         - Verify configuration remains consistent
@@ -166,6 +260,7 @@ playbook_testing:
 - Use separate vars files for complex variable sets
 - Encrypt sensitive data with ansible-vault
 - Document variable precedence in README
+- Check for encrypted inventory files before running playbooks
 
 ### 3. Task Design
 - Use meaningful task names that describe outcomes
@@ -184,13 +279,22 @@ playbook_testing:
 ## Debugging Techniques
 
 ```bash
+# Check if project uses encrypted data
+if grep -r "\$ANSIBLE_VAULT;" --include="*.yml" --include="*.yaml" . &>/dev/null || \
+   grep -r "!vault |" --include="*.yml" --include="*.yaml" ./inventory* ./inventories* &>/dev/null; then
+  echo "Encrypted data detected in project"
+  VAULT_PARAM="--vault-password-file=.vault_pass"
+else
+  VAULT_PARAM=""
+fi
+
 # Connection debugging
 vagrant ssh-config  # View SSH configuration
-ansible -i inventories/vagrant/hosts.yml all -m ping -vvv
+ansible -i inventories/local/hosts.yml all -m ping -vvv $VAULT_PARAM
 
 # Playbook debugging
-ansible-playbook -i inventories/vagrant/hosts.yml playbooks/site.yml --step
-ansible-playbook -i inventories/vagrant/hosts.yml playbooks/site.yml --start-at-task="Task name"
+ansible-playbook -i inventories/local/hosts.yml playbooks/site.yml --step $VAULT_PARAM
+ansible-playbook -i inventories/local/hosts.yml playbooks/site.yml --start-at-task="Task name" $VAULT_PARAM
 
 # System verification
 vagrant ssh <vm_name> -c "systemctl status <service_name>"
@@ -214,28 +318,55 @@ vagrant ssh <vm_name> -c "journalctl -xe | grep ansible"
    - Use async tasks for long-running operations
    - Reduce verbosity in production runs
    - Optimize the number of forks in ansible.cfg
+   
+4. **Vault-Related Issues**
+   - Missing vault password file when encrypted files exist
+   - Incorrect vault password file permissions
+   - Encrypted file with different password
+   - Forgetting to use --vault-password-file parameter
 
 ## Quick Reference Commands
 
 ```bash
+# Check if project uses encrypted data
+if grep -r "\$ANSIBLE_VAULT;" --include="*.yml" --include="*.yaml" . &>/dev/null || \
+   grep -r "!vault |" --include="*.yml" --include="*.yaml" ./inventory* ./inventories* &>/dev/null; then
+  echo "Encrypted data detected in project"
+  VAULT_PARAM="--vault-password-file=.vault_pass"
+else
+  VAULT_PARAM=""
+fi
+
 # Start testing environment
 vagrant up
 
-# Run full playbook on Vagrant VMs
-ansible-playbook -i inventories/vagrant/hosts.yml playbooks/site.yml
+# Run full playbook on Vagrant VMs (with vault if needed)
+ansible-playbook -i inventories/local/hosts.yml playbooks/site.yml $VAULT_PARAM
 
-# Test specific role
-ansible-playbook -i inventories/vagrant/hosts.yml playbooks/site.yml --tags role_name
+# Test specific role (with vault if needed)
+ansible-playbook -i inventories/local/hosts.yml playbooks/site.yml --tags role_name $VAULT_PARAM
 
 # Cleanup and restart testing
 vagrant destroy -f && vagrant up
 
 # Validate syntax before commits
-ansible-playbook --syntax-check playbooks/site.yml
+ansible-playbook --syntax-check playbooks/site.yml $VAULT_PARAM
 ansible-lint
 
-# Run ad-hoc commands for troubleshooting
-ansible -i inventories/vagrant/hosts.yml all -m shell -a "free -m"
+# Run ad-hoc commands for troubleshooting (with vault if needed)
+ansible -i inventories/local/hosts.yml all -m shell -a "free -m" $VAULT_PARAM
+
+# Encrypt sensitive files
+ansible-vault encrypt inventories/production/group_vars/all/secrets.yml
+
+# View encrypted files (with vault if needed)
+ansible-vault view inventories/production/group_vars/all/secrets.yml $VAULT_PARAM
+
+# Edit encrypted files (with vault if needed)
+ansible-vault edit inventories/production/group_vars/all/secrets.yml $VAULT_PARAM
+
+# Check for encrypted files in inventory (with vault if needed)
+grep -r "\$ANSIBLE_VAULT;" --include="*.yml" --include="*.yaml" ./inventory* ./inventories*
 ```
 
 I can assist with creating and testing Ansible playbooks, optimizing roles, debugging deployment issues, and implementing testing automation for infrastructure code. Just describe your infrastructure needs, and I'll help you build reliable, repeatable automation with proper testing practices.
