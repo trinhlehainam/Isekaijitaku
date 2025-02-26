@@ -12,7 +12,7 @@ services:
   nextcloud:
     # Upgrade to a newer version: https://github.com/nextcloud/docker?tab=readme-ov-file#update-to-a-newer-version
     # https://hub.docker.com/_/nextcloud/tags
-    image: nextcloud:30.0.5-apache
+    image: nextcloud:30.0.6-apache
     container_name: nextcloud
     restart: always
     depends_on:
@@ -256,7 +256,7 @@ services:
 
   nextcloud-redis:
     # https://hub.docker.com/_/redis/tags
-    image: redis:7.4.1-alpine3.20
+    image: redis:7.4.2-alpine3.21
     container_name: nextcloud-redis
     entrypoint:
       - /bin/sh

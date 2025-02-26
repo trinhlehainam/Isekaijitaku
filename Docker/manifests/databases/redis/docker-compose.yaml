@@ -1,7 +1,7 @@
 services:
   redis:
     # https://hub.docker.com/_/redis/tags
-    image: redis:7.4.1-alpine3.20
+    image: redis:7.4.2-alpine3.21
     container_name: redis
     entrypoint:
       - /bin/sh
