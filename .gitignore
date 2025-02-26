@@ -11,8 +11,5 @@ docker-composes/**/wazuh/single-node/wazuh-agent.deb
 **/secret.*
 **/.env
 
-# Ignore test files
-**/tests
-
 # Ignore Ansible files
 .ansible

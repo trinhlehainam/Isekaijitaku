@@ -162,13 +162,19 @@ ansible-playbook -i inventory/local/hosts.yml site.yml \
    - Packages requiring reboot: 3
    ```
 
-## Reboot Configuration
+## Reboot Orchestration
+
+### Dependent Reboots with Marker Files
 
 The reboot role supports controlled reboot sequencing with the following features:
 
-### Dependent Reboots
+- Hosts can be configured to wait for other hosts to complete their reboot before proceeding
+- Uses a marker file system to track reboot completion
+- Automatically handles dependencies between hosts
 
-Hosts can be configured to wait for other hosts to complete their reboot before proceeding:
+### Configuration
+
+To configure a host to wait for another host to reboot first:
 
 ```yaml
 # inventory/local/host_vars/ubuntu3/main.yml
@@ -176,6 +182,13 @@ wait_for_host: ubuntu1
 ```
 
 This ensures that critical infrastructure is back online before dependent services reboot.
+
+### How It Works
+
+1. When a host reboots successfully, it creates a marker file in `/tmp/reboot_control/`
+2. Dependent hosts check for the existence of this marker file before proceeding with their own reboot
+3. If the marker file doesn't exist, the dependent host will wait until it appears
+4. This approach eliminates race conditions and ensures proper reboot ordering
 
 ### Example Configuration
 
@@ -208,7 +221,7 @@ The playbook includes the following tags for granular control:
 ### reboot
 - Checks if reboot is required
 - Lists packages requiring reboot
-- Supports dependent reboots using `wait_for_host`
+- Supports dependent reboots using `wait_for_host` and marker files
 - Performs controlled reboots with proper timeouts
 
 ## Usage

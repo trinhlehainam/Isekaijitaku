@@ -1,6 +1,6 @@
 ---
 - name: Manage Ubuntu system updates
-  hosts: ubuntu_servers
+  hosts: all
   become: true
   gather_facts: true
 
