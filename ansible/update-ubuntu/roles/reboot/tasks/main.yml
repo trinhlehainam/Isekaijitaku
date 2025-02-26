@@ -10,27 +10,59 @@
   when: reboot_required_file.stat.exists
   changed_when: false
 
-- name: Reboot block tasks
+- name: Create reboot status folder on host
+  ansible.builtin.file:
+    path: /tmp/ansible_reboot_control
+    state: directory
+    mode: '0755'
+  delegate_to: localhost
+  run_once: true
+  become: false
+
+- name: Reboot block tasks without waiting
   when: 
     - reboot_required_file.stat.exists
+    - wait_for_inventory_hostname is not defined
   block:
-    - name: Create reboot status folder on host
+    - name: Reboot system
+      ansible.builtin.reboot:
+        msg: "Performing controlled system reboot for {{ inventory_hostname }}"
+        reboot_timeout: 600
+        post_reboot_delay: 30
+        test_command: uptime
+
+    - name: Create reboot status file on host
       ansible.builtin.file:
         path: /tmp/ansible_reboot_control/{{ inventory_hostname }}_rebooted
-        state: directory
-      run_once: true
+        state: touch
       delegate_to: localhost
+      become: false
 
+- name: Reboot block tasks with waiting
+  when: 
+    - reboot_required_file.stat.exists
+    - wait_for_inventory_hostname is defined
+  strategy: free
+  block:
     - name: Show waiting message
-      when: wait_for_inventory_hostname is defined
       ansible.builtin.debug:
         msg: "Waiting for {{ wait_for_inventory_hostname }} to reboot before rebooting {{ inventory_hostname }}"
 
-    - name: Wait for host to be reachable
-      when: wait_for_inventory_hostname is defined
+    - name: Wait for another host to be rebooted
+      when: "{{ hostvars[wait_for_inventory_hostname]['reboot_required_file'].stat.exists }}"
       ansible.builtin.wait_for:
         path: /tmp/ansible_reboot_control/{{ wait_for_inventory_hostname }}_rebooted
+        timeout: 300
       delegate_to: localhost
+      ignore_errors: true
+      become: false
+      
+    - name: Wait for another host to reboot
+      ansible.builtin.wait_for:
+        timeout: 300
+      delegate_to: "{{ wait_for_inventory_hostname }}"
+      ignore_errors: true
+      become: false
 
     - name: Reboot system
       ansible.builtin.reboot:
@@ -43,27 +75,27 @@
       ansible.builtin.file:
         path: /tmp/ansible_reboot_control/{{ inventory_hostname }}_rebooted
         state: touch
-      when: reboot_required_file.stat.exists
       delegate_to: localhost
+      become: false
 
-    - name: Show reboot status
-      vars:
-        msg: |
-          Reboot Status:
-          - Reboot required: {{ reboot_required_file.stat.exists | bool }}
-          {% if reboot_required_file.stat.exists %}
-          - Packages requiring reboot: {{ reboot_required_pkgs.stdout_lines | default([]) | length }}
-            {% if wait_for_inventory_hostname is defined %}
-          - Waiting for: {{ wait_for_inventory_hostname }}
-            {% endif %}
-          {% endif %}
-      ansible.builtin.debug:
-        msg: "{{ msg.split('\n') }}"
-        
 - name: Clean up reboot status folder on host
   ansible.builtin.file:
-    path: /tmp/ansible_reboot_control/{{ inventory_hostname }}_rebooted
+    path: /tmp/ansible_reboot_control
     state: absent
-  run_once: true
   when: ansible_play_hosts | length == ansible_play_hosts_all | length
   delegate_to: localhost
+  become: false
+
+- name: Show reboot status
+  vars:
+    msg: |
+      Reboot Status:
+      - Reboot required: {{ reboot_required_file.stat.exists | bool }}
+      {% if reboot_required_file.stat.exists %}
+      - Packages requiring reboot: {{ reboot_required_pkgs.stdout_lines | default([]) | length }}
+        {% if wait_for_inventory_hostname is defined %}
+        - Waiting for: {{ wait_for_inventory_hostname }}
+          {% endif %}
+        {% endif %}
+  ansible.builtin.debug:
+    msg: "{{ msg.split('\n') }}"
