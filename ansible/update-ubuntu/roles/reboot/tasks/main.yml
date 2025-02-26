@@ -19,64 +19,39 @@
   run_once: true
   become: false
 
-- name: Reboot block tasks without waiting
+- name: Reboot without waiting
   when: 
     - reboot_required_file.stat.exists
     - wait_for_inventory_hostname is not defined
-  block:
-    - name: Reboot system
-      ansible.builtin.reboot:
-        msg: "Performing controlled system reboot for {{ inventory_hostname }}"
-        reboot_timeout: 600
-        post_reboot_delay: 30
-        test_command: uptime
-
-    - name: Create reboot status file on host
-      ansible.builtin.file:
-        path: /tmp/ansible_reboot_control/{{ inventory_hostname }}_rebooted
-        state: touch
-      delegate_to: localhost
-      become: false
+  include_tasks: reboot.yml
 
 - name: Reboot block tasks with waiting
   when: 
     - reboot_required_file.stat.exists
     - wait_for_inventory_hostname is defined
-  strategy: free
   block:
     - name: Show waiting message
       ansible.builtin.debug:
         msg: "Waiting for {{ wait_for_inventory_hostname }} to reboot before rebooting {{ inventory_hostname }}"
 
     - name: Wait for another host to be rebooted
-      when: "{{ hostvars[wait_for_inventory_hostname]['reboot_required_file'].stat.exists }}"
+      vars:
+        wait_host_reboot_required_status: "{{ hostvars[wait_for_inventory_hostname]['reboot_required_file'].stat.exists }}"
+      when: wait_host_reboot_required_status
       ansible.builtin.wait_for:
         path: /tmp/ansible_reboot_control/{{ wait_for_inventory_hostname }}_rebooted
-        timeout: 300
       delegate_to: localhost
-      ignore_errors: true
       become: false
       
-    - name: Wait for another host to reboot
+    - name: Wait for another host to be online
       ansible.builtin.wait_for:
-        timeout: 300
+        host: 1.1.1.1
+        port: 53
       delegate_to: "{{ wait_for_inventory_hostname }}"
-      ignore_errors: true
       become: false
 
-    - name: Reboot system
-      ansible.builtin.reboot:
-        msg: "Performing controlled system reboot for {{ inventory_hostname }}"
-        reboot_timeout: 600
-        post_reboot_delay: 30
-        test_command: uptime
-
-    - name: Create reboot status file on host
-      ansible.builtin.file:
-        path: /tmp/ansible_reboot_control/{{ inventory_hostname }}_rebooted
-        state: touch
-      delegate_to: localhost
-      become: false
+    - name: Reboot system with waiting
+      include_tasks: reboot.yml
 
 - name: Clean up reboot status folder on host
   ansible.builtin.file:
@@ -92,10 +67,10 @@
       Reboot Status:
       - Reboot required: {{ reboot_required_file.stat.exists | bool }}
       {% if reboot_required_file.stat.exists %}
-      - Packages requiring reboot: {{ reboot_required_pkgs.stdout_lines | default([]) | length }}
-        {% if wait_for_inventory_hostname is defined %}
-        - Waiting for: {{ wait_for_inventory_hostname }}
-          {% endif %}
-        {% endif %}
+      - Packages requiring reboot:
+        {% for pkg in reboot_required_pkgs.stdout_lines %}
+        - {{ pkg }}
+        {% endfor %}
+      {% endif %}
   ansible.builtin.debug:
     msg: "{{ msg.split('\n') }}"

@@ -1,0 +1,13 @@
+- name: Reboot system
+  ansible.builtin.reboot:
+    msg: "Performing controlled system reboot for {{ inventory_hostname }}"
+    reboot_timeout: 600
+    post_reboot_delay: 30
+    test_command: uptime
+
+- name: Create reboot status file on host
+  ansible.builtin.file:
+    path: /tmp/ansible_reboot_control/{{ inventory_hostname }}_rebooted
+    state: touch
+  delegate_to: localhost
+  become: false

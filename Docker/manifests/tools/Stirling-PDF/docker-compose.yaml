@@ -3,7 +3,7 @@
 services:
   stirling-pdf:
     # https://hub.docker.com/r/frooodle/s-pdf/tags
-    image: frooodle/s-pdf:0.43.0-fat
+    image: frooodle/s-pdf:0.43.1-fat
     container_name: stirling-pdf
     restart: unless-stopped
     volumes:
