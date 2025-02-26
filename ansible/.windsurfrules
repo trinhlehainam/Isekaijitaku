@@ -17,10 +17,12 @@ ansible-project/
 ├── inventories/                # Environment-specific inventory files
 │   ├── production/
 │   │   ├── hosts.yml           # Production servers
-│   │   └── group_vars/         # Production variables
-│   └── vagrant/                # Testing environment
+│   │   ├── group_vars/         # Production group variables
+│   │   └── host_vars/          # Production host variables
+│   └── local/                  # Testing environment
 │       ├── hosts.yml           # Vagrant VMs inventory
-│       └── group_vars/         # Testing variables
+│       ├── group_vars/         # Testing group variables
+│       └── host_vars/          # Testing host variables
 ├── playbooks/                  # Top-level playbooks
 │   ├── site.yml                # Main playbook that calls roles
 │   └── maintenance.yml         # Specific operational playbooks
