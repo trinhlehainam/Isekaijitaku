@@ -1,0 +1,8 @@
+---
+# Default variables for reboot role
+
+# Priority for reboot sequence (lower numbers reboot first)
+reboot_priority: 100
+
+# Host to wait for before rebooting (if defined)
+# wait_for_host: hostname

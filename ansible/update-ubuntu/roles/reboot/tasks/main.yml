@@ -17,11 +17,33 @@
       - Reboot required: {{ reboot_required_file.stat.exists | bool }}
       {% if reboot_required_file.stat.exists %}
       - Packages requiring reboot: {{ reboot_required_pkgs.stdout_lines | default([]) | length }}
+      - Reboot priority: {{ reboot_priority }}
+      {% if wait_for_host is defined %}
+      - Waiting for: {{ wait_for_host }}
+      {% endif %}
       {% endif %}
   ansible.builtin.debug:
     msg: "{{ msg.split('\n') }}"
 
+- name: Wait for host to be rebooted
+  when: 
+    - reboot_required_file.stat.exists
+    - wait_for_host is defined
+  block:
+    - name: Show waiting message
+      ansible.builtin.debug:
+        msg: "Waiting for {{ wait_for_host }} to reboot before rebooting {{ inventory_hostname }}"
+    
+    - name: Wait for host to be reachable
+      ansible.builtin.wait_for_connection:
+        delay: 5
+        timeout: 300
+      delegate_to: "{{ wait_for_host }}"
+
 - name: Reboot system if required
   ansible.builtin.reboot:
-    msg: "Performing controlled system reboot"
+    msg: "Performing controlled system reboot for {{ inventory_hostname }} (priority: {{ reboot_priority }})"
+    reboot_timeout: 600
+    post_reboot_delay: 30
+    test_command: uptime
   when: reboot_required_file.stat.exists

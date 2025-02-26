@@ -1,0 +1,4 @@
+---
+ansible_host: 192.168.56.13
+reboot_priority: 3
+wait_for_host: ubuntu1
