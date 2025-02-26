@@ -1,7 +1,7 @@
 services:
   forgejo-docker-dind:
     # https://hub.docker.com/_/docker/tags?name=dind
-    image: docker:27.5.1-dind-alpine3.21
+    image: docker:28.0.0-dind-alpine3.21
     container_name: 'docker_dind'
     hostname: docker  # Must set hostname as TLS certificates are only valid for docker or localhost
     privileged: 'true'
@@ -29,7 +29,7 @@ services:
 
   forgejo-runner:
     # https://code.forgejo.org/forgejo/-/packages/container/runner/versions
-    image: 'code.forgejo.org/forgejo/runner:5.0.4'
+    image: 'code.forgejo.org/forgejo/runner:6.2.2'
     container_name: 'forgejo-runner'
     depends_on:
       forgejo-docker-dind:
