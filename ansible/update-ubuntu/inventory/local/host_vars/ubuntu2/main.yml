@@ -1,3 +1,2 @@
 ---
 ansible_host: 192.168.56.12
-reboot_priority: 2

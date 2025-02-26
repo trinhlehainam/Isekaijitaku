@@ -11,7 +11,8 @@ Demonstrates Ansible configuration for managing Ubuntu VMs using both password a
 │       ├── group_vars/       # Common settings for all hosts
 │       ├── host_vars/        # Host-specific settings
 │       │   ├── ubuntu1/      # Password auth + sudo example
-│       │   └── ubuntu2/      # SSH key auth example
+│       │   ├── ubuntu2/      # SSH key auth example
+│       │   └── ubuntu3/      # SSH key auth example
 │       └── hosts.yml         # Inventory file
 └── README.md
 ```
@@ -23,6 +24,8 @@ Demonstrates Ansible configuration for managing Ubuntu VMs using both password a
 # inventory/local/group_vars/ubuntu_servers/main.yml
 ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
 ansible_python_interpreter: /usr/bin/python3
+ansible_user: vagrant
+ansible_ssh_private_key_file: ~/.vagrant.d/insecure_private_key
 ```
 
 ### Password Authentication with Sudo (ubuntu1)
@@ -38,8 +41,12 @@ ansible_become_password: !vault | # Sudo password
 ```yaml
 # inventory/local/host_vars/ubuntu2/main.yml
 ansible_host: 192.168.56.12
-ansible_user: vagrant
-ansible_ssh_private_key_file: ~/.vagrant.d/insecure_private_key
+```
+
+### SSH Key Authentication (ubuntu3)
+```yaml
+# inventory/local/host_vars/ubuntu3/main.yml
+ansible_host: 192.168.56.13
 ```
 
 ## Authentication Methods
@@ -63,13 +70,10 @@ Each role can be run independently using tags. Here's how to run each role:
 Checks system for available updates and removes unattended-upgrades:
 ```bash
 # Check updates on all hosts
-ansible-playbook -i inventory/local/hosts.yml site.yml \
-  --vault-password-file .vault_pass \
-  -t check -b
+ansible-playbook -i inventory/local/hosts.yml site.yml -t check -b
 
 # Check updates on specific host
 ansible-playbook -i inventory/local/hosts.yml site.yml \
-  --vault-password-file .vault_pass \
   -t check -b \
   --limit ubuntu1
 ```
@@ -78,28 +82,21 @@ ansible-playbook -i inventory/local/hosts.yml site.yml \
 Applies security updates only:
 ```bash
 # Apply security updates on all hosts
-ansible-playbook -i inventory/local/hosts.yml site.yml \
-  --vault-password-file .vault_pass \
-  -t security -b
+ansible-playbook -i inventory/local/hosts.yml site.yml -t security -b
 
 # Apply security updates on specific host
 ansible-playbook -i inventory/local/hosts.yml site.yml \
-  --vault-password-file .vault_pass \
   -t security -b \
   --limit ubuntu1
-```
 
 ### 3. System Updates (update)
 Performs full system update:
 ```bash
 # Update all hosts
-ansible-playbook -i inventory/local/hosts.yml site.yml \
-  --vault-password-file .vault_pass \
-  -t update -b
+ansible-playbook -i inventory/local/hosts.yml site.yml -t update -b
 
 # Update specific host
 ansible-playbook -i inventory/local/hosts.yml site.yml \
-  --vault-password-file .vault_pass \
   -t update -b \
   --limit ubuntu1
 ```
@@ -108,13 +105,10 @@ ansible-playbook -i inventory/local/hosts.yml site.yml \
 Reboots system if required after updates:
 ```bash
 # Check and reboot all hosts if needed
-ansible-playbook -i inventory/local/hosts.yml site.yml \
-  --vault-password-file .vault_pass \
-  -t reboot -b
+ansible-playbook -i inventory/local/hosts.yml site.yml -t reboot -b
 
 # Check and reboot specific host if needed
 ansible-playbook -i inventory/local/hosts.yml site.yml \
-  --vault-password-file .vault_pass \
   -t reboot -b \
   --limit ubuntu1
 ```
@@ -123,13 +117,10 @@ ansible-playbook -i inventory/local/hosts.yml site.yml \
 You can combine multiple roles by specifying multiple tags:
 ```bash
 # Run check and security updates only
-ansible-playbook -i inventory/local/hosts.yml site.yml \
-  --vault-password-file .vault_pass \
-  -t check,security -b
+ansible-playbook -i inventory/local/hosts.yml site.yml -t check,security -b
 
 # Full update cycle (all roles)
 ansible-playbook -i inventory/local/hosts.yml site.yml \
-  --vault-password-file .vault_pass \
   -t check,security,update,reboot -b
 ```
 
@@ -175,22 +166,13 @@ ansible-playbook -i inventory/local/hosts.yml site.yml \
 
 The reboot role supports controlled reboot sequencing with the following features:
 
-### Reboot Priority
-
-Each host can be assigned a reboot priority (lower numbers reboot first):
-
-```yaml
-# inventory/local/host_vars/ubuntu1/main.yml
-reboot_priority: 1  # Highest priority, reboots first
-```
-
 ### Dependent Reboots
 
 Hosts can be configured to wait for other hosts to complete their reboot before proceeding:
 
 ```yaml
 # inventory/local/host_vars/ubuntu3/main.yml
-wait_for_host: 192.168.56.11  # Wait for ubuntu1 to reboot first
+wait_for_host: ubuntu1
 ```
 
 This ensures that critical infrastructure is back online before dependent services reboot.
@@ -198,14 +180,7 @@ This ensures that critical infrastructure is back online before dependent servic
 ### Example Configuration
 
 ```yaml
-# Host that reboots first (ubuntu1)
-reboot_priority: 1
-
-# Host that reboots independently (ubuntu2)
-reboot_priority: 2
-
 # Host that waits for ubuntu1 (ubuntu3)
-reboot_priority: 3
 wait_for_host: ubuntu1
 ```
 
@@ -219,27 +194,22 @@ The playbook includes the following tags for granular control:
 - Disables and removes unattended-upgrades
 - Updates apt cache
 - Lists available package updates
-- Test Status: ✅ Passed
 
 ### security
 - Applies security updates only
 - Checks for required reboots
 - Lists packages requiring reboot
-- Test Status: ✅ Passed
 
 ### update
 - Performs full system update
 - Checks for required reboots
 - Lists packages requiring reboot
-- Test Status: ✅ Passed
 
 ### reboot
 - Checks if reboot is required
 - Lists packages requiring reboot
-- Respects reboot priorities (lower numbers reboot first)
 - Supports dependent reboots using `wait_for_host`
 - Performs controlled reboots with proper timeouts
-- Test Status: ✅ Passed
 
 ## Usage
 
@@ -256,10 +226,10 @@ echo ".vault_pass" >> .gitignore
 ### Encrypt Passwords
 ```bash
 # Encrypt SSH password
-ansible-vault encrypt_string 'your_password' --name 'ansible_password' --vault-password-file .vault_pass
+ansible-vault encrypt_string 'your_password' --name 'ansible_password'
 
 # Encrypt sudo password
-ansible-vault encrypt_string 'your_sudo_password' --name 'ansible_become_password' --vault-password-file .vault_pass
+ansible-vault encrypt_string 'your_sudo_password' --name 'ansible_become_password'
 ```
 
 ### Reboot Examples
@@ -277,35 +247,19 @@ ansible-playbook -i inventory/local/hosts.yml site.yml -t reboot --check
 ### Run Commands
 ```bash
 # Test all hosts
-ansible all -i inventory/local/hosts.yml -m ping --vault-password-file .vault_pass
+ansible all -i inventory/local/hosts.yml -m ping
 
 # Run specific tags
-ansible-playbook -i inventory/local/hosts.yml site.yml \
-  --vault-password-file .vault_pass \
-  -t check,security  # Run check and security updates only
+# Run check and security updates only
+ansible-playbook -i inventory/local/hosts.yml site.yml -t check,security -b
 
 # Run full playbook
-ansible-playbook -i inventory/local/hosts.yml site.yml --vault-password-file .vault_pass
+ansible-playbook -i inventory/local/hosts.yml site.yml
 
 # Run on specific host with privilege escalation
 ansible-playbook -i inventory/local/hosts.yml site.yml \
-  --vault-password-file .vault_pass \
   --limit ubuntu1 -b
 ```
-
-## Test Results
-
-All roles have been tested successfully with both authentication methods:
-
-1. Password Authentication (ubuntu1):
-   - SSH access with dummy user: ✅ Passed
-   - Sudo privilege escalation: ✅ Passed
-   - All playbook tags: ✅ Passed
-
-2. Key Authentication (ubuntu2):
-   - SSH access with vagrant user: ✅ Passed
-   - Sudo privilege escalation: ✅ Passed
-   - All playbook tags: ✅ Passed
 
 ## Security Best Practices
 
