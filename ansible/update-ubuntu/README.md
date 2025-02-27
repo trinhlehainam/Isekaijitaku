@@ -30,7 +30,7 @@ ansible_ssh_private_key_file: ~/.vagrant.d/insecure_private_key
 
 ### Password Authentication with Sudo (ubuntu1)
 ```yaml
-# inventory/local/host_vars/ubuntu1/main.yml
+# inventory/dev/host_vars/ubuntu1/main.yml
 ansible_host: 192.168.56.11
 ansible_user: dummy              # Custom user with sudo access
 ansible_password: !vault |       # SSH password
@@ -39,13 +39,13 @@ ansible_become_password: !vault | # Sudo password
 
 ### SSH Key Authentication (ubuntu2)
 ```yaml
-# inventory/local/host_vars/ubuntu2/main.yml
+# inventory/dev/host_vars/ubuntu2/main.yml
 ansible_host: 192.168.56.12
 ```
 
 ### SSH Key Authentication (ubuntu3)
 ```yaml
-# inventory/local/host_vars/ubuntu3/main.yml
+# inventory/dev/host_vars/ubuntu3/main.yml
 ansible_host: 192.168.56.13
 ```
 
