@@ -9,7 +9,7 @@
       tags: check
     - role: security-update
       tags: security
-    - role: system-update
+    - role: full-update
       tags: update
     - role: reboot
       tags: reboot

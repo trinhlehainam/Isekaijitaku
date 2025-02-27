@@ -21,7 +21,12 @@
     msg: |
       Full System Update Summary:
       - Updates applied: {{ upgrade_output.changed }}
-      - Changed packages: {{ upgrade_output.changed_packages | default([]) | length }}
+      {% if upgrade_output.changed %}
+      - Updated messages:
+        {% for msg in upgrade_output.stdout.split('\n') %}
+        {{ msg }}
+        {% endfor %}
+      {% endif %}
       {% if reboot_required_file.stat.exists %}
       - Packages requiring reboot:
         {% for pkg in reboot_required_pkgs.stdout_lines %}
