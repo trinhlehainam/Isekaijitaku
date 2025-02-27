@@ -2,7 +2,7 @@ services:
   hedgedoc:
     container_name: hedgedoc
     # Make sure to use the latest release from https://hedgedoc.org/latest-release
-    image: quay.io/hedgedoc/hedgedoc:1.10.1
+    image: quay.io/hedgedoc/hedgedoc:1.10.2
     depends_on:
       hedgedoc-postgres:
         condition: service_healthy
