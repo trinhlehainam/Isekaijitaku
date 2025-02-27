@@ -71,13 +71,18 @@
 - name: Show reboot status
   vars:
     msg: |
+      {% if ignore_reboot is not defined or ignore_reboot is false %}
       Reboot Status:
       - Reboot required: {{ reboot_required_file.stat.exists | bool }}
-      {% if reboot_required_file.stat.exists %}
+        {% if reboot_required_file.stat.exists %}
       - Packages requiring reboot:
-        {% for pkg in reboot_required_pkgs.stdout_lines %}
+          {% for pkg in reboot_required_pkgs.stdout_lines %}
         - {{ pkg }}
-        {% endfor %}
+          {% endfor %}
+        {% endif %}
+      {% endif %}
+      {% if ignore_reboot is defined and ignore_reboot is true %}
+      Reboot Ignored
       {% endif %}
   ansible.builtin.debug:
     msg: "{{ msg.split('\n') }}"

@@ -16,15 +16,15 @@ rm -rf /tmp/ansible_reboot_control
 
 # Ensure reboot-required files exist on all VMs
 echo -e "${CYAN}Ensuring reboot-required files exist on all VMs...${NC}"
-ansible -i inventory/local/hosts.yml all -m shell -a "touch /var/run/reboot-required && echo 'linux-image-generic' > /var/run/reboot-required.pkgs" -b
+ansible -i inventory/dev/hosts.yml all -m shell -a "touch /var/run/reboot-required && echo 'linux-image-generic' > /var/run/reboot-required.pkgs" -b
 
 # Run the playbook with reboot tag
 echo -e "${CYAN}Running the playbook with reboot tag...${NC}"
-ansible-playbook -i inventory/local/hosts.yml site.yml --tags reboot -v
+ansible-playbook -i inventory/dev/hosts.yml site.yml --tags reboot -v
 
 # Check if all hosts have been rebooted
 echo -e "${CYAN}Checking if all hosts have been rebooted...${NC}"
-ansible -i inventory/local/hosts.yml all -m shell -a "if [ -f /var/run/reboot-required ]; then echo -rw-r--r-- 1 root root 0 $(date '+%b %d %H:%M') /var/run/reboot-required; else echo 'No reboot required'; fi" -b
+ansible -i inventory/dev/hosts.yml all -m shell -a "if [ -f /var/run/reboot-required ]; then echo -rw-r--r-- 1 root root 0 $(date '+%b %d %H:%M') /var/run/reboot-required; else echo 'No reboot required'; fi" -b
 
 # Check if reboot status files were cleaned up
 echo -e "${CYAN}Checking if reboot status files were cleaned up...${NC}"
