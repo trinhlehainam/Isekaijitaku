@@ -168,7 +168,8 @@ The reboot role has been simplified to use a more elegant approach for handling 
    - The role checks for the presence of `/var/run/reboot-required` to determine if a reboot is needed
    - It also reads the list of packages that require a reboot from `/var/run/reboot-required.pkgs`
 
-2. **Reboot Orchestration**:
+2. **Reboot Control**:
+   - Hosts with `ignore_reboot: true` will be excluded from rebooting
    - For hosts without dependencies, the reboot process is straightforward
    - For hosts with dependencies (defined via `wait_for_inventory_hostname`), the role:
      - Creates a temporary status directory to track reboot status
@@ -181,6 +182,7 @@ The reboot role has been simplified to use a more elegant approach for handling 
    - The directory is cleaned up when all hosts have been processed
 
 4. **Benefits of this Approach**:
+   - Flexible control over which hosts should reboot with the `ignore_reboot` flag
    - No need for complex marker files or SSH connectivity checks
    - Clear separation of concerns between reboot logic and dependency management
    - Improved reliability with two-phase verification (file existence and network connectivity)
@@ -194,11 +196,17 @@ The playbook includes a reboot role that handles system reboots when required. T
 
 In some cases, you may want to ensure that certain hosts reboot before others. For example, if you have a database server that needs to be back online before application servers reboot. This is handled through the `wait_for_inventory_hostname` variable.
 
+### Ignoring Reboots
+
+Some hosts may need to be excluded from reboots due to maintenance windows, critical operations, or other constraints. You can exclude a host from rebooting by setting the `ignore_reboot` variable to `true` in the host's variables.
+
 #### How it works
 
 1. Define the `wait_for_inventory_hostname` variable in the host vars for any host that should wait for another host to reboot first.
-2. The reboot role will:
+2. Set the `ignore_reboot` variable to `true` for any host that should not reboot, even if a reboot is required.
+3. The reboot role will:
    - Check if a reboot is required
+   - Skip hosts that have `ignore_reboot` set to `true`
    - Create a temporary status directory to track reboot status
    - For hosts without dependencies, reboot immediately
    - For hosts with a `wait_for_inventory_hostname` defined:
@@ -212,14 +220,19 @@ In some cases, you may want to ensure that certain hosts reboot before others. F
 
 To make `ubuntu3` wait for `ubuntu1` to reboot first:
 
-1. Create a host vars file for `ubuntu3`:
-
 ```yaml
-# inventory/dev/host_vars/ubuntu3/main.yml
+# inventory/local/host_vars/ubuntu3/main.yml
 wait_for_inventory_hostname: ubuntu1
 ```
 
-2. The reboot role will automatically handle the dependency, ensuring that `ubuntu3` waits for `ubuntu1` to complete its reboot before proceeding with its own reboot.
+To prevent `ubuntu2` from rebooting:
+
+```yaml
+# inventory/local/host_vars/ubuntu2/main.yml
+ignore_reboot: true
+```
+
+The reboot role will automatically handle the dependency, ensuring that `ubuntu3` waits for `ubuntu1` to complete its reboot before proceeding with its own reboot, while `ubuntu2` will be skipped entirely.
 
 ### Testing
 
@@ -269,6 +282,7 @@ The playbook includes the following tags for granular control:
 ### reboot
 - Checks if reboot is required
 - Lists packages requiring reboot
+- Supports excluding hosts from rebooting with `ignore_reboot: true`
 - Supports dependent reboots using `wait_for_inventory_hostname`
 - Uses a two-phase verification for dependent hosts:
   - Checks for a status file indicating the dependent host has rebooted
