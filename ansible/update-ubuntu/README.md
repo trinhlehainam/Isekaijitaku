@@ -7,7 +7,7 @@ Demonstrates Ansible configuration for managing Ubuntu VMs using both password a
 ```
 .
 ├── inventory/
-│   └── local/                # Local development environment
+│   └── dev/                  # Development environment
 │       ├── group_vars/       # Common settings for all hosts
 │       ├── host_vars/        # Host-specific settings
 │       │   ├── ubuntu1/      # Password auth + sudo example
@@ -70,22 +70,21 @@ Each role can be run independently using tags. Here's how to run each role:
 Checks system for available updates and removes unattended-upgrades:
 ```bash
 # Check updates on all hosts
-ansible-playbook -i inventory/local/hosts.yml site.yml -t check -b
+ansible-playbook -i inventory/dev/hosts.yml site.yml -t check -b
 
 # Check updates on specific host
-ansible-playbook -i inventory/local/hosts.yml site.yml \
+ansible-playbook -i inventory/dev/hosts.yml site.yml \
   -t check -b \
   --limit ubuntu1
-```
 
 ### 2. Security Updates (security)
 Applies security updates only:
 ```bash
 # Apply security updates on all hosts
-ansible-playbook -i inventory/local/hosts.yml site.yml -t security -b
+ansible-playbook -i inventory/dev/hosts.yml site.yml -t security -b
 
 # Apply security updates on specific host
-ansible-playbook -i inventory/local/hosts.yml site.yml \
+ansible-playbook -i inventory/dev/hosts.yml site.yml \
   -t security -b \
   --limit ubuntu1
 
@@ -93,36 +92,33 @@ ansible-playbook -i inventory/local/hosts.yml site.yml \
 Performs full system update:
 ```bash
 # Update all hosts
-ansible-playbook -i inventory/local/hosts.yml site.yml -t update -b
+ansible-playbook -i inventory/dev/hosts.yml site.yml -t update -b
 
 # Update specific host
-ansible-playbook -i inventory/local/hosts.yml site.yml \
+ansible-playbook -i inventory/dev/hosts.yml site.yml \
   -t update -b \
   --limit ubuntu1
-```
 
 ### 4. System Reboot (reboot)
 Reboots system if required after updates:
 ```bash
 # Check and reboot all hosts if needed
-ansible-playbook -i inventory/local/hosts.yml site.yml -t reboot -b
+ansible-playbook -i inventory/dev/hosts.yml site.yml -t reboot -b
 
 # Check and reboot specific host if needed
-ansible-playbook -i inventory/local/hosts.yml site.yml \
+ansible-playbook -i inventory/dev/hosts.yml site.yml \
   -t reboot -b \
   --limit ubuntu1
-```
 
 ### Running Multiple Roles
 You can combine multiple roles by specifying multiple tags:
 ```bash
 # Run check and security updates only
-ansible-playbook -i inventory/local/hosts.yml site.yml -t check,security -b
+ansible-playbook -i inventory/dev/hosts.yml site.yml -t check,security -b
 
 # Full update cycle (all roles)
-ansible-playbook -i inventory/local/hosts.yml site.yml \
+ansible-playbook -i inventory/dev/hosts.yml site.yml \
   -t check,security,update,reboot -b
-```
 
 ### Role Output Examples
 
@@ -219,7 +215,7 @@ To make `ubuntu3` wait for `ubuntu1` to reboot first:
 1. Create a host vars file for `ubuntu3`:
 
 ```yaml
-# inventory/local/host_vars/ubuntu3/main.yml
+# inventory/dev/host_vars/ubuntu3/main.yml
 wait_for_inventory_hostname: ubuntu1
 ```
 
@@ -303,29 +299,29 @@ ansible-vault encrypt_string 'your_sudo_password' --name 'ansible_become_passwor
 ### Reboot Examples
 ```bash
 # Reboot all hosts respecting priorities and wait conditions
-ansible-playbook -i inventory/local/hosts.yml site.yml -t reboot
+ansible-playbook -i inventory/dev/hosts.yml site.yml -t reboot
 
 # Reboot specific hosts
-ansible-playbook -i inventory/local/hosts.yml site.yml -t reboot --limit ubuntu1,ubuntu3
+ansible-playbook -i inventory/dev/hosts.yml site.yml -t reboot --limit ubuntu1,ubuntu3
 
 # Check reboot status without actually rebooting (dry run)
-ansible-playbook -i inventory/local/hosts.yml site.yml -t reboot --check
+ansible-playbook -i inventory/dev/hosts.yml site.yml -t reboot --check
 ```
 
 ### Run Commands
 ```bash
 # Test all hosts
-ansible all -i inventory/local/hosts.yml -m ping
+ansible all -i inventory/dev/hosts.yml -m ping
 
 # Run specific tags
 # Run check and security updates only
-ansible-playbook -i inventory/local/hosts.yml site.yml -t check,security -b
+ansible-playbook -i inventory/dev/hosts.yml site.yml -t check,security -b
 
 # Run full playbook
-ansible-playbook -i inventory/local/hosts.yml site.yml
+ansible-playbook -i inventory/dev/hosts.yml site.yml
 
 # Run on specific host with privilege escalation
-ansible-playbook -i inventory/local/hosts.yml site.yml \
+ansible-playbook -i inventory/dev/hosts.yml site.yml \
   --limit ubuntu1 -b
 ```
 
