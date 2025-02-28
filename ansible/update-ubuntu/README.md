@@ -221,14 +221,14 @@ Some hosts may need to be excluded from reboots due to maintenance windows, crit
 To make `ubuntu3` wait for `ubuntu1` to reboot first:
 
 ```yaml
-# inventory/local/host_vars/ubuntu3/main.yml
+# inventory/dev/host_vars/ubuntu3/main.yml
 wait_for_inventory_hostname: ubuntu1
 ```
 
 To prevent `ubuntu2` from rebooting:
 
 ```yaml
-# inventory/local/host_vars/ubuntu2/main.yml
+# inventory/dev/host_vars/ubuntu2/main.yml
 ignore_reboot: true
 ```
 

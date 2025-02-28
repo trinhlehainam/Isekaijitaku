@@ -1,0 +1,45 @@
+# https://github.com/C4illin/ConvertX?tab=readme-ov-file#deployment
+
+services:
+  convertx: 
+    # https://github.com/C4illin/ConvertX/pkgs/container/ConvertX
+    image: ghcr.io/c4illin/convertx:v0.11.1
+    container_name: convertx
+    restart: unless-stopped
+    # https://github.com/C4illin/ConvertX/blob/main/Dockerfile
+    entrypoint:
+      - "/bin/sh"
+      - "-c"
+      - |
+        export JWT_SECRET=$$(cat /run/secrets/jwt_secret)
+        exec bun run ./src/index.tsx
+    # https://github.com/C4illin/ConvertX?tab=readme-ov-file#environment-variables
+    environment:
+      # JWT_SECRET: aLongAndSecretStringUsedToSignTheJSONWebToken1234 # will use randomUUID() if unset
+      ACCOUNT_REGISTRATION: false
+      HTTP_ALLOWED: false
+      ALLOW_UNAUTHENTICATED: false
+      AUTO_DELETE_EVERY_N_HOURS: 24
+    secrets:
+      - jwt_secret
+    volumes:
+      - ./data:/app/data
+    # ports:
+    #   - "3000:3000"
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.services.convertx.loadbalancer.server.port=3000"
+      - "traefik.http.routers.convertx-local.rule=Host(`convertx.mydomain.local`)"
+      - "traefik.http.routers.convertx-local.entrypoints=websecure"
+      - "traefik.http.routers.convertx-local.tls.certresolver=stepca"
+
+networks:
+  proxy:
+    external: true
+
+secrets:
+  jwt_secret:
+    file: ./secrets/jwt_secret

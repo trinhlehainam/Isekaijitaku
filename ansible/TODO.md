@@ -1,0 +1,3 @@
+- Create Ansbible Projects for docker container that require back up when upgrade
+- Find way how to share reuse tasks related to docker across Ansible docker projects
+- Create Simple Ansible Docker Project that require no dependencies like Portainer, Dozzle, etc
