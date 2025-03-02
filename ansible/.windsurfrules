@@ -160,6 +160,7 @@ For Ansible playbook and role development:
    - Use state parameters (`present`, `absent`, etc.)
    - Always check conditions before changes
    - Avoid command/shell modules when an Ansible module exists
+   - Always use Fully Qualified Collection Names (FQCN) for modules (e.g., `ansible.builtin.copy` not `copy`)
 
 3. **Variable Organization**
    - group_vars/all: Site-wide settings
@@ -337,3 +338,31 @@ For sharing roles across multiple Ansible projects in a single git repository:
    - Test changes to shared roles against all affected projects
    - Run tests both from repository root (as Semaphore would) and from within each project directory
 </role_sharing>
+
+<fqcn_usage>
+When modifying or creating Ansible playbooks and roles:
+
+1. **ALWAYS use Fully Qualified Collection Names (FQCN)**
+   - Replace all module references with FQCN format: `namespace.collection.content_name`
+   - Convert: `copy` → `ansible.builtin.copy`, `yum` → `ansible.builtin.yum`, `git` → `community.general.git`
+   - Apply FQCN to ALL modules including loops, blocks, handlers, and includes
+
+2. **Use correct namespaces**
+   - Core modules: `ansible.builtin.*`
+   - Community modules: `community.general.*`, `community.network.*`
+   - POSIX modules: `ansible.posix.*`
+   - Windows modules: `ansible.windows.*`
+
+3. **Task format**
+   ```yaml
+   - name: Clear task description
+     ansible.builtin.file:  # FQCN format required
+       path: /path/to/file
+       state: absent
+   ```
+
+4. **Convert existing code**
+   - Find proper FQCN with: `ansible-doc -l | grep module_name`
+   - For custom modules, use their defined collection
+   - Flag any ambiguous module references for clarification
+</fqcn_usage>
