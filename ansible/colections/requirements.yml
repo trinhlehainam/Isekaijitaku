@@ -1,0 +1,6 @@
+---
+# https://galaxy.ansible.com/ui/collections/
+collections:
+  # https://galaxy.ansible.com/ui/repo/published/community/docker/
+  - name: community.docker
+    version: 4.4.0

@@ -1,0 +1,6 @@
+---
+roles:
+  ### Galaxy: https://galaxy.ansible.com/ui/standalone/roles/
+  # https://galaxy.ansible.com/ui/standalone/roles/geerlingguy/docker/
+  - name: geerlingguy.docker
+    version: 7.4.5
