@@ -114,6 +114,18 @@ When I detect encrypted files (`$ANSIBLE_VAULT;`) or variables (`!vault |`), I w
    - Keep `.vault_pass` out of version control
    - Use different passwords for different environments
    - Only encrypt sensitive data, not entire files
+
+7. **Encrypt these specific types of sensitive data:**
+   - Access credentials (passwords, SSH keys, API tokens, OAuth tokens)
+   - Service account credentials and keys
+   - Database connection strings and credentials
+   - Private/internal IP addresses and hostnames
+   - Cloud provider account details and access keys
+   - SSL/TLS private keys and certificates
+   - VPN and firewall access information
+   - Customer or personal identifiable information (PII)
+   - Environment-specific secrets (dev/test/prod)
+   - Proprietary configuration parameters
 </vault_management>
 
 <testing_workflow>
@@ -256,6 +268,14 @@ For secure Ansible deployments:
    - Encrypt ALL sensitive data with Ansible Vault
    - Store SSL certificates securely
    - Never hardcode secrets in playbooks or roles
+   - Always encrypt these sensitive elements:
+     * Authentication credentials (usernames, passwords)
+     * API keys and tokens (AWS keys, GitHub tokens, etc.)
+     * Database credentials and connection strings
+     * Private infrastructure details (internal IPs, server names)
+     * SSL/TLS certificates and private keys
+     * Service account information
+     * Customer data and personally identifiable information
    
 2. **Multi-Environment Security**
    - Use separate vault passwords for environments
@@ -268,6 +288,9 @@ For secure Ansible deployments:
    ```bash
    ansible-vault encrypt_string --vault-id prod@.vault_pass.prod 'secret' --name 'api_key'
    ```
+   
+   - Implement stricter encryption for production data
+   - Separate sensitive variables by environment
 
 3. **External Dependencies**
    - NEVER automatically install security-related packages
@@ -292,7 +315,7 @@ For sharing roles across multiple Ansible projects in a single git repository:
    - Follow the standard Ansible role directory structure
    ```
    my-ansible-repo/
-   ├── roles/                # Centralized roles directory (shared across projects)
+   ├── roles/               # Centralized roles directory (shared across projects)
    │   ├── common/          # Shared role
    │   ├── nginx/           # Shared role
    │   └── requirements.yml # For external roles
