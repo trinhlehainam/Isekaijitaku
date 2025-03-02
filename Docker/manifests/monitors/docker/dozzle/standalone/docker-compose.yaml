@@ -8,9 +8,9 @@ services:
     environment:
       DOZZLE_HOSTNAME: dozzle
       # https://dozzle.dev/guide/agent#how-to-connect-to-an-agent
-      DOZZLE_REMOTE_AGENT: agent_ip:7007
-    ports:
-      - 8080:8080
+      # DOZZLE_REMOTE_AGENT: agent_ip:7007
+    # ports:
+    #   - 8080:8080
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
     networks:

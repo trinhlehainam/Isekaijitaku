@@ -1,0 +1,22 @@
+---
+- name: Ensure Docker is installed and running
+  ansible.builtin.import_role:
+    name: geerlingguy.docker
+
+- name: Create directory for docker-compose files
+  ansible.builtin.file:
+    path: "{{ ansible_user_home }}/Docker/dozzle{{ '_agent' if inventory_hostname in groups['agents'] else '' }}"
+    state: directory
+    mode: '0755'
+
+- name: Copy docker-compose file
+  ansible.builtin.template:
+    src: "docker-compose-{{ 'agent' if inventory_hostname in groups['agents'] else 'manager' }}.yml.j2"
+    dest: "{{ ansible_user_home }}/Docker/dozzle{{ '_agent' if inventory_hostname in groups['agents'] else '' }}/docker-compose.yml"
+    mode: '0644'
+  
+- name: Start Dozzle containers
+  community.docker.docker_compose_v2:
+    project_src: "{{ ansible_user_home }}/Docker/dozzle{{ '_agent' if inventory_hostname in groups['agents'] else '' }}"
+    state: present
+  register: output

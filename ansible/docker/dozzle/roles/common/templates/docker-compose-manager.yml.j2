@@ -1,0 +1,22 @@
+# https://dozzle.dev/guide/getting-started#running-with-docker
+
+services:
+  dozzle:
+    # https://hub.docker.com/r/amir20/dozzle/tags
+    image: amir20/dozzle:v8.11.7
+    container_name: dozzle
+    environment:
+      DOZZLE_HOSTNAME: {{ inventory_hostname }}
+      # https://dozzle.dev/guide/agent#how-to-connect-to-an-agent
+      DOZZLE_REMOTE_AGENT: {{ dozzle_agents_connection_string }}
+    ports:
+      - 8080:8080
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    healthcheck:
+      test: [ "CMD", "/dozzle", "healthcheck" ]
+      interval: 3s
+      timeout: 30s
+      retries: 5
+      start_period: 30s
+    restart: unless-stopped

@@ -1,0 +1,22 @@
+---
+- name: Deploy Dozzle agents
+  hosts: agents
+  become: true
+  roles:
+    - role: common
+  tasks:
+    - name: Debug agent connection info
+      ansible.builtin.debug:
+        msg: "Agent {{ inventory_hostname }} running at {{ ansible_host }}:7007"
+
+- name: Deploy Dozzle manager
+  hosts: managers
+  become: true
+  roles:
+    - role: common
+  vars:
+    dozzle_agents_connection_string: "{{ groups['agents'] | map('extract', hostvars, ['ansible_host']) | map('regex_replace', '^(.*)$', '\\1:7007') | join(',') }}"
+  tasks:
+    - name: Debug manager connection info
+      ansible.builtin.debug:
+        msg: "Manager {{ inventory_hostname }} running at {{ ansible_host }}:8080"
