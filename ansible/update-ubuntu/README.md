@@ -6,14 +6,14 @@ Demonstrates Ansible configuration for managing Ubuntu VMs using both password a
 
 ```
 .
-├── inventory/
+├── inventories/
 │   └── dev/                  # Development environment
 │       ├── group_vars/       # Common settings for all hosts
 │       ├── host_vars/        # Host-specific settings
 │       │   ├── ubuntu1/      # Password auth + sudo example
 │       │   ├── ubuntu2/      # SSH key auth example
 │       │   └── ubuntu3/      # SSH key auth example
-│       └── hosts.yml         # Inventory file
+│       └── hosts.yml         # inventories file
 └── README.md
 ```
 
@@ -21,7 +21,7 @@ Demonstrates Ansible configuration for managing Ubuntu VMs using both password a
 
 ### Common Settings (All Hosts)
 ```yaml
-# inventory/local/group_vars/ubuntu_servers/main.yml
+# inventories/dev/group_vars/ubuntu_servers/main.yml
 ansible_ssh_common_args: '-o StrictHostKeyChecking=no'
 ansible_python_interpreter: /usr/bin/python3
 ansible_user: vagrant
@@ -30,7 +30,7 @@ ansible_ssh_private_key_file: ~/.vagrant.d/insecure_private_key
 
 ### Password Authentication with Sudo (ubuntu1)
 ```yaml
-# inventory/dev/host_vars/ubuntu1/main.yml
+# inventories/dev/host_vars/ubuntu1/main.yml
 ansible_host: 192.168.56.11
 ansible_user: dummy              # Custom user with sudo access
 ansible_password: !vault |       # SSH password
@@ -39,13 +39,13 @@ ansible_become_password: !vault | # Sudo password
 
 ### SSH Key Authentication (ubuntu2)
 ```yaml
-# inventory/dev/host_vars/ubuntu2/main.yml
+# inventories/dev/host_vars/ubuntu2/main.yml
 ansible_host: 192.168.56.12
 ```
 
 ### SSH Key Authentication (ubuntu3)
 ```yaml
-# inventory/dev/host_vars/ubuntu3/main.yml
+# inventories/dev/host_vars/ubuntu3/main.yml
 ansible_host: 192.168.56.13
 ```
 
@@ -70,10 +70,10 @@ Each role can be run independently using tags. Here's how to run each role:
 Checks system for available updates and removes unattended-upgrades:
 ```bash
 # Check updates on all hosts
-ansible-playbook -i inventory/dev/hosts.yml site.yml -t check -b
+ansible-playbook -i inventories/dev/hosts.yml site.yml -t check -b
 
 # Check updates on specific host
-ansible-playbook -i inventory/dev/hosts.yml site.yml \
+ansible-playbook -i inventories/dev/hosts.yml site.yml \
   -t check -b \
   --limit ubuntu1
 
@@ -81,10 +81,10 @@ ansible-playbook -i inventory/dev/hosts.yml site.yml \
 Applies security updates only:
 ```bash
 # Apply security updates on all hosts
-ansible-playbook -i inventory/dev/hosts.yml site.yml -t security -b
+ansible-playbook -i inventories/dev/hosts.yml site.yml -t security -b
 
 # Apply security updates on specific host
-ansible-playbook -i inventory/dev/hosts.yml site.yml \
+ansible-playbook -i inventories/dev/hosts.yml site.yml \
   -t security -b \
   --limit ubuntu1
 
@@ -92,10 +92,10 @@ ansible-playbook -i inventory/dev/hosts.yml site.yml \
 Performs full system update:
 ```bash
 # Update all hosts
-ansible-playbook -i inventory/dev/hosts.yml site.yml -t update -b
+ansible-playbook -i inventories/dev/hosts.yml site.yml -t update -b
 
 # Update specific host
-ansible-playbook -i inventory/dev/hosts.yml site.yml \
+ansible-playbook -i inventories/dev/hosts.yml site.yml \
   -t update -b \
   --limit ubuntu1
 
@@ -103,10 +103,10 @@ ansible-playbook -i inventory/dev/hosts.yml site.yml \
 Reboots system if required after updates:
 ```bash
 # Check and reboot all hosts if needed
-ansible-playbook -i inventory/dev/hosts.yml site.yml -t reboot -b
+ansible-playbook -i inventories/dev/hosts.yml site.yml -t reboot -b
 
 # Check and reboot specific host if needed
-ansible-playbook -i inventory/dev/hosts.yml site.yml \
+ansible-playbook -i inventories/dev/hosts.yml site.yml \
   -t reboot -b \
   --limit ubuntu1
 
@@ -114,10 +114,10 @@ ansible-playbook -i inventory/dev/hosts.yml site.yml \
 You can combine multiple roles by specifying multiple tags:
 ```bash
 # Run check and security updates only
-ansible-playbook -i inventory/dev/hosts.yml site.yml -t check,security -b
+ansible-playbook -i inventories/dev/hosts.yml site.yml -t check,security -b
 
 # Full update cycle (all roles)
-ansible-playbook -i inventory/dev/hosts.yml site.yml \
+ansible-playbook -i inventories/dev/hosts.yml site.yml \
   -t check,security,update,reboot -b
 
 ### Role Output Examples
@@ -171,7 +171,7 @@ The reboot role has been simplified to use a more elegant approach for handling 
 2. **Reboot Control**:
    - Hosts with `ignore_reboot: true` will be excluded from rebooting
    - For hosts without dependencies, the reboot process is straightforward
-   - For hosts with dependencies (defined via `wait_for_inventory_hostname`), the role:
+   - For hosts with dependencies (defined via `wait_for_inventories_hostname`), the role:
      - Creates a temporary status directory to track reboot status
      - Waits for the dependent host to complete its reboot by checking for a status file
      - Verifies the dependent host is fully operational by checking network connectivity
@@ -194,7 +194,7 @@ The playbook includes a reboot role that handles system reboots when required. T
 
 ### Reboot Dependencies
 
-In some cases, you may want to ensure that certain hosts reboot before others. For example, if you have a database server that needs to be back online before application servers reboot. This is handled through the `wait_for_inventory_hostname` variable.
+In some cases, you may want to ensure that certain hosts reboot before others. For example, if you have a database server that needs to be back online before application servers reboot. This is handled through the `wait_for_inventories_hostname` variable.
 
 ### Ignoring Reboots
 
@@ -202,14 +202,14 @@ Some hosts may need to be excluded from reboots due to maintenance windows, crit
 
 #### How it works
 
-1. Define the `wait_for_inventory_hostname` variable in the host vars for any host that should wait for another host to reboot first.
+1. Define the `wait_for_inventories_hostname` variable in the host vars for any host that should wait for another host to reboot first.
 2. Set the `ignore_reboot` variable to `true` for any host that should not reboot, even if a reboot is required.
 3. The reboot role will:
    - Check if a reboot is required
    - Skip hosts that have `ignore_reboot` set to `true`
    - Create a temporary status directory to track reboot status
    - For hosts without dependencies, reboot immediately
-   - For hosts with a `wait_for_inventory_hostname` defined:
+   - For hosts with a `wait_for_inventories_hostname` defined:
      - Wait for that host to complete its reboot (by checking for a status file)
      - Verify the host is online by checking network connectivity
      - Then proceed with its own reboot
@@ -221,14 +221,14 @@ Some hosts may need to be excluded from reboots due to maintenance windows, crit
 To make `ubuntu3` wait for `ubuntu1` to reboot first:
 
 ```yaml
-# inventory/dev/host_vars/ubuntu3/main.yml
-wait_for_inventory_hostname: ubuntu1
+# inventories/dev/host_vars/ubuntu3/main.yml
+wait_for_inventories_hostname: ubuntu1
 ```
 
 To prevent `ubuntu2` from rebooting:
 
 ```yaml
-# inventory/dev/host_vars/ubuntu2/main.yml
+# inventories/dev/host_vars/ubuntu2/main.yml
 ignore_reboot: true
 ```
 
@@ -283,7 +283,7 @@ The playbook includes the following tags for granular control:
 - Checks if reboot is required
 - Lists packages requiring reboot
 - Supports excluding hosts from rebooting with `ignore_reboot: true`
-- Supports dependent reboots using `wait_for_inventory_hostname`
+- Supports dependent reboots using `wait_for_inventories_hostname`
 - Uses a two-phase verification for dependent hosts:
   - Checks for a status file indicating the dependent host has rebooted
   - Verifies network connectivity to ensure the host is fully operational
@@ -313,29 +313,29 @@ ansible-vault encrypt_string 'your_sudo_password' --name 'ansible_become_passwor
 ### Reboot Examples
 ```bash
 # Reboot all hosts respecting priorities and wait conditions
-ansible-playbook -i inventory/dev/hosts.yml site.yml -t reboot
+ansible-playbook -i inventories/dev/hosts.yml site.yml -t reboot
 
 # Reboot specific hosts
-ansible-playbook -i inventory/dev/hosts.yml site.yml -t reboot --limit ubuntu1,ubuntu3
+ansible-playbook -i inventories/dev/hosts.yml site.yml -t reboot --limit ubuntu1,ubuntu3
 
 # Check reboot status without actually rebooting (dry run)
-ansible-playbook -i inventory/dev/hosts.yml site.yml -t reboot --check
+ansible-playbook -i inventories/dev/hosts.yml site.yml -t reboot --check
 ```
 
 ### Run Commands
 ```bash
 # Test all hosts
-ansible all -i inventory/dev/hosts.yml -m ping
+ansible all -i inventories/dev/hosts.yml -m ping
 
 # Run specific tags
 # Run check and security updates only
-ansible-playbook -i inventory/dev/hosts.yml site.yml -t check,security -b
+ansible-playbook -i inventories/dev/hosts.yml site.yml -t check,security -b
 
 # Run full playbook
-ansible-playbook -i inventory/dev/hosts.yml site.yml
+ansible-playbook -i inventories/dev/hosts.yml site.yml
 
 # Run on specific host with privilege escalation
-ansible-playbook -i inventory/dev/hosts.yml site.yml \
+ansible-playbook -i inventories/dev/hosts.yml site.yml \
   --limit ubuntu1 -b
 ```
 
