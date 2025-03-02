@@ -1,21 +1,62 @@
 # Dozzle Docker Monitoring with Ansible
 
-This Ansible project sets up a Dozzle monitoring system with a manager-agent architecture using Docker containers. Dozzle provides a web interface to view and search Docker container logs.
+This Ansible project sets up a Dozzle monitoring system with a manager-agent architecture using Docker containers. Dozzle provides a real-time web interface to view and search Docker container logs across multiple hosts from a single dashboard.
 
-## Architecture
+## System Architecture
 
-The setup consists of:
+The setup implements a manager-agent architecture where:
 
-- **Manager Node**: Runs the main Dozzle instance that connects to agent nodes and provides a unified web interface for all container logs
-- **Agent Nodes**: Run Dozzle agent instances that collect logs from their local Docker containers and expose them to the manager
+- **Manager Node**: Central server that collects and displays logs from all Docker containers (local and remote)
+- **Agent Nodes**: Servers that expose their Docker container logs to the manager
+
+This architecture enables centralized log monitoring across your entire Docker infrastructure, eliminating the need to access each server individually.
+
+## Project Structure
+
+```
+ansible/docker/dozzle/
+├── inventories/                # Inventory definitions
+│   ├── dev/                    # Development environment
+│   │   ├── hosts.yml           # Defines manager and agent groups
+│   │   └── group_vars/         # Variables for inventory groups
+├── roles/
+│   └── common/                 # Shared role for both manager and agent nodes
+│       ├── tasks/              # Tasks for deploying Dozzle
+│       └── templates/          # Docker Compose templates
+│           ├── docker-compose-agent.yml.j2
+│           └── docker-compose-manager.yml.j2
+├── Vagrantfile                 # Creates test VMs (ubuntu1, ubuntu2, ubuntu3)
+├── ansible.cfg                 # Ansible configuration
+├── requirements.yml            # Required roles and collections
+└── site.yml                    # Main playbook
+```
+
+## Development Environment
+
+> **Note**: The current configuration is specifically designed for development and testing using Vagrant VMs. For production deployment, additional configuration would be required.
+
+### Test Infrastructure
+
+The included Vagrantfile creates three Ubuntu 22.04 (Jammy) VMs:
+- **ubuntu1 (192.168.56.11)**: Manager node
+- **ubuntu2 (192.168.56.12)**: Agent node
+- **ubuntu3 (192.168.56.13)**: Agent node
+
+These VMs provide an isolated environment to test the Dozzle manager-agent setup without affecting your production systems.
+
+### Software Stack
+
+- **Docker**: Installed via geerlingguy.docker role (v7.4.5)
+- **Docker Compose**: Used via the community.docker collection (v4.4.0)
+- **Dozzle**: v8.11.7 (amir20/dozzle image)
 
 ## Prerequisites
 
 - Ansible 2.9+
-- Vagrant and VirtualBox (for testing)
+- Vagrant 2.2+ and VirtualBox 6.0+ (for testing)
 - SSH access to target servers
 
-## Setup Instructions
+## Quick Start
 
 ### 1. Install Required Roles and Collections
 
@@ -23,33 +64,21 @@ The setup consists of:
 ansible-galaxy install -r requirements.yml
 ```
 
-### 2. Testing with Vagrant
-
-The project includes a Vagrantfile that creates 3 Ubuntu VMs:
-- ubuntu1: Dozzle manager
-- ubuntu2, ubuntu3: Dozzle agents
-
-To start the test environment:
+### 2. Start Test Environment
 
 ```bash
 vagrant up
 ```
 
-### 3. Deploy Dozzle
+This creates the three Ubuntu VMs described above in the test infrastructure section.
 
-Run the playbook to deploy Dozzle to all nodes:
+### 3. Deploy Dozzle
 
 ```bash
 ansible-playbook -i inventories/dev/hosts.yml site.yml
 ```
 
-The playbook will:
-1. Install Docker on all servers using the geerlingguy.docker role
-2. Deploy Dozzle agents on the agent nodes
-3. Collect agent information (IP addresses and ports)
-4. Deploy the Dozzle manager with connections to all agents
-
-### 4. Accessing Dozzle
+### 4. Access the Dashboard
 
 After deployment, access the Dozzle web interface at:
 
@@ -57,28 +86,99 @@ After deployment, access the Dozzle web interface at:
 http://192.168.56.11:8080
 ```
 
-## How It Works
+## Deployment Workflow
 
-1. The playbook first deploys Dozzle agents on the specified agent nodes
-2. It collects the IP addresses and ports of all agents
-3. It then deploys the Dozzle manager, configuring it to connect to all agents
-4. The manager provides a unified web interface to view logs from all containers across all nodes
+The deployment process follows these steps:
 
-## Configuration
+1. **Docker Installation**:
+   - Docker is installed on all nodes using the geerlingguy.docker role
+   - The ansible user is added to the docker group for non-root access
 
-- Agent nodes expose port 7007 for manager connection
-- Manager node exposes port 8080 for web interface access
-- Docker socket is mounted to allow Dozzle to access container logs
+2. **Agent Deployment**:
+   - Dozzle agents are deployed on designated agent nodes
+   - Docker Compose files are created in the user's home directory under Docker/dozzle_agent/
+   - Agents expose port 7007 for manager connection
+
+3. **Manager Deployment**:
+   - Agent information is collected and formatted as a connection string
+   - Dozzle manager is deployed with the agent connection string
+   - Docker Compose files are created in the user's home directory under Docker/dozzle/
+   - Manager exposes port 8080 for web access
+
+## Configuration Templates
+
+The Docker Compose configurations are managed through Ansible templates:
+
+- **Agent Configuration**: [`roles/common/templates/docker-compose-agent.yml.j2`](roles/common/templates/docker-compose-agent.yml.j2)
+- **Manager Configuration**: [`roles/common/templates/docker-compose-manager.yml.j2`](roles/common/templates/docker-compose-manager.yml.j2)
+
+These templates are processed by Ansible and deployed to each node based on its role (manager or agent).
+
+## Key Configuration Parameters
+
+- **Agent Port**: 7007 (used for manager-agent communication)
+- **Manager Web Interface Port**: 8080
+- **Docker Socket Mount**: Required for accessing container logs
+- **Agent Connection String**: Automatically generated based on agent inventory
+
+## Verification and Testing
+
+After deployment, verify the setup with these steps:
+
+1. Check container status on all nodes:
+   ```bash
+   # On manager node (ubuntu1)
+   vagrant ssh ubuntu1 -c "docker ps | grep dozzle"
+   
+   # On agent nodes (ubuntu2, ubuntu3)
+   vagrant ssh ubuntu2 -c "docker ps | grep dozzle-agent"
+   vagrant ssh ubuntu3 -c "docker ps | grep dozzle-agent"
+   ```
+
+2. Access the web interface at http://192.168.56.11:8080
+
+3. Check logs from containers on all connected nodes appear in the interface
+
+## Adapting for Production
+
+To adapt this setup for production environments, consider:
+
+1. **Security Enhancements**:
+   - Implement TLS for manager-agent communication
+   - Set up authentication for the web interface
+   - Use a proper reverse proxy (e.g., Traefik, Nginx) for HTTPS
+
+2. **Infrastructure Changes**:
+   - Create a production inventory with your actual server hostnames/IPs
+   - Implement network security measures appropriate for your environment
+   - Consider high-availability configurations for critical components
+
+3. **Configuration Management**:
+   - Store sensitive configuration in encrypted Ansible vault files
+   - Adjust Docker Compose templates for production-specific requirements
+   - Implement proper logging and monitoring solutions
 
 ## Troubleshooting
 
-- Check Docker container status: `docker ps`
-- View Dozzle container logs: `docker logs dozzle` or `docker logs dozzle-agent`
-- Verify connectivity between manager and agent nodes
-- Ensure Docker is running on all nodes
+Common issues when testing with Vagrant:
 
-## Security Considerations
+1. **VM Connectivity Issues**:
+   - Ensure all VMs are running: `vagrant status`
+   - Check VM network configuration: `vagrant ssh ubuntu1 -c "ip addr"`
 
-- The Docker socket is mounted inside containers, which gives Dozzle full access to the Docker daemon
-- In production environments, consider implementing proper network security and access controls
-- For secure external access, consider setting up a reverse proxy with TLS
+2. **Docker Container Problems**:
+   - Check container logs: `vagrant ssh ubuntu1 -c "docker logs dozzle"`
+   - Verify Docker is running: `vagrant ssh ubuntu1 -c "systemctl status docker"`
+
+3. **Agent-Manager Connection Issues**:
+   - Verify network connectivity between VMs
+   - Check agent configuration in the manager's environment variables
+   - Inspect agent logs: `vagrant ssh ubuntu2 -c "docker logs dozzle-agent"`
+
+## References
+
+- [Dozzle Documentation](https://dozzle.dev/)
+- [Dozzle Agent Setup Guide](https://dozzle.dev/guide/agent)
+- [Docker Compose Documentation](https://docs.docker.com/compose/)
+- [Ansible Documentation](https://docs.ansible.com/)
+- [Vagrant Documentation](https://www.vagrantup.com/docs)
