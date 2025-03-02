@@ -2,12 +2,16 @@
 - name: Ensure Docker is installed and running
   hosts: all
   become: true
+  gather_facts: true
   roles:
-    - geerlingguy.docker
+    - role: geerlingguy.docker
+      vars:
+        docker_users:
+          - "{{ ansible_user }}"
 
 - name: Deploy Dozzle agents
   hosts: agents
-  become: true
+  gather_facts: true
   roles:
     - role: common
   tasks:
@@ -17,7 +21,7 @@
 
 - name: Deploy Dozzle manager
   hosts: managers
-  become: true
+  gather_facts: true
   roles:
     - role: common
   vars:

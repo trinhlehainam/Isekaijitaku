@@ -1,18 +1,18 @@
 ---
 - name: Create directory for docker-compose files
   ansible.builtin.file:
-    path: "{{ ansible_env.HOME }}/Docker/dozzle{{ '_agent' if inventory_hostname in groups['agents'] else '' }}"
+    path: "{{ ansible_user_dir }}/Docker/dozzle{{ '_agent' if inventory_hostname in groups['agents'] }}"
     state: directory
     mode: '0755'
 
 - name: Copy docker-compose file
   ansible.builtin.template:
     src: "docker-compose-{{ 'agent' if inventory_hostname in groups['agents'] else 'manager' }}.yml.j2"
-    dest: "{{ ansible_env.HOME }}/Docker/dozzle{{ '_agent' if inventory_hostname in groups['agents'] else '' }}/docker-compose.yml"
+    dest: "{{ ansible_user_dir }}/Docker/dozzle{{ '_agent' if inventory_hostname in groups['agents'] }}/docker-compose.yml"
     mode: '0644'
   
 - name: Start Dozzle containers
   community.docker.docker_compose_v2:
-    project_src: "{{ ansible_env.HOME }}/Docker/dozzle{{ '_agent' if inventory_hostname in groups['agents'] else '' }}"
+    project_src: "{{ ansible_user_dir }}/Docker/dozzle{{ '_agent' if inventory_hostname in groups['agents'] }}"
     state: present
   register: output
