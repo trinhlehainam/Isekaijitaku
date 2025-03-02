@@ -1,4 +1,10 @@
 ---
+- name: Ensure Docker is installed and running
+  hosts: all
+  become: true
+  roles:
+    - geerlingguy.docker
+
 - name: Deploy Dozzle agents
   hosts: agents
   become: true

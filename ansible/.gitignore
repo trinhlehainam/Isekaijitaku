@@ -1,3 +1,5 @@
 **/.ansible
 
 **/.vagrant
+
+**/.vault_pass
