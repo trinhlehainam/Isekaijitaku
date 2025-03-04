@@ -4,7 +4,7 @@ services:
   cloudflared-tunnel:
     container_name: cloudflared-tunnel
     # https://hub.docker.com/r/cloudflare/cloudflared/tags
-    image: cloudflare/cloudflared:2025.2.0-amd64
+    image: cloudflare/cloudflared:2025.2.1-amd64
     restart: always
     volumes:
       - <PATH_TO_CONFIG_FOLDER>:/home/nonroot/.cloudflared/
