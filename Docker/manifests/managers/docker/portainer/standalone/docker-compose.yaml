@@ -17,9 +17,9 @@ services:
     # https://docs.portainer.io/advanced/reverse-proxy/traefik
     labels:
       - "traefik.enable=true"
+      - "traefik.http.services.portainer.loadbalancer.server.port=9000"
       - "traefik.http.routers.portainer-local.rule=Host(`portainer.yourdomain`)"
       - "traefik.http.routers.portainer-local.entrypoints=websecure"
-      - "traefik.http.services.portainer.loadbalancer.server.port=9000"
       - "traefik.http.routers.portainer-local.service=portainer-local"
       - "traefik.http.routers.portainer-local.tls.certresolver=stepca"
 
