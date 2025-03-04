@@ -1,0 +1,18 @@
+---
+- name: Create directory for docker-compose files
+  ansible.builtin.file:
+    path: "{{ ansible_user_dir }}/Docker/Beszel{{ '_agent' if inventory_hostname in groups['agents'] }}"
+    state: directory
+    mode: '0755'
+
+- name: Copy docker-compose file
+  ansible.builtin.template:
+    src: "docker/docker-compose{{ '-agent' if inventory_hostname in groups['agents'] }}.yml.j2"
+    dest: "{{ ansible_user_dir }}/Docker/Beszel{{ '_agent' if inventory_hostname in groups['agents'] }}/docker-compose.yml"
+    mode: '0644'
+  
+- name: Start Beszel containers
+  community.docker.docker_compose_v2:
+    project_src: "{{ ansible_user_dir }}/Docker/Beszel{{ '_agent' if inventory_hostname in groups['agents'] }}"
+    state: present
+  register: output

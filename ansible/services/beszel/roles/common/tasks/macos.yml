@@ -1,0 +1,29 @@
+- vars:
+    daemon_name: com.beszel.agent
+
+- name: Prepare Beszel download url
+  ansible.builtin.command:
+    cmd: echo "https://github.com/henrygd/beszel/releases/latest/download/beszel-agent_$(uname -s)_$(uname -m | sed -e 's/x86_64/amd64/' -e 's/armv6l/arm/' -e 's/armv7l/arm/' -e 's/aarch64/arm64/').tar.gz"
+  register: download_url
+
+- name: Download Beszel agent binary
+  get_url:
+    url: "{{ download_url }}"
+    dest: /usr/local/bin/beszel-agent
+    mode: '0755'
+    
+- name: Deploy Beszel agent definiation
+  ansible.builtin.template:
+    src: "macos/com.beszel.agent.plist.j2"
+    dest: "/Library/LaunchDaemons/com.beszel.agent.plist"
+    
+- name: Enable Beszel agent service enabled and started
+  community.general.launchd:
+    name: "{{ daemon_name }}"
+    state: reloaded
+    enabled: yes
+  register: launchd_status
+  
+- name: Beszel agent service status
+  ansible.builtin.debug:
+    msg: "{{ launchd_status }}"

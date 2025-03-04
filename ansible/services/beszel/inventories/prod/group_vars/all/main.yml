@@ -1,0 +1,16 @@
+ansible_python_interpreter: /usr/bin/python3
+
+use_docker: true
+
+# Traefik configuration
+use_traefik: true
+
+# Router configuration
+traefik_router_public: true
+traefik_router_private: true
+
+# Service name (will be used as subdomain)
+service_name: "dozzle"
+
+public_apex_domain: "yourdomain"
+private_apex_domain: "yourdomain.local"

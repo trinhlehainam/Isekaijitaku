@@ -1,0 +1,10 @@
+---
+- name: Install Beszel agent docker containers
+  ansible.builtin.include_tasks:
+    path: "docker.yml"
+  when: use_docker
+  
+- name: Install Beszel agent macOS service
+  ansible.builtin.include_tasks:
+    path: "macos.yml"
+  when: ansible_os_family == 'Darwin' and not use_docker 
