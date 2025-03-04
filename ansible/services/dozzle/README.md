@@ -92,7 +92,7 @@ Or, if using Traefik:
 
 ```
 https://dozzle.yourdomain.local  # Internal access
-https://dozzle.yourdomain  # Public access
+https://dozzle.yourdomain    # Public access
 ```
 
 ## Deployment Workflow
