@@ -1,4 +1,3 @@
-- Create Simple Ansible Docker Project that require no dependencies like Portainer, Dozzle, etc
 - Create Ansbible Projects for docker container that require back up when upgrade
 
 ## Ansible Galaxys
