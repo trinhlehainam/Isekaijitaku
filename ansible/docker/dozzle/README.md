@@ -49,12 +49,14 @@ These VMs provide an isolated environment to test the Dozzle manager-agent setup
 - **Docker**: Installed via geerlingguy.docker role (v7.4.5)
 - **Docker Compose**: Used via the community.docker collection (v4.4.0)
 - **Dozzle**: v8.11.7 (amir20/dozzle image)
+- **Traefik** (Optional): For routing and TLS termination
 
 ## Prerequisites
 
 - Ansible 2.9+
 - Vagrant 2.2+ and VirtualBox 6.0+ (for testing)
 - SSH access to target servers
+- Traefik (optional) configured and running for proxy setup
 
 ## Quick Start
 
@@ -86,6 +88,13 @@ After deployment, access the Dozzle web interface at:
 http://192.168.56.11:8080
 ```
 
+Or, if using Traefik:
+
+```
+https://dozzle.yourdomain.local  # Internal access
+https://dozzle.yourdomain.com    # Public access
+```
+
 ## Deployment Workflow
 
 The deployment process follows these steps:
@@ -103,7 +112,7 @@ The deployment process follows these steps:
    - Agent information is collected and formatted as a connection string
    - Dozzle manager is deployed with the agent connection string
    - Docker Compose files are created in the user's home directory under Docker/dozzle/
-   - Manager exposes port 8080 for web access
+   - Manager either exposes port 8080 for direct web access or integrates with Traefik
 
 ## Configuration Templates
 
@@ -117,9 +126,51 @@ These templates are processed by Ansible and deployed to each node based on its 
 ## Key Configuration Parameters
 
 - **Agent Port**: 7007 (used for manager-agent communication)
-- **Manager Web Interface Port**: 8080
+- **Manager Web Interface Port**: 8080 (when not using Traefik)
 - **Docker Socket Mount**: Required for accessing container logs
 - **Agent Connection String**: Automatically generated based on agent inventory
+
+### Traefik Integration
+
+The setup supports integration with Traefik as a reverse proxy with the following configuration options:
+
+| Variable | Description | Default Value |
+|----------|-------------|---------------|
+| `use_traefik` | Enable Traefik integration | `false` |
+| `service_name` | Service name (used as subdomain) | `dozzle` |
+| `traefik_router_public` | Enable public-facing router | `false` |
+| `traefik_router_private` | Enable private/internal router | `false` |
+| `public_apex_domain` | Root domain for public access (without subdomain) | - |
+| `private_apex_domain` | Root domain for private access (without subdomain) | - |
+
+Example inventory configuration (in `group_vars/all/main.yml`):
+
+```yaml
+# Traefik configuration
+use_traefik: true
+
+# Router configuration
+traefik_router_public: true
+traefik_router_private: true
+
+# Service name (will be used as subdomain)
+service_name: "dozzle"
+
+public_apex_domain: "yourdomain"
+private_apex_domain: "yourdomain.local"
+```
+
+With this configuration, Dozzle would be accessible at:
+- Public URL: `https://dozzle.yourdomain`
+- Private URL: `https://dozzle.yourdomain.local`
+
+When Traefik integration is enabled:
+- Direct port exposure (8080) is disabled
+- The container is connected to the `proxy` network (must exist as an external network)
+- Labels are added to configure Traefik routing based on the specified variables
+- Both router types (public and private) require their respective apex domains to be defined
+- Fixed certificate resolvers are used: `cloudflare` for public and `stepca` for private
+- Fixed middleware `oauth2-admin@file` is used for both public and private routers
 
 ## Verification and Testing
 
@@ -135,7 +186,11 @@ After deployment, verify the setup with these steps:
    vagrant ssh ubuntu3 -c "docker ps | grep dozzle-agent"
    ```
 
-2. Access the web interface at http://192.168.56.11:8080
+2. Access the web interface:
+   - Direct access: http://192.168.56.11:8080
+   - Via Traefik (if configured): 
+     - Public: https://dozzle.yourdomain.com
+     - Private: https://dozzle.yourdomain.local
 
 3. Check logs from containers on all connected nodes appear in the interface
 
@@ -146,7 +201,7 @@ To adapt this setup for production environments, consider:
 1. **Security Enhancements**:
    - Implement TLS for manager-agent communication
    - Set up authentication for the web interface
-   - Use a proper reverse proxy (e.g., Traefik, Nginx) for HTTPS
+   - Use Traefik for HTTPS and authentication
 
 2. **Infrastructure Changes**:
    - Create a production inventory with your actual server hostnames/IPs
@@ -175,10 +230,17 @@ Common issues when testing with Vagrant:
    - Check agent configuration in the manager's environment variables
    - Inspect agent logs: `vagrant ssh ubuntu2 -c "docker logs dozzle-agent"`
 
+4. **Traefik Integration Issues**:
+   - Verify the `proxy` network exists and is properly configured
+   - Check Traefik logs for routing issues
+   - Confirm DNS resolution for the configured domains
+   - Ensure both apex domains and service name are properly defined
+
 ## References
 
 - [Dozzle Documentation](https://dozzle.dev/)
 - [Dozzle Agent Setup Guide](https://dozzle.dev/guide/agent)
 - [Docker Compose Documentation](https://docs.docker.com/compose/)
+- [Traefik Documentation](https://doc.traefik.io/)
 - [Ansible Documentation](https://docs.ansible.com/)
 - [Vagrant Documentation](https://www.vagrantup.com/docs)

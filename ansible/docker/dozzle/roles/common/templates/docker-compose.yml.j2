@@ -6,14 +6,11 @@ services:
     image: amir20/dozzle:v8.11.7
     container_name: dozzle
     environment:
-      DOZZLE_HOSTNAME: dozzle
+      DOZZLE_HOSTNAME: {{ inventory_hostname }}
       # https://dozzle.dev/guide/agent#how-to-connect-to-an-agent
-      # DOZZLE_REMOTE_AGENT: agent_ip:7007
-    # ports:
-    #   - 8080:8080
+      DOZZLE_REMOTE_AGENT: {{ dozzle_agents_connection_string }}
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-    # https://dozzle.dev/guide/healthcheck
     healthcheck:
       test: [ "CMD", "/dozzle", "healthcheck" ]
       interval: 3s
@@ -21,23 +18,35 @@ services:
       retries: 5
       start_period: 30s
     restart: unless-stopped
+{% if not use_traefik|default(true) %}
+    ports:
+      - 8080:8080
+{% endif %}
+{% if use_traefik|default(false) %}
     networks:
       - proxy
     labels:
       - "traefik.enable=true"
       - 'traefik.docker.network=proxy'
       - 'traefik.http.services.dozzle.loadbalancer.server.port=8080'
+  {% if traefik_router_private|default(false) and traefik_private_root_domain|default(false) %}
       ## Private
-      - "traefik.http.routers.dozzle-local.rule=Host(`dozzle.yourdomain.local`)"
+      - "traefik.http.routers.dozzle-local.rule=Host(`{{ service_name | default('dozzle') }}.{{ private_apex_domain }}`)"
       - "traefik.http.routers.dozzle-local.entrypoints=websecure"
       - "traefik.http.routers.dozzle-local.tls.certresolver=stepca"
       - "traefik.http.routers.dozzle-local.middlewares=oauth2-admin@file"
+      - "traefik.http.routers.dozzle-local.service=dozzle"
+  {% endif %}
+  {% if traefik_router_public|default(false) and traefik_public_root_domain|default(false) %}
       ## Public
-      - "traefik.http.routers.dozzle.rule=Host(`dozzle.yourdomain`)"
+      - "traefik.http.routers.dozzle.rule=Host(`{{ service_name | default('dozzle') }}.{{ public_apex_domain }}`)"
       - "traefik.http.routers.dozzle.entrypoints=websecure"
       - "traefik.http.routers.dozzle.tls.certresolver=cloudflare"
       - "traefik.http.routers.dozzle.middlewares=oauth2-admin@file"
+      - "traefik.http.routers.dozzle.service=dozzle"
+  {% endif %}
 
 networks:
   proxy:
     external: true
+{% endif %}
