@@ -24,7 +24,7 @@ ansible/docker/dozzle/
 │       ├── tasks/              # Tasks for deploying Dozzle
 │       └── templates/          # Docker Compose templates
 │           ├── docker-compose-agent.yml.j2
-│           └── docker-compose-manager.yml.j2
+│           └── docker-compose.yml.j2
 ├── Vagrantfile                 # Creates test VMs (ubuntu1, ubuntu2, ubuntu3)
 ├── ansible.cfg                 # Ansible configuration
 ├── requirements.yml            # Required roles and collections
@@ -92,7 +92,7 @@ Or, if using Traefik:
 
 ```
 https://dozzle.yourdomain.local  # Internal access
-https://dozzle.yourdomain.com    # Public access
+https://dozzle.yourdomain  # Public access
 ```
 
 ## Deployment Workflow
@@ -119,7 +119,7 @@ The deployment process follows these steps:
 The Docker Compose configurations are managed through Ansible templates:
 
 - **Agent Configuration**: [`roles/common/templates/docker-compose-agent.yml.j2`](roles/common/templates/docker-compose-agent.yml.j2)
-- **Manager Configuration**: [`roles/common/templates/docker-compose-manager.yml.j2`](roles/common/templates/docker-compose-manager.yml.j2)
+- **Manager Configuration**: [`roles/common/templates/docker-compose.yml.j2`](roles/common/templates/docker-compose.yml.j2)
 
 These templates are processed by Ansible and deployed to each node based on its role (manager or agent).
 
@@ -189,7 +189,7 @@ After deployment, verify the setup with these steps:
 2. Access the web interface:
    - Direct access: http://192.168.56.11:8080
    - Via Traefik (if configured): 
-     - Public: https://dozzle.yourdomain.com
+     - Public: https://dozzle.yourdomain
      - Private: https://dozzle.yourdomain.local
 
 3. Check logs from containers on all connected nodes appear in the interface
