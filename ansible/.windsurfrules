@@ -31,6 +31,13 @@ ansible-project/
 ansible-repo/                   # Repository root
 ├── roles/                      # Centralized shared roles
 │   ├── common/                 # Shared role for all projects
+│   ├── shared_vars/            # Role dedicated to shared variables
+│   │   └── defaults/           # Shared variables across all projects
+│   │       ├── main.yml        # Common variables for all environments
+│   │       ├── database.yml    # Database-specific variables
+│   │       ├── web.yml         # Web server variables
+│   │       ├── prod.yml        # Production environment variables
+│   │       └── dev.yml         # Development environment variables
 │   ├── nginx/                  # Shared role for all projects
 │   └── requirements.yml        # External role dependencies
 ├── ansible.cfg                 # Root config (used by Semaphore UI)
@@ -175,10 +182,12 @@ For Ansible playbook and role development:
    - Always use Fully Qualified Collection Names (FQCN) for modules (e.g., `ansible.builtin.copy` not `copy`)
 
 3. **Variable Organization**
-   - group_vars/all: Site-wide settings
+   - Define user-specific variables in playbooks
    - group_vars/GROUP: Role-specific variables
    - host_vars: Only truly host-specific settings
    - Always namespace variables (nginx_port not port)
+   - Use shared_vars role for variables shared across projects
+   - Access shared variables by including the shared_vars role or with `include_vars`
 
 4. **Performance Optimization**
    - Use `async` for long-running tasks
@@ -389,3 +398,67 @@ When modifying or creating Ansible playbooks and roles:
    - For custom modules, use their defined collection
    - Flag any ambiguous module references for clarification
 </fqcn_usage>
+
+<variable_sharing_strategies>
+For effectively sharing variables across multiple Ansible projects:
+
+1. **Create a Dedicated shared_vars Role**
+   - Set up a simple structure with just defaults folder:
+     ```
+     roles/shared_vars/
+     └── defaults/
+         ├── main.yml         # Common variables for all environments
+         ├── database.yml     # Database-specific variables
+         ├── web.yml          # Web server variables
+         ├── prod.yml         # Production environment variables
+         └── dev.yml          # Development environment variables
+     ```
+   - Store all shared variables in defaults/main.yml:
+     ```yaml
+     # roles/shared_vars/defaults/main.yml
+     app_port: 8080
+     log_dir: "/var/log/app"
+     max_connections: 100
+     security_settings:
+       enable_firewall: true
+       allowed_ports: [22, 80, 443]
+     ```
+
+2. **Import shared_vars Role in Playbooks**
+   - Simply include the role at the beginning of your playbook:
+     ```yaml
+     # project1/playbooks/web.yml
+     - hosts: webservers
+       roles:
+         - shared_vars  # This loads all shared variables
+         - application  # This role can use variables from shared_vars
+     ```
+   - No tasks will be executed from shared_vars, only variables will be loaded
+
+3. **Override Variables When Needed**
+   - In inventory files:
+     ```yaml
+     # project1/inventories/production/group_vars/all.yml
+     app_port: 80  # Overrides the default from shared_vars
+     ```
+   - In playbooks:
+     ```yaml
+     # project2/playbooks/special.yml
+     - hosts: special_servers
+       vars:
+         max_connections: 500  # Overrides the default from shared_vars
+       roles:
+         - shared_vars
+         - special_app
+     ```
+
+4. **Namespace Variables Properly**
+   - Use descriptive prefixes to avoid conflicts:
+     ```yaml
+     # roles/shared_vars/defaults/main.yml
+     db_host: "localhost"
+     db_port: 5432
+     web_port: 80
+     web_workers: 4
+     ```
+</variable_sharing_strategies>
