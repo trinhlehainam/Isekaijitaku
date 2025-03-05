@@ -1,5 +1,18 @@
 ansible_python_interpreter: /usr/bin/python3
 
+# Forgejo data and configuration directories
+forgejo_data_dir: "/var/lib/forgejo/data"
+forgejo_conf_dir: "/var/lib/forgejo/conf"
+
+# Forgejo Mailer Configuration
+# Uncomment to enable mailer (all variables must be defined for mailer to work)
+forgejo_mailer_smtp_addr: 'smtp.example.com'
+forgejo_mailer_smtp_port: 465
+forgejo_mailer_user: 'username@example.com'
+forgejo_mailer_password: 'your_password'
+forgejo_mailer_from: 'forgejo@example.com'
+forgejo_mailer_protocol: 'smtps'
+
 # Traefik configuration
 use_traefik: true
 

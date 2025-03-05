@@ -18,7 +18,9 @@ services:
       - -c
       - |
         export FORGEJO__database__PASSWD=$$(cat /run/secrets/db_password)
+{% if use_forgejo_mailer %}
         export FORGEJO__mailer__PASSWD=$$(cat /run/secrets/mailer_password)
+{% endif %}
         /usr/bin/dumb-init -- /usr/local/bin/docker-entrypoint.sh
     # Configuration Variables
     # https://forgejo.org/docs/next/admin/config-cheat-sheet/
@@ -37,13 +39,15 @@ services:
         FORGEJO__openid__ENABLE_OPENID_SIGNIN: false
         FORGEJO__openid__ENABLE_OPENID_SIGNUP: false
 
+{% if use_forgejo_mailer %}
         # https://forgejo.org/docs/latest/admin/email-setup/
         FORGEJO__mailer__ENABLED: true
-        FORGEJO__mailer__FROM: forgejo@example.com
-        FORGEJO__mailer__PROTOCOL: smtps
-        FORGEJO__mailer__SMTP_ADDR: smtp.example.com
-        FORGEJO__mailer__SMTP_PORT: 465
-        FORGEJO__mailer__SMTP_USER: username@example.com
+        FORGEJO__mailer__FROM: {{ forgejo_mailer_from|default("forgejo@{{ forgejo_mailer_user.split('@')[1] }}") }}
+        FORGEJO__mailer__PROTOCOL: {{ forgejo_mailer_protocol|default('smtps') }}
+        FORGEJO__mailer__SMTP_ADDR: {{ forgejo_mailer_smtp_addr }}
+        FORGEJO__mailer__SMTP_PORT: {{ forgejo_mailer_smtp_port }}
+        FORGEJO__mailer__USER: {{ forgejo_mailer_user }}
+{% endif %}
     volumes:
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
@@ -58,7 +62,9 @@ services:
 {% endif %}
     secrets:
       - db_password
+{% if use_forgejo_mailer %}
       - mailer_password
+{% endif %}
 {% if not use_traefik|default(false) %}
     ports:
       - "3000:3000"
@@ -143,5 +149,7 @@ networks:
 secrets:
   db_password:
     file: ./secrets/db_password
+{% if use_forgejo_mailer %}
   mailer_password:
     file: ./secrets/mailer_password
+{% endif %}

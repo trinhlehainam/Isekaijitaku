@@ -18,6 +18,8 @@
     mode: '0755'
 
 - name: Copy docker-compose file
+  vars:
+    use_forgejo_mailer: "{{ forgejo_mailer_smtp_port is defined and forgejo_mailer_smtp_addr is defined and forgejo_mailer_user is defined and forgejo_mailer_password is defined }}"
   ansible.builtin.template:
     src: "docker-compose.yml.j2"
     dest: "{{ ansible_user_dir }}/Docker/forgejo-rootless/docker-compose.yml"
