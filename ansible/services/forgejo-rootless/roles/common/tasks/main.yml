@@ -1,0 +1,30 @@
+---
+- name: Create directory for docker-compose files
+  ansible.builtin.file:
+    path: "{{ ansible_user_dir }}/Docker/forgejo-rootless"
+    state: directory
+    mode: '0755'
+    
+- name: make sure data folders exists and changed to 1000:1000 before starting
+  ansible.builtin.file:
+    path: "{{ forgejo_data_dir }}"
+    state: directory
+    mode: '0755'
+    
+- name: make sure ./conf folder is exists and changed to 1000:1000 before starting
+  ansible.builtin.file:
+    path: "./conf"
+    state: directory
+    mode: '0755'
+
+- name: Copy docker-compose file
+  ansible.builtin.template:
+    src: "docker-compose.yml.j2"
+    dest: "{{ ansible_user_dir }}/Docker/forgejo-rootless/docker-compose.yml"
+    mode: '0644'
+  
+- name: Start Forgejo Rootless containers
+  community.docker.docker_compose_v2:
+    project_src: "{{ ansible_user_dir }}/Docker/forgejo-rootless"
+    state: present
+  register: output
