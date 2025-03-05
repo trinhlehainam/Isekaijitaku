@@ -10,30 +10,51 @@ services:
     # https://codeberg.org/forgejo/-/packages/container/forgejo/versions
     image: codeberg.org/forgejo/forgejo:9.0.3-rootless
     container_name: forgejo
+    restart: always
+    depends_on:
+      forgejo-db:
+        condition: service_healthy
+        restart: true
+    # https://codeberg.org/forgejo/forgejo/src/branch/forgejo/Dockerfile.rootless
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        export FORGEJO__database__PASSWD=$$(cat /run/secrets/db_password)
+        export FORGEJO__mailer__PASSWD=$$(cat /run/secrets/db_password)
+        /usr/bin/dumb-init -- /usr/local/bin/docker-entrypoint.sh
     environment:
-      - FORGEJO__database__DB_TYPE=postgres
-      - FORGEJO__database__HOST=forgejo-db:5432
-      - FORGEJO__database__NAME=forgejo
-      - FORGEJO__database__USER=forgejo
-      # NOTE: can be set up on admin page
-      # - FORGEJO__database__PASSWD=forgejo
+        GITEA_APP_INI: /etc/gitea/app.ini
+
+        # https://forgejo.org/docs/next/admin/config-cheat-sheet/
+        # https://codeberg.org/forgejo/forgejo/src/branch/forgejo/contrib/environment-to-ini
+        FORGEJO__database__DB_TYPE: postgres
+        FORGEJO__database__HOST: forgejo-db:5432
+        FORGEJO__database__NAME: forgejo
+        FORGEJO__database__USER: forgejo
+
+        FORGEJO__service__DISABLE_REGISTRATION: false
+
+        FORGEJO__openid__ENABLE_OPENID_SIGNIN: false
+        FORGEJO__openid__ENABLE_OPENID_SIGNUP: false
+        
+        FORGEJO__mailer__ENABLED: true
+        FORGEJO__mailer__FROM: forgejo@forgejo.org
+        FORGEJO__mailer__PROTOCOL: smtps
+        FORGEJO__mailer__SMTP_ADDR: smtp.example.com
+        FORGEJO__mailer__SMTP_PORT: 465
+        FORGEJO__mailer__SMTP_USER: username
     volumes:
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
       # NOTE: make sure ./data and ./conf folders are exists and changed to 1000:1000 before starting
       - ./data:/var/lib/gitea
-      - ./conf/app.ini:/var/lib/gitea/custom/conf/app.ini
+      - ./conf:/etc/gitea
+    secrets:
+      - db_password
     # ports:
     #   - "3000:3000"
     #   - "2222:2222/tcp" # SSH
-    depends_on:
-      forgejo-db:
-        condition: service_healthy
-        restart: true
-      # forgejo-mountcheck:
-      #   condition: service_healthy
-      #   restart: true
-    restart: always
     networks:
       - forgejo
       # - runner
@@ -54,10 +75,10 @@ services:
       # NOTE: Forgejo has not support multiple domains yet
       # https://codeberg.org/forgejo/forgejo/issues/1270
       ## Public
-      - "traefik.http.routers.forgejo.entrypoints=websecure"
-      - "traefik.http.routers.forgejo.service=forgejo"
-      - "traefik.http.routers.forgejo.rule=Host(`forgejo.yourdomain`)"
-      - "traefik.http.routers.forgejo.tls.certresolver=cloudflare"
+      # - "traefik.http.routers.forgejo.entrypoints=websecure"
+      # - "traefik.http.routers.forgejo.service=forgejo"
+      # - "traefik.http.routers.forgejo.rule=Host(`forgejo.yourdomain`)"
+      # - "traefik.http.routers.forgejo.tls.certresolver=cloudflare"
       # forgejo-ssh
       # NOTE: ssh doesn't support TLS natively, so we need define ssh service by providing it's own port
       # https://community.traefik.io/t/ssh-proxy-from-traefik-to-lxc/608
@@ -103,9 +124,3 @@ networks:
 secrets:
   db_password:
     file: ./secrets/db_password
-
-volumes:
-  docker_certs:
-    driver: local
-  docker_certs_client:
-    driver: local
