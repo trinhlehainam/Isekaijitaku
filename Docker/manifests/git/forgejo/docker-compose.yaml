@@ -1,8 +1,5 @@
 # https://forgejo.org/docs/latest/admin/installation-docker/
-# https://forgejo.org/docs/next/admin/installation-docker/#postgresql-database
 # https://codeberg.org/forgejo-contrib/delightful-forgejo
-## Enable sending emails
-# https://forgejo.org/docs/latest/admin/email-setup/
 
 services:
   # https://forgejo.org/docs/next/admin/installation-docker/#hosting-repository-data-on-remote-storage-systems
@@ -23,11 +20,13 @@ services:
         export FORGEJO__database__PASSWD=$$(cat /run/secrets/db_password)
         export FORGEJO__mailer__PASSWD=$$(cat /run/secrets/db_password)
         /usr/bin/dumb-init -- /usr/local/bin/docker-entrypoint.sh
+    # Configuration Variables
+    # https://forgejo.org/docs/next/admin/config-cheat-sheet/
+    # https://codeberg.org/forgejo/forgejo/src/branch/forgejo/contrib/environment-to-ini
     environment:
         GITEA_APP_INI: /etc/gitea/app.ini
 
-        # https://forgejo.org/docs/next/admin/config-cheat-sheet/
-        # https://codeberg.org/forgejo/forgejo/src/branch/forgejo/contrib/environment-to-ini
+        # https://forgejo.org/docs/next/admin/installation-docker/#postgresql-database
         FORGEJO__database__DB_TYPE: postgres
         FORGEJO__database__HOST: forgejo-db:5432
         FORGEJO__database__NAME: forgejo
@@ -37,7 +36,8 @@ services:
 
         FORGEJO__openid__ENABLE_OPENID_SIGNIN: false
         FORGEJO__openid__ENABLE_OPENID_SIGNUP: false
-        
+
+        # https://forgejo.org/docs/latest/admin/email-setup/
         FORGEJO__mailer__ENABLED: true
         FORGEJO__mailer__FROM: forgejo@forgejo.org
         FORGEJO__mailer__PROTOCOL: smtps
