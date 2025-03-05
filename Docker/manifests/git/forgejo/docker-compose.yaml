@@ -23,9 +23,6 @@ services:
       # NOTE: make sure ./data and ./conf folders are exists and changed to 1000:1000 before starting
       - ./data:/var/lib/gitea
       - ./conf/app.ini:/var/lib/gitea/custom/conf/app.ini
-      # NOTE: use legacy config path
-      # need to define GITEA_APP_INI=/etc/gitea/app.ini
-      # - ./conf/app.ini:/etc/gitea/app.ini
     # ports:
     #   - "3000:3000"
     #   - "2222:2222/tcp" # SSH
@@ -57,10 +54,10 @@ services:
       # NOTE: Forgejo has not support multiple domains yet
       # https://codeberg.org/forgejo/forgejo/issues/1270
       ## Public
-      # - "traefik.http.routers.forgejo.entrypoints=websecure"
-      # - "traefik.http.routers.forgejo.service=forgejo"
-      # - "traefik.http.routers.forgejo.rule=Host(`forgejo.yourdomain`)"
-      # - "traefik.http.routers.forgejo.tls.certresolver=cloudflare"
+      - "traefik.http.routers.forgejo.entrypoints=websecure"
+      - "traefik.http.routers.forgejo.service=forgejo"
+      - "traefik.http.routers.forgejo.rule=Host(`forgejo.yourdomain`)"
+      - "traefik.http.routers.forgejo.tls.certresolver=cloudflare"
       # forgejo-ssh
       # NOTE: ssh doesn't support TLS natively, so we need define ssh service by providing it's own port
       # https://community.traefik.io/t/ssh-proxy-from-traefik-to-lxc/608
@@ -95,28 +92,6 @@ services:
       retries: 3
     restart: always
   
-  # forgejo-mountcheck:
-  #   container_name: forgejo-mountcheck
-  #   # https://hub.docker.com/_/bash/tags
-  #   image: bash:5.2.37-alpine3.21
-  #   entrypoint: bash /mountcheck.sh
-  #   volumes:
-  #     - /mount/point1:/mnt/point1:ro
-  #     - /mount/point2:/mnt/point2:ro
-  #     - /mount/point3:/mnt/point3:ro
-  #     - ./mountcheck/mountcheck.sh:/mountcheck.sh:ro
-  #     - ./mountcheck/healthcheck.sh:/healthcheck.sh:ro
-  #   healthcheck:
-  #     test: ["CMD", "/usr/local/bin/bash", "/healthcheck.sh"]
-  #     interval: 10s
-  #     timeout: 10s
-  #     retries: 3
-  #   restart: always
-  #   user: nobody
-  #   read_only: true
-  #   security_opt:
-  #     - no-new-privileges:true
-
 networks:
   forgejo:
     driver: bridge
