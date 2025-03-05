@@ -14,3 +14,31 @@
   gather_facts: true
   roles:
     - role: common
+
+- name: Backup Forgejo Rootless services
+  hosts: all
+  gather_facts: true
+  tags: 
+    - backup
+    - never
+  roles:
+    - role: common
+      tasks_from: backup
+
+- name: Update Forgejo Rootless services
+  hosts: all
+  gather_facts: true
+  tags:
+    - update
+    - never
+  vars:
+    forgejo_update_mode: true
+  roles:
+    - role: common
+      tasks_from: backup
+      tags: 
+        - pre-update
+    # Future update tasks will be added here
+    # For example:
+    # - role: common
+    #   tasks_from: update_forgejo

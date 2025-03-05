@@ -13,6 +13,7 @@ services:
         condition: service_healthy
         restart: true
     # https://codeberg.org/forgejo/forgejo/src/branch/forgejo/Dockerfile.rootless
+    # https://codeberg.org/forgejo/forgejo/src/branch/forgejo/docker/rootless/usr/local/bin/docker-entrypoint.sh
     entrypoint:
       - /bin/sh
       - -c
@@ -42,7 +43,7 @@ services:
 {% if use_forgejo_mailer %}
         # https://forgejo.org/docs/latest/admin/email-setup/
         FORGEJO__mailer__ENABLED: true
-        FORGEJO__mailer__FROM: {{ forgejo_mailer_from|default("forgejo@{{ forgejo_mailer_user.split('@')[1] }}") }}
+        FORGEJO__mailer__FROM: {{ forgejo_mailer_from|default("forgejo@" + forgejo_mailer_user.split('@')[1]) }}
         FORGEJO__mailer__PROTOCOL: {{ forgejo_mailer_protocol|default('smtps') }}
         FORGEJO__mailer__SMTP_ADDR: {{ forgejo_mailer_smtp_addr }}
         FORGEJO__mailer__SMTP_PORT: {{ forgejo_mailer_smtp_port }}

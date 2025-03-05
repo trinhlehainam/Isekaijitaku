@@ -1,5 +1,5 @@
 ---
-- name: Set up Forgejo Rootless folder variables
+- name: Set up Forgejo Rootless project source path
   ansible.builtin.set_fact:
     forgejo_project_src: "{{ ansible_user_dir }}/Docker/forgejo-rootless"
 
@@ -69,3 +69,9 @@
     project_src: "{{ forgejo_project_src }}"
     state: present
   register: output
+  
+- name: Backup Forgejo and PostgreSQL
+  ansible.builtin.include_tasks: backup.yml
+  tags:
+    - backup
+    - never

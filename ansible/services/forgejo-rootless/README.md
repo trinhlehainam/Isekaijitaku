@@ -34,6 +34,24 @@ Paths for data and config directories are resolved as follows:
 
 The role creates these directories and ensures they have the correct ownership (1000:1000) before starting the Forgejo service, which is required for the rootless container to function properly.
 
+## Backup and Restore
+
+The role includes comprehensive backup and restore functionality for both Forgejo and its PostgreSQL database. 
+
+For detailed backup and restore documentation, please see [BACKUP.md](./BACKUP.md).
+
+### Quick Reference
+
+- **Running a standard backup**:
+  ```bash
+  ansible-playbook site.yml -i inventories/[env]/hosts.yml --tags "backup"
+  ```
+
+- **Running a backup before updates** (service remains stopped):
+  ```bash
+  ansible-playbook site.yml -i inventories/[env]/hosts.yml --tags "backup" -e "forgejo_update_mode=true"
+  ```
+
 ## Mailer Configuration
 
 The Forgejo mailer service is configured using several variables. The mailer will only be enabled if all required variables are defined. If any of the required mailer variables are missing, the mailer service will be automatically disabled in the Forgejo configuration.
