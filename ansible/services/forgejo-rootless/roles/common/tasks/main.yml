@@ -8,48 +8,61 @@
     path: "{{ forgejo_project_src }}"
     state: directory
     mode: '0755'
+    
+- name: Check forgejo bind mount variables
+  ansible.builtin.set_fact:
+    forgejo_data_dir: "{{ forgejo_data_dir if forgejo_data_dir is defined and (forgejo_data_dir.startswith('/') or forgejo_data_dir.startswith('./')) else './data' }}"
+    forgejo_conf_dir: "{{ forgejo_conf_dir if forgejo_conf_dir is defined and (forgejo_conf_dir.startswith('/') or forgejo_conf_dir.startswith('./')) else './conf' }}"
 
 - name: Set resolved data directory path
   ansible.builtin.set_fact:
     resolved_data_dir: |
-      {% if forgejo_data_dir is defined %}
-        {% if forgejo_data_dir.startswith('/') %}
+      {% if forgejo_data_dir.startswith('/') %}
       {{ forgejo_data_dir }}
-        {% elif forgejo_data_dir.startswith('./') %}
+      {% elif forgejo_data_dir.startswith('./') %}
       {{ forgejo_project_src }}/{{ forgejo_data_dir|regex_replace('^\.\/', '') }}
-        {% else %}
+      {% else %}
       {{ forgejo_project_src }}/data
-        {% endif %}
       {% endif %}
 
 - name: Set resolved conf directory path
   ansible.builtin.set_fact:
     resolved_conf_dir: |
-      {% if forgejo_conf_dir is defined %}
-        {% if forgejo_conf_dir.startswith('/') %}
+      {% if forgejo_conf_dir.startswith('/') %}
       {{ forgejo_conf_dir }}
-        {% elif forgejo_conf_dir.startswith('./') %}
+      {% elif forgejo_conf_dir.startswith('./') %}
       {{ forgejo_project_src }}/{{ forgejo_conf_dir|regex_replace('^\.\/', '') }}
-        {% else %}
+      {% else %}
       {{ forgejo_project_src }}/conf
-        {% endif %}
       {% endif %}
+      
+- name: Trim resolved directory variables
+  ansible.builtin.set_fact:
+    resolved_data_dir: "{{ resolved_data_dir|trim }}"
+    resolved_conf_dir: "{{ resolved_conf_dir|trim }}"
     
 - name: Create and set ownership for Forgejo data directory
+  become: true
   ansible.builtin.file:
-    path: "{{ resolved_data_dir|trim }}"
+    path: "{{ resolved_data_dir }}"
     state: directory
     mode: '0755'
     owner: "{{ forgejo_user_id }}"
     group: "{{ forgejo_group_id }}"
     
 - name: Create and set ownership for Forgejo config directory
+  become: true
   ansible.builtin.file:
-    path: "{{ resolved_conf_dir|trim }}"
+    path: "{{ resolved_conf_dir }}"
     state: directory
     mode: '0755'
     owner: "{{ forgejo_user_id }}"
     group: "{{ forgejo_group_id }}"
+    
+- name: Ensure runner docker network exists
+  community.docker.docker_network:
+    name: runner
+    state: present
 
 - name: Copy docker-compose file
   vars:
@@ -68,10 +81,4 @@
   community.docker.docker_compose_v2:
     project_src: "{{ forgejo_project_src }}"
     state: present
-  register: output
-  
-- name: Backup Forgejo and PostgreSQL
-  ansible.builtin.include_tasks: backup.yml
-  tags:
-    - backup
-    - never
+  register: services_facts
