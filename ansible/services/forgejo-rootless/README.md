@@ -20,6 +20,22 @@ This Ansible configuration manages the deployment of a rootless Forgejo instance
 - Target server with Docker and Docker Compose installed
 - SSH access to the target server
 
+### Local Development with Vagrant
+
+A Vagrantfile is included for local development and testing:
+
+- Memory allocation: 1024MB (1GB)
+- CPU allocation: 2 CPUs
+- Ubuntu-based image
+
+To start the local development environment:
+
+```bash
+vagrant up
+```
+
+This will create a virtual machine suitable for testing the Forgejo installation.
+
 ### Quick Installation
 
 1. Clone this repository:
@@ -138,6 +154,16 @@ This variable is then used in the docker-compose template to conditionally enabl
 
 The deployment uses Docker Compose to create and manage the Forgejo containers. The configuration is templated using Ansible's Jinja2 templating system, which conditionally enables or disables features based on the provided variables.
 
+### Role Structure
+
+The Ansible role is organized for maintainability and modularity:
+
+- `main.yml`: Entry point that includes specific task files
+- `deploy.yml`: Contains the deployment implementation
+- `backup.yml`: Contains the backup implementation (see [BACKUP.md](./BACKUP.md))
+
+This structure allows for better organization and easier maintenance of the codebase.
+
 ### Deployment Process
 
 The deployment process follows these steps:
@@ -148,21 +174,21 @@ The deployment process follows these steps:
 4. Prepares database and mailer password files in the secrets directory
 5. Generates the Docker Compose configuration file from templates
 6. Starts all containers using Docker Compose
-7. Logs the status of all deployed services for verification
+7. Logs the status of all deployed services for verification, including container state and health status
 
 ### Service Status Logging
 
-After deployment, the role automatically logs the status of all containers to help verify successful deployment. This information is displayed in the Ansible output as debug messages, showing each service name and its current state (e.g., running, exited).
+After deployment, the role automatically logs the status of all containers to help verify successful deployment. This information is displayed in the Ansible output as debug messages, showing each service name, its current state, and health status.
 
 Example output:
 
 ```
-TASK [common : Log service status] ***********************************************
+TASK [common : Log services status] ***********************************************
 ok: [server] => (item=forgejo) => {
-    "msg": "forgejo: running"
+    "msg": "forgejo: state=running health=healthy"
 }
 ok: [server] => (item=forgejo-db) => {
-    "msg": "forgejo-db: running"
+    "msg": "forgejo-db: state=running health=healthy"
 }
 ```
 
@@ -170,7 +196,40 @@ This logging helps quickly identify any issues with container startup and confir
 
 - Container service name (e.g., forgejo, forgejo-db)
 - Current state (running, exited, etc.)
+- Health status (healthy, unhealthy, starting)
 - Any startup errors or issues
+
+## Container Health Checks
+
+Both the Forgejo and PostgreSQL containers include health checks for better reliability and monitoring:
+
+### Forgejo Health Check
+
+The Forgejo container uses the official API health endpoint to verify service status:
+
+```yaml
+healthcheck:
+  test: ["CMD-SHELL", "curl -fSs 127.0.0.1:3000/api/healthz | grep -q -m 1 '\"status\": \"pass\"' && exit 0 || exit 1"]
+  interval: 30s
+  timeout: 10s
+  retries: 3
+```
+
+This health check verifies that the Forgejo API is responding correctly, ensuring that not just the container is running but also that the application inside is operational.
+
+### PostgreSQL Health Check
+
+The PostgreSQL container uses the `pg_isready` command to verify database connectivity:
+
+```yaml
+healthcheck:
+  test: [ "CMD", "pg_isready", "-q", "-d", "forgejo", "-U", "forgejo" ]
+  interval: 10s
+  timeout: 5s
+  retries: 3
+```
+
+These health checks enable better orchestration and dependency management between services.
 
 ## Troubleshooting
 

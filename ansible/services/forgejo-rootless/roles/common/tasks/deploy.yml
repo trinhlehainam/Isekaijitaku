@@ -1,0 +1,112 @@
+---
+- name: Set up Forgejo Rootless project source path
+  ansible.builtin.set_fact:
+    forgejo_project_src: "{{ ansible_user_dir }}/Docker/forgejo-rootless"
+
+- name: Create directory for docker-compose files
+  ansible.builtin.file:
+    path: "{{ forgejo_project_src }}"
+    state: directory
+    mode: '0755'
+
+- name: Create secrets directory for storing sensitive information
+  ansible.builtin.file:
+    path: "{{ forgejo_project_src }}/secrets"
+    state: directory
+    mode: '0700'
+    
+- name: Check forgejo bind mount variables
+  ansible.builtin.set_fact:
+    forgejo_data_dir: "{{ forgejo_data_dir if forgejo_data_dir is defined and (forgejo_data_dir.startswith('/') or forgejo_data_dir.startswith('./')) else './data' }}"
+    forgejo_conf_dir: "{{ forgejo_conf_dir if forgejo_conf_dir is defined and (forgejo_conf_dir.startswith('/') or forgejo_conf_dir.startswith('./')) else './conf' }}"
+
+- name: Set resolved data directory path
+  ansible.builtin.set_fact:
+    resolved_data_dir: |
+      {% if forgejo_data_dir.startswith('/') %}
+      {{ forgejo_data_dir }}
+      {% elif forgejo_data_dir.startswith('./') %}
+      {{ forgejo_project_src }}/{{ forgejo_data_dir|regex_replace('^\.\/', '') }}
+      {% else %}
+      {{ forgejo_project_src }}/data
+      {% endif %}
+
+- name: Set resolved conf directory path
+  ansible.builtin.set_fact:
+    resolved_conf_dir: |
+      {% if forgejo_conf_dir.startswith('/') %}
+      {{ forgejo_conf_dir }}
+      {% elif forgejo_conf_dir.startswith('./') %}
+      {{ forgejo_project_src }}/{{ forgejo_conf_dir|regex_replace('^\.\/', '') }}
+      {% else %}
+      {{ forgejo_project_src }}/conf
+      {% endif %}
+      
+- name: Trim resolved directory variables
+  ansible.builtin.set_fact:
+    resolved_data_dir: "{{ resolved_data_dir|trim }}"
+    resolved_conf_dir: "{{ resolved_conf_dir|trim }}"
+    
+- name: Create and set ownership for Forgejo data directory
+  become: true
+  ansible.builtin.file:
+    path: "{{ resolved_data_dir }}"
+    state: directory
+    mode: '0755'
+    owner: "{{ forgejo_user_id }}"
+    group: "{{ forgejo_group_id }}"
+    
+- name: Create and set ownership for Forgejo config directory
+  become: true
+  ansible.builtin.file:
+    path: "{{ resolved_conf_dir }}"
+    state: directory
+    mode: '0755'
+    owner: "{{ forgejo_user_id }}"
+    group: "{{ forgejo_group_id }}"
+    
+- name: Ensure runner docker network exists
+  community.docker.docker_network:
+    name: runner
+    state: present
+
+- name: Create PostgreSQL database password file
+  ansible.builtin.copy:
+    content: "{{ db_password }}"
+    dest: "{{ forgejo_project_src }}/secrets/db_password"
+    mode: '0600'
+
+- name: Check forgejo mailer variables
+  ansible.builtin.set_fact:
+    use_forgejo_mailer: |
+      {{ True if forgejo_mailer_smtp_port is defined 
+      and forgejo_mailer_smtp_addr is defined 
+      and forgejo_mailer_user is defined 
+      and forgejo_mailer_password is defined 
+      else False }}
+
+- name: Create mailer password file if mailer is configured
+  ansible.builtin.copy:
+    content: "{{ forgejo_mailer_password }}"
+    dest: "{{ forgejo_project_src }}/secrets/mailer_password"
+    mode: '0600'
+  when: use_forgejo_mailer|bool and forgejo_mailer_password is defined
+
+- name: Copy docker-compose file
+  ansible.builtin.template:
+    src: "docker-compose.yml.j2"
+    dest: "{{ forgejo_project_src }}/docker-compose.yml"
+    mode: '0644'
+
+- name: Start Forgejo Rootless containers
+  community.docker.docker_compose_v2:
+    project_src: "{{ forgejo_project_src }}"
+    state: present
+  register: services_facts
+  
+- name: Log services status
+  ansible.builtin.debug:
+    msg: "{{ item.Service }}: state={{ item.State }} health={{ item.Health }}"
+  loop: "{{ services_facts.containers }}"
+  loop_control:
+    label: "{{ item.Service }}"

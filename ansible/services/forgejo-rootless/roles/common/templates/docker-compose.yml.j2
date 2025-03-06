@@ -8,6 +8,12 @@ services:
     image: codeberg.org/forgejo/forgejo:9.0.3-rootless
     container_name: forgejo
     restart: always
+    # https://docs.gitea.com/installation/install-on-kubernetes#health-check-endpoint
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fSs 127.0.0.1:3000/api/healthz | grep -q -m 1 '\"status\": \"pass\"' && exit 0 || exit 1"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
     depends_on:
       forgejo-db:
         condition: service_healthy
