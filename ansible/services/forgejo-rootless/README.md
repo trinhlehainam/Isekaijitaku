@@ -100,6 +100,48 @@ This variable is then used in the docker-compose template to conditionally enabl
 
 The deployment uses Docker Compose to create and manage the Forgejo containers. The configuration is templated using Ansible's Jinja2 templating system, which conditionally enables or disables features based on the provided variables.
 
+## Database Configuration
+
+The PostgreSQL database requires a password for authentication. This password is stored securely using Ansible Vault.
+
+### Password Management
+
+- The database password is defined in the inventory's group variables (e.g., `inventories/dev/group_vars/all/main.yml`) as an encrypted variable named `db_password`.
+- For local development with Vagrant VMs, a `.vault_pass` file is provided with an example password.
+- The Ansible configuration (`ansible.cfg`) is set up to automatically use this vault password file.
+- During deployment, the role creates a `secrets/db_password` file containing the decrypted password value.
+- This file is then mounted as a Docker secret in the containers.
+
+### Local Development
+
+For local development:
+
+1. The `.vault_pass` file contains the password used to encrypt/decrypt sensitive variables.
+   - For local development with Vagrant VMs, the example password is `ExamplePassword1234`.
+2. The `db_password` variable in `inventories/dev/group_vars/all/main.yml` is already encrypted using this password.
+3. You don't need to create your own password file or re-encrypt the variables.
+
+If you need to decrypt the variables manually for testing, you can use the following command:
+
+```bash
+ansible-vault decrypt --vault-password-file .vault_pass inventories/dev/group_vars/all/main.yml
+```
+
+Or to view the decrypted content without modifying the file:
+
+```bash
+ansible-vault view --vault-password-file .vault_pass inventories/dev/group_vars/all/main.yml
+```
+
+### Implementation Details
+
+The role performs the following steps to handle database authentication:
+
+1. Creates a `secrets` directory in the project source directory.
+2. Writes the decrypted `db_password` value to `secrets/db_password`.
+3. Configures the PostgreSQL container to read this password file.
+4. Configures the Forgejo container to access the PostgreSQL database using this password.
+
 ## Security Note
 
-The mailer password is stored as a Docker secret. Ensure that the secrets directory is properly secured and that access to the server is restricted to authorized personnel only.
+The database and mailer passwords are stored as Docker secrets. Ensure that the secrets directory is properly secured and that access to the server is restricted to authorized personnel only.

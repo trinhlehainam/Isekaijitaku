@@ -8,6 +8,12 @@
     path: "{{ forgejo_project_src }}"
     state: directory
     mode: '0755'
+
+- name: Create secrets directory for storing sensitive information
+  ansible.builtin.file:
+    path: "{{ forgejo_project_src }}/secrets"
+    state: directory
+    mode: '0700'
     
 - name: Check forgejo bind mount variables
   ansible.builtin.set_fact:
@@ -64,19 +70,34 @@
     name: runner
     state: present
 
-- name: Copy docker-compose file
-  vars:
+- name: Create PostgreSQL database password file
+  ansible.builtin.copy:
+    content: "{{ db_password }}"
+    dest: "{{ forgejo_project_src }}/secrets/db_password"
+    mode: '0600'
+
+- name: Check forgejo mailer variables
+  ansible.builtin.set_fact:
     use_forgejo_mailer: |
       {{ True if forgejo_mailer_smtp_port is defined 
       and forgejo_mailer_smtp_addr is defined 
       and forgejo_mailer_user is defined 
       and forgejo_mailer_password is defined 
       else False }}
+
+- name: Create mailer password file if mailer is configured
+  ansible.builtin.copy:
+    content: "{{ forgejo_mailer_password }}"
+    dest: "{{ forgejo_project_src }}/secrets/mailer_password"
+    mode: '0600'
+  when: use_forgejo_mailer|bool and forgejo_mailer_password is defined
+
+- name: Copy docker-compose file
   ansible.builtin.template:
     src: "docker-compose.yml.j2"
     dest: "{{ forgejo_project_src }}/docker-compose.yml"
     mode: '0644'
-  
+
 - name: Start Forgejo Rootless containers
   community.docker.docker_compose_v2:
     project_src: "{{ forgejo_project_src }}"
