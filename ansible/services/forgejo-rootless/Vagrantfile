@@ -19,11 +19,9 @@ Vagrant.configure("2") do |config|
     v.customize ["modifyvm", :id, "--cableconnected1", "on"]
   end
 
-  (1..3).each do |i|
-    config.vm.define "ubuntu#{i}" do |node|
-      node.vm.hostname = "ubuntu#{i}"
-      node.vm.network "private_network", ip: "192.168.56.#{10+i}"
-    end
+  config.vm.define "ubuntu" do |node|
+    node.vm.hostname = "ubuntu"
+    node.vm.network "private_network", ip: "192.168.56.11"
   end
 
 end

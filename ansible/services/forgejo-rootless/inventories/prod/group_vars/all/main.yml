@@ -20,8 +20,5 @@ use_traefik: true
 traefik_router_public: true
 traefik_router_private: true
 
-# Service name (will be used as subdomain)
-service_name: "dozzle"
-
 public_apex_domain: "yourdomain"
 private_apex_domain: "yourdomain.local"

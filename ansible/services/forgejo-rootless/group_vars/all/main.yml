@@ -1,0 +1,10 @@
+# Forgejo Service name
+service_name: "forgejo"
+
+# PostgreSQL
+db_user: "forgejo"
+db_name: "forgejo"
+
+# Forgejo
+forgejo_user_id: "1000"
+forgejo_group_id: "1000"
