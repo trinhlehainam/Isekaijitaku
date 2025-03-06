@@ -316,6 +316,10 @@ Forgejo uses PostgreSQL as its database backend. The database configuration is m
 - During deployment, the role creates a `secrets/db_password` file containing the decrypted password value.
 - This file is then mounted as a Docker secret in the containers.
 
+### Working with Encrypted Variables
+
+To view and manage encrypted variables in the Forgejo Ansible configuration, you can use various Ansible Vault commands and approaches.
+
 ### Docker Integration
 
 The PostgreSQL container is configured to use the password file:
@@ -330,26 +334,44 @@ The Forgejo container accesses the same password through environment variables:
 export FORGEJO__database__PASSWD=$$(cat /run/secrets/db_password)
 ```
 
-### Local Development
+### Local Development and Vault Management
 
-For local development:
+#### Vault Password Setup
 
 1. The `.vault_pass` file contains the password used to encrypt/decrypt sensitive variables.
    - For local development with Vagrant VMs, the example password is `ExamplePassword1234`.
-2. The `db_password` variable in `inventories/dev/group_vars/all/main.yml` is already encrypted using this password.
-3. You don't need to create your own password file or re-encrypt the variables.
+2. The `db_password` and other sensitive variables in `inventories/dev/group_vars/all/main.yml` are already encrypted using this password.
+3. You don't need to create your own password file or re-encrypt the variables for development work.
 
-If you need to decrypt the variables manually for testing, you can use the following command:
+#### Viewing Encrypted Variables
+
+There are several ways to view encrypted variable values:
+
+1. **View a specific variable** using the Ansible debug module:
 
 ```bash
-ansible-vault decrypt --vault-password-file .vault_pass inventories/dev/group_vars/all/main.yml
+# View database password
+ansible localhost -m ansible.builtin.debug -a var="db_password" -e "@inventories/dev/group_vars/all/main.yml" --vault-id .vault_pass
+
+# View admin password (if configured)
+ansible localhost -m ansible.builtin.debug -a var="forgejo_admin_password" -e "@inventories/dev/group_vars/all/main.yml" --vault-id .vault_pass
 ```
 
-Or to view the decrypted content without modifying the file:
+2. **View the entire file** without modifying it:
 
 ```bash
 ansible-vault view --vault-password-file .vault_pass inventories/dev/group_vars/all/main.yml
 ```
+
+3. **Temporarily decrypt** the file for inspection (use with caution):
+
+```bash
+ansible-vault decrypt --vault-password-file .vault_pass inventories/dev/group_vars/all/main.yml
+# Remember to re-encrypt after viewing!
+ansible-vault encrypt --vault-password-file .vault_pass inventories/dev/group_vars/all/main.yml
+```
+
+For production environments, consider using named vault IDs (e.g., `--vault-id dev@.vault_pass` or `--vault-id prod@.vault_pass`) and separate vault password files with appropriate access controls.
 
 ### Implementation Details
 
