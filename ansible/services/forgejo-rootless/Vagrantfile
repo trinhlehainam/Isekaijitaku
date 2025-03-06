@@ -3,7 +3,9 @@
 
 Vagrant.configure("2") do |config|
   # Use ubuntu/jammy64 box
+  # https://portal.cloud.hashicorp.com/vagrant/discover/ubuntu/jammy64
   config.vm.box = "ubuntu/jammy64"
+  config.vm.box_version = "20241002.0.0"
   config.vm.boot_timeout = 300
   config.ssh.insert_key = false
   config.vm.synced_folder '.', '/vagrant', disabled: true
