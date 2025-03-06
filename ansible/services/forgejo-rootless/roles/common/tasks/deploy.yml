@@ -1,7 +1,7 @@
 ---
 - name: Set up Forgejo Rootless project source path
   ansible.builtin.set_fact:
-    forgejo_project_src: "{{ ansible_user_dir }}/Docker/forgejo-rootless"
+    forgejo_project_src: "{{ forgejo_project_src|default(ansible_user_dir + '/Docker/forgejo-rootless') }}"
 
 - name: Create directory for docker-compose files
   ansible.builtin.file:
@@ -22,7 +22,7 @@
 
 - name: Set resolved data directory path
   ansible.builtin.set_fact:
-    resolved_data_dir: |
+    resolved_data_dir: >-
       {% if forgejo_data_dir.startswith('/') %}
       {{ forgejo_data_dir }}
       {% elif forgejo_data_dir.startswith('./') %}
@@ -33,7 +33,7 @@
 
 - name: Set resolved conf directory path
   ansible.builtin.set_fact:
-    resolved_conf_dir: |
+    resolved_conf_dir: >-
       {% if forgejo_conf_dir.startswith('/') %}
       {{ forgejo_conf_dir }}
       {% elif forgejo_conf_dir.startswith('./') %}
@@ -76,9 +76,9 @@
     dest: "{{ forgejo_project_src }}/secrets/db_password"
     mode: '0600'
 
-- name: Check forgejo mailer variables
+- name: Check Forgejo mailer variables
   ansible.builtin.set_fact:
-    use_forgejo_mailer: |
+    use_forgejo_mailer: >-
       {{ True if forgejo_mailer_smtp_port is defined 
       and forgejo_mailer_smtp_addr is defined 
       and forgejo_mailer_user is defined 
@@ -91,6 +91,14 @@
     dest: "{{ forgejo_project_src }}/secrets/mailer_password"
     mode: '0600'
   when: use_forgejo_mailer|bool and forgejo_mailer_password is defined
+  
+- name: Check Forgejo admin user creation variables
+  ansible.builtin.set_fact:
+    use_forgejo_install_lock: >-
+      {{ True if forgejo_admin_username is defined 
+      and forgejo_admin_email is defined 
+      and forgejo_admin_password is defined 
+      else False }}
 
 - name: Copy docker-compose file
   ansible.builtin.template:
@@ -115,3 +123,32 @@
   until: container_info.container.State.Running and container_info.container.State.Health.Status == 'healthy'
   delay: 10
   retries: 5
+  
+- name: Check and create Forgejo admin user when install lock is enabled
+  when: use_forgejo_install_lock|bool
+  block:
+    - name: Check Forgejo admin user creation
+      community.docker.docker_compose_v2_exec:
+        project_src: "{{ forgejo_project_src }}"
+        service: forgejo
+        # https://forgejo.org/docs/latest/admin/command-line/#admin-user-list
+        command: forgejo admin user list --admin | grep -q "{{ forgejo_admin_username }}"
+      changed_when: false
+      register: admin_user_info
+
+    - name: Create Forgejo admin user
+      when: admin_user_info.rc != 0
+      community.docker.docker_compose_v2_exec:
+        project_src: "{{ forgejo_project_src }}"
+        service: forgejo
+        # https://forgejo.org/docs/latest/admin/command-line/#admin-user-create
+        command: forgejo admin user create --admin --username {{ forgejo_admin_username }} --email {{ forgejo_admin_email }} --password {{ forgejo_admin_password }}
+      register: create_admin_result
+
+    - name: Verify admin user creation
+      when: create_admin_result is defined
+      ansible.builtin.assert:
+        that:
+          - create_admin_result.rc == 0
+          - create_admin_result.stdout | contains "successfully created"
+        fail_msg: "Failed to create admin user: {{ create_admin_result.stderr }}"

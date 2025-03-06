@@ -106,6 +106,42 @@ For detailed backup and restore documentation, please see [BACKUP.md](./BACKUP.m
   ansible-playbook site.yml -i inventories/[env]/hosts.yml --tags "backup" -e "forgejo_update_mode=true"
   ```
 
+## Initial Setup and Admin User
+
+The role supports automatic initial configuration with admin user creation, bypassing the web installation wizard. When properly configured, Forgejo will start with the installation lock enabled (`INSTALL_LOCK: true`) and an admin user already created.
+
+### Required Variables
+
+To enable automatic admin user creation, define all of the following variables:
+
+- `forgejo_admin_username`: Admin username (e.g., 'admin')
+- `forgejo_admin_email`: Admin email address (e.g., 'admin@example.com')
+- `forgejo_admin_password`: Admin password (use Ansible Vault for security)
+
+### Configuration in Inventory
+
+Edit the appropriate inventory file to configure automatic admin user creation. Example configuration in group_vars/all/main.yml:
+
+```yaml
+# Forgejo Admin User Configuration
+forgejo_admin_username: admin
+forgejo_admin_email: admin@example.com
+forgejo_admin_password: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          ... encrypted password ...
+```
+
+### Implementation Details
+
+The Ansible role:
+
+1. Sets `INSTALL_LOCK: true` in the Forgejo configuration when admin variables are defined
+2. After service startup, checks if the admin user exists
+3. Creates the admin user automatically if not already present
+4. Verifies successful user creation
+
+This eliminates the need for manual configuration through the web UI and allows for fully automated deployments.
+
 ## Mailer Configuration
 
 The Forgejo mailer service is configured using several variables. The mailer will only be enabled if all required variables are defined. If any of the required mailer variables are missing, the mailer service will be automatically disabled in the Forgejo configuration.
@@ -176,6 +212,7 @@ The deployment process follows these steps:
 6. Starts all containers using Docker Compose
 7. Actively waits for all services to be both running and healthy
 8. Fails the deployment if containers cannot reach healthy state within the retry limit
+9. Creates an admin user automatically if configured (when `forgejo_admin_*` variables are defined)
 
 ### Health Status Verification
 

@@ -41,8 +41,14 @@ services:
         FORGEJO__database__NAME: {{ db_name }}
         FORGEJO__database__USER: {{ db_user }}
 
-        FORGEJO__service__DISABLE_REGISTRATION: false
+{% if use_forgejo_install_lock|default(false) %}
+        # Disable web installation (Initial Configuration)
+        # https://docs.gitea.com/installation/install-from-binary?_highlight=install_lock#create-required-directory-structure
+        FORGEJO__security__INSTALL_LOCK: true
+{% endif %}
 
+        # Disable registration
+        FORGEJO__service__DISABLE_REGISTRATION: true
         FORGEJO__openid__ENABLE_OPENID_SIGNIN: false
         FORGEJO__openid__ENABLE_OPENID_SIGNUP: false
 
