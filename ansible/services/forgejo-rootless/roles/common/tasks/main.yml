@@ -40,16 +40,16 @@
     path: "{{ resolved_data_dir|trim }}"
     state: directory
     mode: '0755'
-    owner: '1000'
-    group: '1000'
+    owner: "{{ forgejo_user_id }}"
+    group: "{{ forgejo_group_id }}"
     
 - name: Create and set ownership for Forgejo config directory
   ansible.builtin.file:
     path: "{{ resolved_conf_dir|trim }}"
     state: directory
     mode: '0755'
-    owner: '1000'
-    group: '1000'
+    owner: "{{ forgejo_user_id }}"
+    group: "{{ forgejo_group_id }}"
 
 - name: Copy docker-compose file
   vars:

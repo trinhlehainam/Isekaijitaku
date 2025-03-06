@@ -53,8 +53,8 @@ services:
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro
       # NOTE: make sure ./data and ./conf folders are exists and changed to 1000:1000 before starting
-      - "{{ forgejo_data_dir|default("./data") }}:/var/lib/gitea"
-      - "{{ forgejo_conf_dir|default("./conf") }}:/etc/gitea"
+      - {{ forgejo_data_dir|default("./data") }}:/var/lib/gitea
+      - {{ forgejo_conf_dir|default("./conf") }}:/etc/gitea
       # NOTE: custom root CA to access private services
       # https://schemesandnotions.io/posts/giteadroneselfsignedtls/#gitea---droneci
       # https://github.com/go-gitea/gitea/issues/14102#issuecomment-1305973019
@@ -125,7 +125,7 @@ services:
       POSTGRES_USER: {{ db_user }}
       POSTGRES_DB: {{ db_name }}
     volumes:
-      - ./postgres:/var/lib/postgresql/data
+      - {{ postgres_data_dir|default("./postgres") }}:/var/lib/postgresql/data
     networks:
       - forgejo
     secrets:
