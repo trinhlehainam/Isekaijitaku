@@ -2,6 +2,44 @@
 
 This Ansible configuration manages the deployment of a rootless Forgejo instance using Docker Compose.
 
+## Table of Contents
+
+- [Getting Started](#getting-started)
+- [Directory Configuration](#directory-configuration)
+- [Deployment](#deployment)
+- [Database Configuration](#database-configuration)
+- [Mailer Configuration](#mailer-configuration)
+- [Backup and Restore](#backup-and-restore)
+- [Security Note](#security-note)
+
+## Getting Started
+
+### Prerequisites
+
+- Ansible 2.9 or higher
+- Target server with Docker and Docker Compose installed
+- SSH access to the target server
+
+### Quick Installation
+
+1. Clone this repository:
+   ```bash
+   git clone <repository-url>
+   cd forgejo-rootless
+   ```
+
+2. Install required Ansible roles:
+   ```bash
+   ansible-galaxy install -r requirements.yml
+   ```
+
+3. Deploy to your target environment (dev or prod):
+   ```bash
+   ansible-playbook site.yml -i inventories/dev/hosts.yml
+   ```
+
+By default, Forgejo will be available at http://localhost:3000 or according to your configured domain if using Traefik.
+
 ## Directory Configuration
 
 Forgejo requires data and configuration directories to store its contents. These are configured with the following variables:
@@ -100,17 +138,106 @@ This variable is then used in the docker-compose template to conditionally enabl
 
 The deployment uses Docker Compose to create and manage the Forgejo containers. The configuration is templated using Ansible's Jinja2 templating system, which conditionally enables or disables features based on the provided variables.
 
+### Deployment Process
+
+The deployment process follows these steps:
+
+1. Creates necessary directories for the Forgejo service (project source, data, configuration, secrets)
+2. Ensures proper ownership and permissions for all directories
+3. Creates required Docker network
+4. Prepares database and mailer password files in the secrets directory
+5. Generates the Docker Compose configuration file from templates
+6. Starts all containers using Docker Compose
+7. Logs the status of all deployed services for verification
+
+### Service Status Logging
+
+After deployment, the role automatically logs the status of all containers to help verify successful deployment. This information is displayed in the Ansible output as debug messages, showing each service name and its current state (e.g., running, exited).
+
+Example output:
+
+```
+TASK [common : Log service status] ***********************************************
+ok: [server] => (item=forgejo) => {
+    "msg": "forgejo: running"
+}
+ok: [server] => (item=forgejo-db) => {
+    "msg": "forgejo-db: running"
+}
+```
+
+This logging helps quickly identify any issues with container startup and confirms that all required services are running as expected. Status information is obtained through Docker Compose and includes:
+
+- Container service name (e.g., forgejo, forgejo-db)
+- Current state (running, exited, etc.)
+- Any startup errors or issues
+
+## Troubleshooting
+
+### Common Issues
+
+1. **Database Password Issues**
+   - Verify that the `db_password` variable is correctly set in your inventory
+   - Check that the `.vault_pass` file is present and has the correct password (for development: `ExamplePassword1234`)
+   - Ensure the secrets directory and password files have proper permissions
+
+2. **Container Startup Failures**
+   - Check service status using the debug output from the role
+   - View detailed container logs: `docker logs forgejo` or `docker logs forgejo-db`
+   - Verify that all required directories have correct ownership (1000:1000 for Forgejo)
+
+3. **PostgreSQL Connection Issues**
+   - Check that the database container is running: `docker ps | grep forgejo-db`
+   - Verify the database password is correctly passed to both containers
+   - Inspect PostgreSQL logs: `docker logs forgejo-db`
+
+### Viewing Service Logs
+
+To view detailed service logs after deployment:
+
+```bash
+# View Forgejo logs
+docker logs forgejo
+
+# View PostgreSQL logs
+docker logs forgejo-db
+
+# Follow logs in real-time
+docker logs forgejo -f
+```
+
 ## Database Configuration
 
-The PostgreSQL database requires a password for authentication. This password is stored securely using Ansible Vault.
+Forgejo uses PostgreSQL as its database backend. The database configuration is managed through Docker containers and requires secure password handling.
+
+### PostgreSQL Variables
+
+- `db_user`: Database user for Forgejo (default: "forgejo")
+- `db_name`: Database name for Forgejo (default: "forgejo")
+- `db_password`: Encrypted password for database access
+- `postgres_data_dir`: Path to store PostgreSQL data (default: "./postgres")
 
 ### Password Management
 
 - The database password is defined in the inventory's group variables (e.g., `inventories/dev/group_vars/all/main.yml`) as an encrypted variable named `db_password`.
 - For local development with Vagrant VMs, a `.vault_pass` file is provided with an example password.
-- The Ansible configuration (`ansible.cfg`) is set up to automatically use this vault password file.
+- The Ansible configuration (`ansible.cfg`) is set up to automatically use this vault password file via the setting `vault_password_file = .vault_pass`.
 - During deployment, the role creates a `secrets/db_password` file containing the decrypted password value.
 - This file is then mounted as a Docker secret in the containers.
+
+### Docker Integration
+
+The PostgreSQL container is configured to use the password file:
+
+```yaml
+POSTGRES_PASSWORD_FILE: /run/secrets/db_password
+```
+
+The Forgejo container accesses the same password through environment variables:
+
+```bash
+export FORGEJO__database__PASSWD=$$(cat /run/secrets/db_password)
+```
 
 ### Local Development
 
