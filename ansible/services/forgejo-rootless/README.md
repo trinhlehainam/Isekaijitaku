@@ -174,30 +174,40 @@ The deployment process follows these steps:
 4. Prepares database and mailer password files in the secrets directory
 5. Generates the Docker Compose configuration file from templates
 6. Starts all containers using Docker Compose
-7. Logs the status of all deployed services for verification, including container state and health status
+7. Actively waits for all services to be both running and healthy
+8. Fails the deployment if containers cannot reach healthy state within the retry limit
 
-### Service Status Logging
+### Health Status Verification
 
-After deployment, the role automatically logs the status of all containers to help verify successful deployment. This information is displayed in the Ansible output as debug messages, showing each service name, its current state, and health status.
+After containers are started, the role actively validates their health status using Docker's health check capabilities. Instead of just logging container status or waiting for a fixed period of time, the deployment:
 
-Example output:
+1. Actively polls each container's health status using `community.docker.docker_container_info`
+2. Retries multiple times with a delay between attempts
+3. Fails the deployment if containers don't reach healthy state within the retry limit
 
+This approach ensures that the deployment doesn't succeed until the services are actually operational, providing a more reliable deployment process.
+
+Example task:
+
+```yaml
+- name: Wait for services to run and healthy
+  community.docker.docker_container_info:
+    name: "{{ item.ID }}"
+  loop: "{{ services_facts.containers }}"
+  loop_control:
+    label: "{{ item.Service }}"
+  register: container_info
+  failed_when: not container_info.container.State.Running or container_info.container.State.Health.Status == 'unhealthy'
+  until: container_info.container.State.Running and container_info.container.State.Health.Status == 'healthy'
+  delay: 10
+  retries: 5
 ```
-TASK [common : Log services status] ***********************************************
-ok: [server] => (item=forgejo) => {
-    "msg": "forgejo: state=running health=healthy"
-}
-ok: [server] => (item=forgejo-db) => {
-    "msg": "forgejo-db: state=running health=healthy"
-}
-```
 
-This logging helps quickly identify any issues with container startup and confirms that all required services are running as expected. Status information is obtained through Docker Compose and includes:
+This verification automatically confirms that all required services are fully operational before the deployment is considered successful. Status information includes:
 
-- Container service name (e.g., forgejo, forgejo-db)
-- Current state (running, exited, etc.)
+- Container running state (true/false)
 - Health status (healthy, unhealthy, starting)
-- Any startup errors or issues
+- Automatic retry logic with configurable delay and attempts
 
 ## Container Health Checks
 

@@ -103,10 +103,15 @@
     project_src: "{{ forgejo_project_src }}"
     state: present
   register: services_facts
-  
-- name: Log services status
-  ansible.builtin.debug:
-    msg: "{{ item.Service }}: state={{ item.State }} health={{ item.Health }}"
+    
+- name: Wait for services to run and healthy
+  community.docker.docker_container_info:
+    name: "{{ item.ID }}"
   loop: "{{ services_facts.containers }}"
   loop_control:
     label: "{{ item.Service }}"
+  register: container_info
+  failed_when: not container_info.container.State.Running or container_info.container.State.Health.Status == 'unhealthy'
+  until: container_info.container.State.Running and container_info.container.State.Health.Status == 'healthy'
+  delay: 10
+  retries: 5
