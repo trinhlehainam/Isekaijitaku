@@ -3,7 +3,7 @@
 services:
   beszel-agent:
     # https://hub.docker.com/r/henrygd/beszel-agent/tags
-    image: henrygd/beszel-agent:0.9.1
+    image: henrygd/beszel-agent:0.10.1
     container_name: beszel-agent
     restart: unless-stopped
     # https://beszel.dev/guide/agent-installation#why-host-network-mode
@@ -15,5 +15,11 @@ services:
       # monitor other disks / partitions by mounting a folder in /extra-filesystems
       # - /mnt/disk1/.beszel:/extra-filesystems/disk1:ro
     environment:
-      PORT: 45876
-      KEY: '{{ beszel_public_key }}'
+      LISTEN: 45876
+      KEY_FILE: /run/secrets/beszel-public-key
+    secrets:
+      - beszel-public-key
+
+secrets:
+  beszel-public-key:
+    file: ./secrets/beszel-public-key
