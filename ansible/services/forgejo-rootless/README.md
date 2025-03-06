@@ -133,12 +133,13 @@ forgejo_admin_password: !vault |
 
 ### Implementation Details
 
-The Ansible role:
+The Ansible role implements a structured approach to admin user creation:
 
 1. Sets `INSTALL_LOCK: true` in the Forgejo configuration when admin variables are defined
-2. After service startup, checks if the admin user exists
+2. During the post-deployment phase, checks if the admin user exists using Forgejo CLI
 3. Creates the admin user automatically if not already present
-4. Verifies successful user creation
+4. Verifies successful user creation with explicit success criteria
+5. Fails with clear error messages if admin user creation encounters problems
 
 This eliminates the need for manual configuration through the web UI and allows for fully automated deployments.
 
@@ -195,56 +196,40 @@ The deployment uses Docker Compose to create and manage the Forgejo containers. 
 The Ansible role is organized for maintainability and modularity:
 
 - `main.yml`: Entry point that includes specific task files
-- `deploy.yml`: Contains the deployment implementation
+- `deploy.yml`: Contains the deployment implementation, organized into logical blocks
 - `backup.yml`: Contains the backup implementation (see [BACKUP.md](./BACKUP.md))
 
-This structure allows for better organization and easier maintenance of the codebase.
+The `deploy.yml` file is structured into clearly defined functional blocks:
+
+1. **SETUP**: Initializes variables and creates required directories
+2. **CONFIGURATION**: Prepares service configuration and secrets
+3. **DEPLOYMENT**: Starts and verifies services
+4. **POST-DEPLOYMENT**: Sets up initial admin user if configured
+
+This structured approach enhances readability, maintainability, and makes the deployment process more understandable.
 
 ### Deployment Process
 
-The deployment process follows these steps:
+The deployment process follows these steps, organized into logical blocks:
 
+**SETUP**
 1. Creates necessary directories for the Forgejo service (project source, data, configuration, secrets)
 2. Ensures proper ownership and permissions for all directories
+
+**CONFIGURATION**
 3. Creates required Docker network
 4. Prepares database and mailer password files in the secrets directory
-5. Generates the Docker Compose configuration file from templates
-6. Starts all containers using Docker Compose
-7. Actively waits for all services to be both running and healthy
-8. Fails the deployment if containers cannot reach healthy state within the retry limit
-9. Creates an admin user automatically if configured (when `forgejo_admin_*` variables are defined)
+5. Checks for optional service configuration (mailer, admin user)
 
-### Health Status Verification
+**DEPLOYMENT**
+6. Generates the Docker Compose configuration file from templates
+7. Starts all containers using Docker Compose
+8. Actively waits for all services to be both running and healthy
+9. Fails the deployment if containers cannot reach healthy state within the retry limit
 
-After containers are started, the role actively validates their health status using Docker's health check capabilities. Instead of just logging container status or waiting for a fixed period of time, the deployment:
-
-1. Actively polls each container's health status using `community.docker.docker_container_info`
-2. Retries multiple times with a delay between attempts
-3. Fails the deployment if containers don't reach healthy state within the retry limit
-
-This approach ensures that the deployment doesn't succeed until the services are actually operational, providing a more reliable deployment process.
-
-Example task:
-
-```yaml
-- name: Wait for services to run and healthy
-  community.docker.docker_container_info:
-    name: "{{ item.ID }}"
-  loop: "{{ services_facts.containers }}"
-  loop_control:
-    label: "{{ item.Service }}"
-  register: container_info
-  failed_when: not container_info.container.State.Running or container_info.container.State.Health.Status == 'unhealthy'
-  until: container_info.container.State.Running and container_info.container.State.Health.Status == 'healthy'
-  delay: 10
-  retries: 5
-```
-
-This verification automatically confirms that all required services are fully operational before the deployment is considered successful. Status information includes:
-
-- Container running state (true/false)
-- Health status (healthy, unhealthy, starting)
-- Automatic retry logic with configurable delay and attempts
+**POST-DEPLOYMENT**
+10. Creates an admin user automatically if configured (when `forgejo_admin_*` variables are defined)
+11. Verifies successful user creation with detailed error reporting
 
 ## Container Health Checks
 
