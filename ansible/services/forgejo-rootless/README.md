@@ -137,7 +137,7 @@ For local development environments:
 
 - The default admin username is `forgejo_admin`
 - The default admin email is `admin@example.com`
-- The default admin password is `SimplePassword1234`
+- The default admin password is `ExamplePassword1234`
 
 These default credentials are pre-configured in the development inventory and are automatically applied when deploying in development mode.
 

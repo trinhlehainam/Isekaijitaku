@@ -160,12 +160,12 @@
         project_src: "{{ forgejo_project_src }}"
         service: forgejo
         # https://forgejo.org/docs/latest/admin/command-line/#admin-user-list
-        command: forgejo admin user list --admin | grep -q "{{ forgejo_admin_username }}"
+        command: forgejo admin user list --admin
       changed_when: false
       register: admin_user_info
-
+      
     - name: Create Forgejo admin user
-      when: admin_user_info.rc != 0
+      when: not admin_user_info.stdout is search(forgejo_admin_username)
       community.docker.docker_compose_v2_exec:
         project_src: "{{ forgejo_project_src }}"
         service: forgejo
@@ -174,9 +174,10 @@
       register: create_admin_result
 
     - name: Verify admin user creation
-      when: create_admin_result is defined
+      when: not create_admin_result.skipped
       ansible.builtin.assert:
         that:
           - create_admin_result.rc == 0
-          - create_admin_result.stdout | contains "successfully created"
+          # https://stackoverflow.com/a/52112477
+          - create_admin_result.stdout is search("successfully created")
         fail_msg: "Failed to create admin user: {{ create_admin_result.stderr }}"
