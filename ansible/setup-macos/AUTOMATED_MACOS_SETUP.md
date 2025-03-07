@@ -24,7 +24,9 @@ config.vm.define "macos" do |node|
 end
 ```
 
-The VirtualBox customization bypasses macOS's SMC verification, preventing VM crashes during startup. Network configuration assigns a static IP address for consistent Ansible connectivity. The `insert_key` parameter remains disabled to maintain compatibility with Ansible's default SSH key expectations.
+The VirtualBox customization `vb.customize ['setextradata', :id, 'VBoxInternal/Devices/smc/0/Config/GetKeyFromRealSMC', '0']` is critical when running macOS VMs on Windows hosts with VirtualBox. This setting prevents the "Failed to query SMC value from the host (VERR_INVALID_HANDLE)" error which commonly occurs because Windows hosts lack the Apple System Management Controller (SMC) that macOS attempts to query during boot. By setting this parameter to '0', the VM no longer attempts to verify SMC values from the host, allowing successful startup on non-Apple hardware.
+
+Network configuration assigns a static IP address for consistent Ansible connectivity. The `insert_key` parameter remains disabled to maintain compatibility with Ansible's default SSH key expectations.
 
 ## XCode Command Line Tools Silent Installation
 
