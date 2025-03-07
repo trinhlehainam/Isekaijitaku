@@ -71,18 +71,29 @@
 # Application Backup - Forgejo
 #################################################
 
-- name: Run Forgejo dump command using docker compose run
+- name: Launch Forgejo backup container with sleep command
   community.docker.docker_compose_v2_run:
     project_src: "{{ forgejo_project_src }}"
     service: forgejo
-    command: forgejo dump -f /tmp/forgejo_dump.zip
-    cleanup: true
+    command: sh -c "sleep 3600" # Keep container alive for 1 hour (more than enough for backup)
+    detach: true
+  register: forgejo_backup_container
+
+- name: Set backup container ID
+  ansible.builtin.set_fact:
+    forgejo_backup_container_id: "{{ forgejo_backup_container.container_id }}"
+  when: forgejo_backup_container.container_id is defined
+
+- name: Run Forgejo dump command in the backup container
+  community.docker.docker_container_exec:
+    container: "{{ forgejo_backup_container_id }}"
+    command: forgejo dump -f /var/lib/gitea/forgejo-app-dump.zip
   register: forgejo_dump_result
+  when: forgejo_backup_container_id is defined
 
 - name: Copy Forgejo backup from container to host
   ansible.builtin.command:
-    cmd: docker compose cp forgejo:/tmp/forgejo_dump.zip {{ current_backup_dir }}/forgejo_app_dump.zip
-    chdir: "{{ forgejo_project_src }}"
+    cmd: docker cp {{ forgejo_backup_container_id }}:/var/lib/gitea/forgejo-app-dump.zip {{ current_backup_dir }}/forgejo-app-dump.zip
   register: forgejo_copy_result
   when: forgejo_dump_result is success
 
@@ -91,12 +102,12 @@
     forgejo_backup_succeeded: true
   when: forgejo_dump_result is success and forgejo_copy_result is success
 
-- name: Clean up temporary Forgejo backup file in container
-  community.docker.docker_compose_v2_exec:
-    project_src: "{{ forgejo_project_src }}"
-    service: forgejo
-    command: rm -f /tmp/forgejo_dump.zip
-  when: forgejo_dump_result is success
+- name: Clean up Forgejo backup container
+  community.docker.docker_container:
+    name: "{{ forgejo_backup_container_id }}"
+    state: absent
+    force_kill: true
+  when: forgejo_backup_container_id is defined
 
 #################################################
 # Database Backup - PostgreSQL
@@ -106,12 +117,12 @@
   community.docker.docker_compose_v2_exec:
     project_src: "{{ forgejo_project_src }}"
     service: forgejo-db
-    command: pg_dump -Fc -U {{ db_user }} {{ db_name }} -f /tmp/forgejo_db_backup.dump
+    command: pg_dump -Fc -U {{ db_user }} {{ db_name }} -f /tmp/forgejo-db-backup.dump
   register: pg_dump_result
 
 - name: Copy PostgreSQL backup from container to host
   ansible.builtin.command:
-    cmd: docker compose cp forgejo-db:/tmp/forgejo_db_backup.dump {{ current_backup_dir }}/forgejo_db_backup.dump
+    cmd: docker compose cp forgejo-db:/tmp/forgejo-db-backup.dump {{ current_backup_dir }}/forgejo-db-backup.dump
     chdir: "{{ forgejo_project_src }}"
   register: pg_copy_result
   when: pg_dump_result is success
@@ -125,7 +136,7 @@
   community.docker.docker_compose_v2_exec:
     project_src: "{{ forgejo_project_src }}"
     service: forgejo-db
-    command: rm -f /tmp/forgejo_db_backup.dump
+    command: rm -f /tmp/forgejo-db-backup.dump
   when: pg_dump_result is success
 
 #################################################

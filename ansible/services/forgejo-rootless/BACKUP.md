@@ -6,14 +6,15 @@ This document describes the backup functionality for Forgejo and PostgreSQL data
 
 The backup process performs the following steps:
 
-1. Discovers running containers and obtains their IDs for reliable operations
-2. Stops the Forgejo container completely to avoid race conditions during backup
-3. Backs up the PostgreSQL database using `pg_dump` with the custom format (-Fc)
-4. Creates a Forgejo data dump using the official `forgejo dump` command
-5. Copies the backup files from containers to the host system using container IDs
-6. Creates a backup report with component status information
-7. Restarts services (in standard mode) or leaves them stopped (in update mode)
-8. Verifies service health after restart
+1. Stops all Forgejo services to ensure data consistency
+2. Launches a dedicated Forgejo backup container that remains active only during the backup process
+3. Runs the Forgejo dump command in the backup container, storing the backup in the container's volume-mounted directory
+4. Backs up the PostgreSQL database using `pg_dump` with the custom format (-Fc)
+5. Copies the backup files from containers to the host system using direct Docker copy commands
+6. Cleans up the temporary backup container after copying backup files
+7. Creates a backup report with component status information
+8. Restarts services (in standard mode) or leaves them stopped (in update mode)
+9. Verifies service health after restart
 
 ## Running Backups
 
@@ -52,19 +53,20 @@ Backups are stored in the configured backup directory (default: `backups` direct
 <forgejo_backup_dir>/
   └── YYYYMMDD-HHMMSS/
       ├── BACKUP_REPORT.md    # Detailed backup status report
-      ├── forgejo_app_dump.zip  # Forgejo application data dump
-      └── forgejo_db_backup.dump  # PostgreSQL database dump
+      ├── forgejo-app-dump.zip  # Forgejo application data dump
+      └── forgejo-db-backup.dump  # PostgreSQL database dump
 ```
 
 ## Backup Technology
 
 The backup system uses the following technologies to ensure reliable backups:
 
-- **Docker Compose V2**: For container control, service discovery, and executing commands
+- **Docker Compose V2**: For stopping services and launching backup containers
+- **Docker Container Exec**: For executing backup commands in running containers
 - **Forgejo dump**: Official Forgejo backup command that creates a consistent snapshot
 - **pg_dump**: PostgreSQL utility to create a consistent database backup in custom format
 - **docker cp**: For copying backup files from containers to the host system
-- **Container discovery**: Dynamic container identification using service names
+- **Container lifecycle management**: Uses dedicated backup containers with controlled lifecycles to prevent memory issues
 
 ## Restore Process
 
@@ -78,12 +80,12 @@ To restore from a backup:
 
 2. Restore PostgreSQL database:
    ```bash
-   docker compose exec forgejo-db pg_restore -Fc -c -U <db_user> -d <db_name> /path/to/forgejo_db_backup.dump
+   docker compose exec forgejo-db pg_restore -Fc -c -U <db_user> -d <db_name> /path/to/forgejo-db-backup.dump
    ```
 
 3. Restore Forgejo data (if needed):
    ```bash
-   docker compose run --rm forgejo sh -c "forgejo restore -f /path/to/forgejo_dump.zip"
+   docker compose run --rm forgejo sh -c "forgejo restore -f /path/to/forgejo-app-dump.zip"
    ```
 
 4. Restart services:
