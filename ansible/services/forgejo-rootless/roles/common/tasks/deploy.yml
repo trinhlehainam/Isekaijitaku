@@ -171,10 +171,11 @@
         service: forgejo
         # https://forgejo.org/docs/latest/admin/command-line/#admin-user-create
         command: forgejo admin user create --admin --username {{ forgejo_admin_username }} --email {{ forgejo_admin_email }} --password {{ forgejo_admin_password }}
+      changed_when: false
       register: create_admin_result
 
     - name: Verify admin user creation
-      when: not create_admin_result.skipped
+      when: create_admin_result.skipped is not defined or not create_admin_result.skipped
       ansible.builtin.assert:
         that:
           - create_admin_result.rc == 0

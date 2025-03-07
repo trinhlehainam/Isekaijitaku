@@ -52,10 +52,8 @@ Backups are stored in the configured backup directory (default: `backups` direct
 <forgejo_backup_dir>/
   └── YYYYMMDD-HHMMSS/
       ├── BACKUP_REPORT.md    # Detailed backup status report
-      ├── app/
-      │   └── forgejo_dump.zip  # Forgejo application data dump
-      └── db/
-          └── forgejo_db_backup.dump  # PostgreSQL database dump
+      ├── forgejo_app_dump.zip  # Forgejo application data dump
+      └── forgejo_db_backup.dump  # PostgreSQL database dump
 ```
 
 ## Backup Technology

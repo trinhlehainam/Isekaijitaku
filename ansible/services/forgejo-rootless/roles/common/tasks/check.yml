@@ -1,0 +1,104 @@
+---
+# Service Check Tasks
+#
+# This file implements service verification functionality for Forgejo services:
+# - Checks if docker-compose.yml exists
+# - Verifies running state of all containers
+# - Checks health status of containers
+# - Creates fact variables for use in other tasks
+
+#################################################
+# Initialization and Setup
+#################################################
+
+- name: Set up Forgejo Rootless project source path
+  ansible.builtin.set_fact:
+    forgejo_project_src: "{{ forgejo_project_src|default(ansible_user_dir + '/Docker/forgejo-rootless') }}"
+
+- name: Check if docker-compose file exists
+  ansible.builtin.stat:
+    path: "{{ forgejo_project_src }}/docker-compose.yml"
+  register: compose_file
+
+- name: Fail if docker-compose file doesn't exist
+  ansible.builtin.fail:
+    msg: "Docker Compose file not found at {{ forgejo_project_src }}/docker-compose.yml"
+  when: not compose_file.stat.exists
+
+#################################################
+# Service State Check
+#################################################
+
+- name: Gather services facts
+  community.docker.docker_compose_v2:
+    project_src: "{{ forgejo_project_src }}"
+    state: present
+  register: services_facts
+  when: compose_file.stat.exists
+  ignore_errors: true
+
+- name: Set services check variable
+  ansible.builtin.set_fact:
+    services_check_completed: "{{ services_facts is defined and services_facts.containers is defined }}"
+    services_check_success: false
+    services_running: false
+    services_healthy: false
+    services_list: []
+  when: compose_file.stat.exists
+
+- name: Process service information when facts are available
+  ansible.builtin.set_fact:
+    services_list: "{{ services_facts.containers | map(attribute='Service') | list }}"
+    services_running: true
+  when: services_check_completed|bool
+
+#################################################
+# Container Health Check
+#################################################
+
+- name: Check container health status
+  community.docker.docker_container_info:
+    name: "{{ item.ID }}"
+  loop: "{{ services_facts.containers }}"
+  loop_control:
+    label: "{{ item.Service }}"
+  register: container_info_results
+  when: services_check_completed|bool
+  ignore_errors: true
+
+- name: Set container status variables
+  ansible.builtin.set_fact:
+    container_status: "{{ container_status|default({}) | combine({ item.item.Service: item.container|default({}) }) }}"
+  loop: "{{ container_info_results.results }}"
+  when: services_check_completed|bool and container_info_results is defined
+  ignore_errors: true
+
+- name: Determine overall service health
+  ansible.builtin.set_fact:
+    services_healthy: "{{ (container_status.values() | map(attribute='State.Health.Status') | select('defined') | list | length > 0) 
+                         and (container_status.values() | map(attribute='State.Health.Status') | select('defined') | select('eq', 'healthy') | list | length 
+                             == container_status.values() | map(attribute='State.Health.Status') | select('defined') | list | length) }}"
+    services_check_success: true
+  when: services_check_completed|bool and container_status is defined and container_status|length > 0
+  ignore_errors: true
+
+#################################################
+# Service Status Summary
+#################################################
+
+- name: Create service status summary
+  ansible.builtin.set_fact:
+    service_status_summary: |
+      {% for service_name, container in container_status.items() %}
+      Service: {{ service_name }}
+      Running: {{ container.State.Running|default(false) }}
+      Health: {{ container.State.Health.Status|default('N/A') }}
+      {% endfor %}
+  when: services_check_completed|bool and container_status is defined and container_status|length > 0
+  ignore_errors: true
+
+- name: Display service status summary
+  ansible.builtin.debug:
+    msg: "{{ service_status_summary|default('No service status information available') }}"
+  when: services_check_completed|bool and service_status_summary is defined
+  ignore_errors: true

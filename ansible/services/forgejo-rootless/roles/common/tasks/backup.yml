@@ -12,12 +12,23 @@
 # - Supports standard mode (restart service) and update mode (keep service stopped)
 
 #################################################
-# Initialization and Setup
+# Service Control - Stop Services
 #################################################
 
 - name: Set up Forgejo Rootless project source path
   ansible.builtin.set_fact:
     forgejo_project_src: "{{ forgejo_project_src|default(ansible_user_dir + '/Docker/forgejo-rootless') }}"
+
+- name: Make sure services are down
+  community.docker.docker_compose_v2:
+    project_src: "{{ forgejo_project_src }}"
+    services:
+    state: absent
+  register: stop_result
+
+#################################################
+# Initialization and Setup
+#################################################
 
 - name: Set backup timestamp
   ansible.builtin.set_fact:
@@ -50,38 +61,11 @@
   ansible.builtin.debug:
     msg: "Running in {{ 'UPDATE mode - services will remain STOPPED after backup' if not restore_services else 'STANDARD mode - services will be RESTARTED after backup' }}"
     
-- name: Gather services facts
-  community.docker.docker_compose_v2:
-    project_src: "{{ forgejo_project_src }}"
-    state: present
-  register: services_facts
-
 - name: Create timestamp-based backup directory
   ansible.builtin.file:
     path: "{{ current_backup_dir }}"
     state: directory
     mode: '0755'
-
-#################################################
-# Service Control - Stop Forgejo
-#################################################
-
-- name: Set container names based on services facts
-  ansible.builtin.set_fact:
-    forgejo_container: "{{ services_facts.containers | selectattr('Service', 'eq', 'forgejo') | map(attribute='ID') | first | default('') }}"
-    db_container: "{{ services_facts.containers | selectattr('Service', 'eq', 'forgejo-db') | map(attribute='ID') | first | default('') }}"
-
-- name: Stop Forgejo service
-  when: forgejo_container != ''
-  community.docker.docker_compose_v2:
-    project_src: "{{ forgejo_project_src }}"
-    services:
-      - forgejo
-    state: stopped
-  register: stop_result
-  until: stop_result.containers[0].State != 'running'
-  retries: 5
-  delay: 10
 
 #################################################
 # Application Backup - Forgejo

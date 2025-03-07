@@ -28,10 +28,12 @@ services:
 {% if use_forgejo_mailer %}
         export FORGEJO__mailer__PASSWD=$$(cat /run/secrets/mailer_password)
 {% endif %}
-        /usr/bin/dumb-init -- /usr/local/bin/docker-entrypoint.sh
+        /usr/bin/dumb-init -- /usr/local/bin/docker-entrypoint.sh "$@"
     # Configuration Variables
     # https://forgejo.org/docs/next/admin/config-cheat-sheet/
     # https://codeberg.org/forgejo/forgejo/src/branch/forgejo/contrib/environment-to-ini
+    # command: ["/usr/bin/dumb-init", "--", "/usr/local/bin/docker-entrypoint.sh"]
+    command: []
     environment:
         GITEA_APP_INI: /etc/gitea/app.ini
 
