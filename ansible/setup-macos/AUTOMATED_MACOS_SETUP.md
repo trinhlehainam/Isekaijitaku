@@ -74,10 +74,10 @@ $HOME/.pyenv/bin/pyenv global 3.12
 This approach streamlines the dependency installation to only essential packages and explicitly installs Python 3.12 as the global interpreter. Setting the global Python version ensures consistent behavior across the entire environment without relying on default installations. Ansible connects to this environment through specific interpreter configuration:
 
 ```yaml
-ansible_python_interpreter: "{{ ansible_user_dir }}/.pyenv/shims/python3"
+ansible_python_interpreter: "/Users/{{ ansible_user }}/.pyenv/shims/python3"
 ```
 
-This configuration directs Ansible to use the pyenv-managed Python 3.12 instead of the system Python, avoiding version conflicts and permission issues with macOS's protected system directories.
+This configuration uses an explicit path to the pyenv-managed Python interpreter. Using the absolute path with `ansible_user` variable is more reliable than depending on `ansible_user_dir`, which is only available after Ansible gathers facts from the remote machine. This approach ensures Ansible can establish its initial connection correctly and use the Python 3.12 interpreter installed via pyenv, avoiding version conflicts and permission issues with macOS's protected system directories.
 
 ## Implementation Considerations
 
