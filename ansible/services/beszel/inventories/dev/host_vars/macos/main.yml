@@ -1,2 +1,2 @@
 use_docker: false
-ansible_python_interpreter: /usr/bin/python3
+ansible_python_interpreter: "/Users/{{ ansible_user }}/.pyenv/shims/python3"
