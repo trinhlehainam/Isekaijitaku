@@ -1,0 +1,49 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |config|
+  # https://portal.cloud.hashicorp.com/vagrant/discover/jhcook/macos-sierra
+  config.vm.box = "jhcook/macos-sierra"
+  config.vm.box_version = "10.12.6"
+  config.vm.boot_timeout = 300
+  config.ssh.insert_key = false
+  config.vm.synced_folder '.', '/vagrant', disabled: true
+  config.vm.provider :virtualbox do |vb|
+    vb.memory = 2048
+    vb.cpus = 2
+    # https://stackoverflow.com/a/78589151
+    vb.customize ['setextradata', :id, 'VBoxInternal/Devices/smc/0/Config/GetKeyFromRealSMC', '0']
+  end
+  
+  config.vm.define "macos" do |node|
+    node.vm.hostname = "macos"
+    node.vm.network "private_network", ip: "192.168.56.13"
+  end
+
+  config.vm.provision "shell", inline: <<-SHELL
+    # Install Command Line Tools
+    # https://apple.stackexchange.com/a/195963
+    touch /tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress;
+    PROD=$(softwareupdate -l |
+      grep "\*.*Command Line" |
+      head -n 1 | awk -F"*" '{print $2}' |
+      sed -e 's/^ *//' |
+      tr -d '\n')
+    softwareupdate -i "$PROD" --verbose
+    rm /tmp/.com.apple.dt.CommandLineTools.installondemand.in-progress
+    
+    # Install Homebrew
+    # https://docs.brew.sh/Installation#unattended-installation
+    # https://github.com/Homebrew/install?tab=readme-ov-file#install-homebrew-on-macos-or-linux
+    NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    
+    # Install pyenv
+    # https://github.com/pyenv/pyenv/wiki#suggested-build-environment
+    brew install readline xz
+    curl https://pyenv.run | bash
+    
+    # Install python
+    $HOME/.pyenv/bin/pyenv install 3.12
+    $HOME/.pyenv/bin/pyenv global 3.12
+  SHELL
+end
