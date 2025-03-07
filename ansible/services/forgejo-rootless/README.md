@@ -124,12 +124,22 @@ Edit the appropriate inventory file to configure automatic admin user creation. 
 
 ```yaml
 # Forgejo Admin User Configuration
-forgejo_admin_username: admin
+forgejo_admin_username: forgejo_admin
 forgejo_admin_email: admin@example.com
 forgejo_admin_password: !vault |
           $ANSIBLE_VAULT;1.1;AES256
           ... encrypted password ...
 ```
+
+### Local Development Setup
+
+For local development environments:
+
+- The default admin username is `forgejo_admin`
+- The default admin email is `admin@example.com`
+- The default admin password is `SimplePassword1234`
+
+These default credentials are pre-configured in the development inventory and are automatically applied when deploying in development mode.
 
 ### Implementation Details
 
