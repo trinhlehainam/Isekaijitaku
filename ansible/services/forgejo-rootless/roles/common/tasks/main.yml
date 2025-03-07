@@ -1,3 +1,10 @@
 ---
-- name: Deploy Forgejo Rootless
+# Main task entry point - selectively includes tasks based on tags
+
+- name: Include deploy tasks
   ansible.builtin.include_tasks: deploy.yml
+  tags: deploy
+
+- name: Include backup tasks
+  ansible.builtin.include_tasks: backup.yml
+  tags: backup

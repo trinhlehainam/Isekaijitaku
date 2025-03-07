@@ -1,10 +1,15 @@
 ---
+# Forgejo Rootless Playbook
+# Use -t deploy to deploy services
+# Use -t backup to perform backups
+
 - name: Ensure Docker is installed and running
   hosts: all
   become: true
   gather_facts: true
   roles:
     - role: geerlingguy.docker
+      tags: deploy
       vars:
         docker_users:
           - "{{ ansible_user }}"
@@ -14,3 +19,13 @@
   gather_facts: true
   roles:
     - role: common
+      tags: deploy
+    
+- name: Backup Forgejo Rootless services
+  hosts: all
+  gather_facts: true
+  roles:
+    - role: common
+      tags: backup
+      vars:
+        update_mode: false
