@@ -35,15 +35,15 @@ Vagrant.configure("2") do |config|
     # Install Homebrew
     # https://docs.brew.sh/Installation#unattended-installation
     # https://github.com/Homebrew/install?tab=readme-ov-file#install-homebrew-on-macos-or-linux
-    NONINTERACTIVE=1 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+    sudo su - vagrant -c "NONINTERACTIVE=1 /bin/bash -c \"$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)\""
     
     # Install pyenv
     # https://github.com/pyenv/pyenv/wiki#suggested-build-environment
-    brew install readline xz
-    curl https://pyenv.run | bash
+    sudo su - vagrant -c "brew install readline xz"
+    sudo su - vagrant -c "curl https://pyenv.run | bash"
     
     # Install python
-    $HOME/.pyenv/bin/pyenv install 3.12
-    $HOME/.pyenv/bin/pyenv global 3.12
+    sudo su - vagrant -c "$HOME/.pyenv/bin/pyenv install 3.12"
+    sudo su - vagrant -c "$HOME/.pyenv/bin/pyenv global 3.12"
   SHELL
 end
