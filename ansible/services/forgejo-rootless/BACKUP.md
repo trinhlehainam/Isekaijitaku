@@ -68,6 +68,33 @@ The backup system uses the following technologies to ensure reliable backups:
 - **docker cp**: For copying backup files from containers to the host system
 - **Container lifecycle management**: Uses dedicated backup containers with controlled lifecycles to prevent memory issues
 
+### Docker Compose Entrypoint Behavior
+
+When using a custom entrypoint in docker-compose.yml that forwards arguments with `"$@"` like this:
+
+```yaml
+entrypoint:
+  - /bin/sh
+  - -c
+  - |
+    # Setup code...
+    /usr/bin/dumb-init -- /usr/local/bin/docker-entrypoint.sh "$@"
+```
+
+There's a specific behavior with `docker compose run` that must be accounted for:
+
+1. When using `docker compose run service_name command`, the **first word** of the command is ignored/skipped when passed to `"$@"`
+2. To work around this, prefix your actual command with a dummy word:
+   ```bash
+   # INCORRECT - 'forgejo' will be ignored, only 'dump' passed to entrypoint
+   docker compose run forgejo forgejo dump
+   
+   # CORRECT - 'dummy' will be ignored, 'forgejo dump' passed to entrypoint
+   docker compose run forgejo dummy forgejo dump
+   ```
+
+This behavior only affects `docker compose run` commands and not other Docker Compose operations.
+
 ## Restore Process
 
 To restore from a backup:
