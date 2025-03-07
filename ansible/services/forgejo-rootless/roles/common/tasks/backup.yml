@@ -1,395 +1,232 @@
 ---
 # Forgejo and PostgreSQL Backup Tasks
 # 
-# This file implements a backup strategy using Docker's container copy approach.
+# This file implements a backup strategy using Docker's native commands for Forgejo and PostgreSQL.
 # Key concepts:
 # - Stops Forgejo service completely during backup (following official guidance)
-# - Creates backups in container and copies them to host
-# - Preserves proper file ownership and permissions
-# - Supports update mode (keep service stopped) and standard mode (restart service)
-# - Performs Docker-native health checks
+# - Uses 'forgejo dump' and 'pg_dump' commands for creating backups
+# - Uses docker compose run/exec for running one-shot commands
+# - Copies generated backup files to host using docker compose cp
+# - Creates timestamp-based backup directories
+# - Performs health checks to verify service status
+# - Supports standard mode (restart service) and update mode (keep service stopped)
 
-#---------------------------------------------------------------
-# 1. INITIALIZATION
-#---------------------------------------------------------------
+#################################################
+# Initialization and Setup
+#################################################
 
-- name: Initialize backup variables
+- name: Set up Forgejo Rootless project source path
   ansible.builtin.set_fact:
-    # Directory structure
-    forgejo_backup_dir: "{{ forgejo_backup_location|default(forgejo_project_src + '/backups') }}"
-    backup_timestamp: "{{ lookup('pipe', 'date +%Y%m%d%H%M%S') }}"
-    current_backup_dir: "{{ forgejo_backup_location|default(forgejo_project_src + '/backups') }}/backup_{{ lookup('pipe', 'date +%Y%m%d%H%M%S') }}"
-    
-    # Configuration & state tracking
-    backup_success: false
-    pg_backup_success: false
-    forgejo_backup_success: false
-    backup_keep_days: "{{ forgejo_backup_keep_days|default(7) }}"
-    update_mode: "{{ forgejo_update_mode|default(false) }}"
-    
-    # Paths
-    container_temp_path: "/tmp"
+    forgejo_project_src: "{{ forgejo_project_src|default(ansible_user_dir + '/Docker/forgejo-rootless') }}"
 
-- name: Ensure backup root directory exists
+- name: Set backup timestamp
+  ansible.builtin.set_fact:
+    backup_timestamp: "{{ lookup('pipe', 'date +%Y%m%d-%H%M%S') }}"
+    backup_succeeded: false
+    postgres_backup_succeeded: false
+    forgejo_backup_succeeded: false
+    restore_services: true
+
+- name: Check if backup directory is defined in inventory
+  ansible.builtin.set_fact:
+    forgejo_backup_dir: "{{ forgejo_backup_dir|default(forgejo_project_src + '/backups') }}"
+
+- name: Set current backup directory path
+  ansible.builtin.set_fact:
+    current_backup_dir: "{{ forgejo_backup_dir }}/{{ backup_timestamp }}"
+
+- name: Create base backup directory if it doesn't exist
   ansible.builtin.file:
     path: "{{ forgejo_backup_dir }}"
     state: directory
     mode: '0755'
-    owner: "{{ ansible_user }}"
-    group: "{{ ansible_user }}"
 
-- name: Check services state before backup
+- name: Check if update mode is enabled
+  ansible.builtin.set_fact:
+    restore_services: "{{ not (update_mode|default(false)|bool) }}"
+  when: update_mode is defined
+
+- name: Show backup mode
+  ansible.builtin.debug:
+    msg: "Running in {{ 'UPDATE mode - services will remain STOPPED after backup' if not restore_services else 'STANDARD mode - services will be RESTARTED after backup' }}"
+    
+- name: Gather services facts
   community.docker.docker_compose_v2:
     project_src: "{{ forgejo_project_src }}"
     state: present
-  register: service_status
-  ignore_errors: true
+  register: services_facts
 
-#---------------------------------------------------------------
-# 2. MAIN BACKUP PROCESS
-#---------------------------------------------------------------
+- name: Create timestamp-based backup directory
+  ansible.builtin.file:
+    path: "{{ current_backup_dir }}"
+    state: directory
+    mode: '0755'
 
-- name: Execute backup process
-  block:
-    #-----------------------------------------------
-    # 2.1. SERVICE PREPARATION
-    #-----------------------------------------------
-    
-    - name: Stop Forgejo service for backup
-      community.docker.docker_compose_v2:
-        project_src: "{{ forgejo_project_src }}"
-        state: stopped
-        services:
-          - forgejo
-      when: service_status is success and service_status.services is defined
-      register: stop_result
+#################################################
+# Service Control - Stop Forgejo
+#################################################
+
+- name: Set container names based on services facts
+  ansible.builtin.set_fact:
+    forgejo_container: "{{ services_facts.containers | selectattr('Service', 'eq', 'forgejo') | map(attribute='ID') | first | default('') }}"
+    db_container: "{{ services_facts.containers | selectattr('Service', 'eq', 'forgejo-db') | map(attribute='ID') | first | default('') }}"
+
+- name: Stop Forgejo service
+  when: forgejo_container != ''
+  community.docker.docker_compose_v2:
+    project_src: "{{ forgejo_project_src }}"
+    services:
+      - forgejo
+    state: stopped
+  register: stop_result
+  until: stop_result.containers[0].State != 'running'
+  retries: 5
+  delay: 10
+
+#################################################
+# Application Backup - Forgejo
+#################################################
+
+- name: Run Forgejo dump command using docker compose run
+  community.docker.docker_compose_v2_run:
+    project_src: "{{ forgejo_project_src }}"
+    service: forgejo
+    command: forgejo dump -f /tmp/forgejo_dump.zip
+    cleanup: true
+  register: forgejo_dump_result
+
+- name: Copy Forgejo backup from container to host
+  ansible.builtin.command:
+    cmd: docker compose cp forgejo:/tmp/forgejo_dump.zip {{ current_backup_dir }}/forgejo_app_dump.zip
+    chdir: "{{ forgejo_project_src }}"
+  register: forgejo_copy_result
+  when: forgejo_dump_result is success
+
+- name: Mark Forgejo backup as successful
+  ansible.builtin.set_fact:
+    forgejo_backup_succeeded: true
+  when: forgejo_dump_result is success and forgejo_copy_result is success
+
+- name: Clean up temporary Forgejo backup file in container
+  community.docker.docker_compose_v2_exec:
+    project_src: "{{ forgejo_project_src }}"
+    service: forgejo
+    command: rm -f /tmp/forgejo_dump.zip
+  when: forgejo_dump_result is success
+
+#################################################
+# Database Backup - PostgreSQL
+#################################################
+
+- name: Backup PostgreSQL database using docker compose exec
+  community.docker.docker_compose_v2_exec:
+    project_src: "{{ forgejo_project_src }}"
+    service: forgejo-db
+    command: pg_dump -Fc -U {{ db_user }} {{ db_name }} -f /tmp/forgejo_db_backup.dump
+  register: pg_dump_result
+
+- name: Copy PostgreSQL backup from container to host
+  ansible.builtin.command:
+    cmd: docker compose cp forgejo-db:/tmp/forgejo_db_backup.dump {{ current_backup_dir }}/forgejo_db_backup.dump
+    chdir: "{{ forgejo_project_src }}"
+  register: pg_copy_result
+  when: pg_dump_result is success
+
+- name: Mark PostgreSQL backup as successful
+  ansible.builtin.set_fact:
+    postgres_backup_succeeded: true
+  when: pg_dump_result is success and pg_copy_result is success
+
+- name: Clean up temporary PostgreSQL backup file in container
+  community.docker.docker_compose_v2_exec:
+    project_src: "{{ forgejo_project_src }}"
+    service: forgejo-db
+    command: rm -f /tmp/forgejo_db_backup.dump
+  when: pg_dump_result is success
+
+#################################################
+# Backup Status and Reporting
+#################################################
+
+- name: Set overall backup success status
+  ansible.builtin.set_fact:
+    backup_succeeded: "{{ postgres_backup_succeeded or forgejo_backup_succeeded }}"
+
+- name: Create backup report
+  ansible.builtin.copy:
+    dest: "{{ current_backup_dir }}/BACKUP_REPORT.md"
+    content: |
+      # Backup Report
+
+      **Timestamp:** {{ backup_timestamp }}
+      **Mode:** {{ 'UPDATE' if not restore_services else 'STANDARD' }}
+
+      ## Components Status
+
+      | Component | Status |
+      |-----------|--------|
+      | PostgreSQL | {{ 'SUCCESS ✅' if postgres_backup_succeeded else 'FAILED ❌' }} |
+      | Forgejo | {{ 'SUCCESS ✅' if forgejo_backup_succeeded else 'FAILED ❌' }} |
+
+      ## Summary
       
-    - name: Wait for Forgejo container to stop completely
-      ansible.builtin.pause: 
-        seconds: 5
-      when: stop_result is defined and stop_result.changed|bool
+      Overall backup status: {{ 'SUCCESS ✅' if backup_succeeded else 'FAILED ❌' }}
+      
+      {% if restore_services %}
+      Services were restarted after backup.
+      {% else %}
+      Services remained stopped after backup (UPDATE mode).
+      {% endif %}
+    mode: '0644'
+  when: backup_succeeded
 
-    #-----------------------------------------------
-    # 2.2. POSTGRESQL BACKUP
-    #-----------------------------------------------
-    
-    - name: PostgreSQL backup process
-      block:
-        - name: Verify PostgreSQL data directory
-          community.docker.docker_compose_v2_exec:
-            project_src: "{{ forgejo_project_src }}"
-            service: forgejo-db
-            command: psql -U forgejo -c "SHOW data_directory;"
-          register: pg_data_dir
-          ignore_errors: true
-        
-        - name: Create PostgreSQL backup archive in container
-          community.docker.docker_compose_v2_exec:
-            project_src: "{{ forgejo_project_src }}"
-            service: forgejo-db
-            command: >
-              bash -c "cd /var/lib/postgresql && 
-              tar -czf {{ container_temp_path }}/postgres-backup.tar.gz data"
-            tty: false
-          register: pg_backup_result
-          when: pg_data_dir is success
-        
-        - name: Get PostgreSQL container info
-          community.docker.docker_compose_v2:
-            project_src: "{{ forgejo_project_src }}"
-            services:
-              - forgejo-db
-            state: present
-          register: db_container_info
-          when: pg_backup_result is success
-          
-        - name: Initialize backup directory structure for PostgreSQL
-          block:
-            - name: Create timestamp-based backup directory
-              ansible.builtin.file:
-                path: "{{ current_backup_dir }}"
-                state: directory
-                mode: '0755'
-                owner: "{{ ansible_user }}"
-                group: "{{ ansible_user }}"
-            
-            - name: Create PostgreSQL backup directory
-              ansible.builtin.file:
-                path: "{{ current_backup_dir }}/db"
-                state: directory
-                mode: '0755'
-                owner: "{{ ansible_user }}"
-                group: "{{ ansible_user }}"
-          when: db_container_info is defined and db_container_info.services is defined
-        
-        - name: Copy PostgreSQL backup from container to host
-          community.docker.docker_container_copy_into:
-            container: "{{ db_container_info.services['forgejo-db'].container_name }}"
-            container_path: "{{ container_temp_path }}/postgres-backup.tar.gz"
-            path: "{{ current_backup_dir }}/db/postgres-data.tar.gz"
-          when: db_container_info is defined and db_container_info.services is defined
-          register: pg_copy_result
-        
-        - name: Set correct ownership and permissions for PostgreSQL backup
-          ansible.builtin.file:
-            path: "{{ current_backup_dir }}/db/postgres-data.tar.gz"
-            owner: "{{ ansible_user }}"
-            group: "{{ ansible_user }}"
-            mode: '0644'
-          when: pg_copy_result is success
-        
-        - name: Track PostgreSQL backup success
-          ansible.builtin.set_fact:
-            pg_backup_success: "{{ pg_copy_result is defined and pg_copy_result is success }}"
-      rescue:
-        - name: Handle PostgreSQL backup failure
-          block:
-            - name: Log PostgreSQL backup failure
-              ansible.builtin.debug:
-                msg: "PostgreSQL backup failed: {{ ansible_failed_result|default('Unknown error') }}"
-              
-            - name: Set PostgreSQL backup failure flag
-              ansible.builtin.set_fact:
-                pg_backup_success: false
+#################################################
+# Cleanup and Service Restoration
+#################################################
 
-    #-----------------------------------------------
-    # 2.3. FORGEJO BACKUP
-    #-----------------------------------------------
-    
-    - name: Forgejo backup process
-      block:
-        - name: Run Forgejo container with backup command
-          community.docker.docker_compose_v2:
-            project_src: "{{ forgejo_project_src }}"
-            command: bash -c "cd /var/lib && tar -czf {{ container_temp_path }}/forgejo-backup.tar.gz gitea"
-            services:
-              - forgejo
-            tty: false
-          register: forgejo_backup_result
-        
-        - name: Get Forgejo container info
-          community.docker.docker_compose_v2:
-            project_src: "{{ forgejo_project_src }}"
-            services:
-              - forgejo
-            state: present
-          register: forgejo_container_info
-          when: forgejo_backup_result is success
-        
-        - name: Initialize backup directory structure for Forgejo
-          block:
-            - name: Create timestamp-based backup directory if not created by PostgreSQL backup
-              ansible.builtin.file:
-                path: "{{ current_backup_dir }}"
-                state: directory
-                mode: '0755'
-                owner: "{{ ansible_user }}"
-                group: "{{ ansible_user }}"
-              when: not pg_backup_success|default(false)|bool
-            
-            - name: Create Forgejo application backup directory
-              ansible.builtin.file:
-                path: "{{ current_backup_dir }}/app"
-                state: directory
-                mode: '0755'
-                owner: "{{ ansible_user }}"
-                group: "{{ ansible_user }}"
-          when: forgejo_container_info is defined and forgejo_container_info.services is defined
-        
-        - name: Copy Forgejo backup from container to host
-          community.docker.docker_container_copy_into:
-            container: "{{ forgejo_container_info.services['forgejo'].container_name }}"
-            container_path: "{{ container_temp_path }}/forgejo-backup.tar.gz"
-            path: "{{ current_backup_dir }}/app/forgejo-data.tar.gz"
-          when: forgejo_container_info is defined and forgejo_container_info.services is defined
-          register: forgejo_copy_result
-        
-        - name: Set correct ownership and permissions for Forgejo backup
-          ansible.builtin.file:
-            path: "{{ current_backup_dir }}/app/forgejo-data.tar.gz"
-            owner: "{{ ansible_user }}"
-            group: "{{ ansible_user }}"
-            mode: '0644'
-          when: forgejo_copy_result is success
-        
-        - name: Track Forgejo backup success
-          ansible.builtin.set_fact:
-            forgejo_backup_success: "{{ forgejo_copy_result is defined and forgejo_copy_result is success }}"
-      rescue:
-        - name: Handle Forgejo backup failure
-          block:
-            - name: Log Forgejo backup failure
-              ansible.builtin.debug:
-                msg: "Forgejo backup failed: {{ ansible_failed_result|default('Unknown error') }}"
-              
-            - name: Set Forgejo backup failure flags
-              ansible.builtin.set_fact:
-                forgejo_backup_success: false
+- name: Restore Forgejo service if backup succeeded and in standard mode
+  community.docker.docker_compose_v2:
+    project_src: "{{ forgejo_project_src }}"
+    services:
+      - forgejo
+    state: present
+  when: restore_services and backup_succeeded
 
-    #-----------------------------------------------
-    # 2.4. FINALIZE BACKUP
-    #-----------------------------------------------
-    
-    - name: Determine overall backup status
-      ansible.builtin.set_fact:
-        backup_success: "{{ pg_backup_success|bool and forgejo_backup_success|bool }}"
-      when: pg_backup_success is defined and forgejo_backup_success is defined
-    
-    - name: Manage old backups
-      block:
-        - name: Find backup directories older than retention period
-          ansible.builtin.find:
-            paths: "{{ forgejo_backup_dir }}"
-            patterns: "backup_*"
-            file_type: directory
-            age: "{{ backup_keep_days }}d"
-            age_stamp: mtime
-          register: old_backups
-          when: backup_keep_days | int > 0
-          
-        - name: Remove old backup directories
-          ansible.builtin.file:
-            path: "{{ item.path }}"
-            state: absent
-          loop: "{{ old_backups.files|default([]) }}"
-          when: backup_keep_days | int > 0 and old_backups.files is defined
-      when: pg_backup_success|default(false)|bool or forgejo_backup_success|default(false)|bool
+- name: Restore Forgejo service even if backup failed (to ensure service availability)
+  community.docker.docker_compose_v2:
+    project_src: "{{ forgejo_project_src }}"
+    services:
+      - forgejo
+    state: present
+  when: restore_services and not backup_succeeded
 
-  #---------------------------------------------------------------
-  # 3. CLEANUP AND SERVICE MANAGEMENT
-  #---------------------------------------------------------------
-  
-  always:
-    - name: Clean up temporary files in containers
-      community.docker.docker_compose_v2_exec:
-        project_src: "{{ forgejo_project_src }}"
-        service: "{{ item }}"
-        command: rm -f {{ container_temp_path }}/*-backup.tar.gz
-      loop:
-        - forgejo-db
-      ignore_errors: true
-      when: service_status is success and service_status.services is defined
+- name: Re-gather services facts after restart
+  community.docker.docker_compose_v2:
+    project_src: "{{ forgejo_project_src }}"
+    state: present
+  register: services_facts_post
+  when: restore_services
 
-    - name: Determine service restart condition
-      ansible.builtin.set_fact:
-        should_restart_service: >
-          "{{ 
-          (service_status is success and service_status.services is defined) and 
-          (not update_mode|bool or not backup_success|bool)
-          }}"
+- name: Wait for Forgejo container to be running and healthy
+  community.docker.docker_container_info:
+    name: "{{ services_facts_post.containers | selectattr('Service', 'eq', 'forgejo') | map(attribute='ID') | first | default('') }}"
+  register: forgejo_container_post
+  failed_when: not forgejo_container_post.container.State.Running or forgejo_container_post.container.State.Health.Status == 'unhealthy'
+  until: forgejo_container_post.container.State.Running and forgejo_container_post.container.State.Health.Status == 'healthy'
+  delay: 10
+  retries: 5
+  when: restore_services and services_facts_post is defined
 
-    - name: Restart Forgejo service if needed
-      community.docker.docker_compose_v2:
-        project_src: "{{ forgejo_project_src }}"
-        state: present
-        services:
-          - forgejo
-          - forgejo-db
-      when: should_restart_service|bool
-      register: start_result
-    
-    #-----------------------------------------------
-    # 3.1. VERIFY SERVICE HEALTH
-    #-----------------------------------------------
-    
-    - name: Verify service health
-      when: start_result is defined and start_result.changed|bool
-      block:
-        - name: Wait for service to stabilize
-          ansible.builtin.pause: 
-            seconds: 10
-          when: start_result is defined and start_result.changed|bool
-        
-        - name: Check Forgejo container running state
-          community.docker.docker_container_info:
-            name: "{{ start_result.services['forgejo'].container_name | default('') }}"
-          register: forgejo_container_status
-          when: start_result is defined and start_result.changed|bool and start_result.services is defined and 'forgejo' in start_result.services
-        
-        - name: Check PostgreSQL container running state
-          community.docker.docker_container_info:
-            name: "{{ start_result.services['forgejo-db'].container_name | default('') }}"
-          register: postgres_container_status
-          when: start_result is defined and start_result.changed|bool and start_result.services is defined and 'forgejo-db' in start_result.services
-          
-        - name: Check Forgejo logs for successful application startup
-          community.docker.docker_container_exec:
-            container: "{{ start_result.services['forgejo'].container_name }}"
-            command: grep -m 1 "Starting new Web server" /var/lib/gitea/log/gitea.log
-          register: forgejo_logs
-          ignore_errors: true
-          when: 
-            - start_result is defined and start_result.changed|bool 
-            - start_result.services is defined and 'forgejo' in start_result.services
-            - forgejo_container_status is defined and forgejo_container_status.container and forgejo_container_status.container.State.Running
-        
-        - name: Determine service health status
-          ansible.builtin.set_fact:
-            service_running: "{{ start_result is defined and start_result.changed }}"
-            forgejo_container_running: "{{ forgejo_container_status.container.State.Running if forgejo_container_status.container is defined else false }}"
-            postgres_container_running: "{{ postgres_container_status.container.State.Running if postgres_container_status.container is defined else false }}"
-            forgejo_app_started: "{{ forgejo_logs.rc == 0 if forgejo_logs is defined else false }}"
-          when: start_result is defined and start_result.changed|bool
-        
-        - name: Calculate overall health status
-          ansible.builtin.set_fact:
-            forgejo_health_status: >
-              "{{ 
-              forgejo_container_running|bool and 
-              postgres_container_running|bool and 
-              forgejo_app_started|bool
-              }}"
-          when: start_result is defined and start_result.changed|bool and service_running|bool
+- name: Clean up empty backup directory if backup failed
+  ansible.builtin.file:
+    path: "{{ current_backup_dir }}"
+    state: absent
+  when: not backup_succeeded
 
-    #-----------------------------------------------
-    # 3.2. GENERATE BACKUP REPORT
-    #-----------------------------------------------
-    
-    - name: Generate backup report
-      ansible.builtin.copy:
-        content: |
-          # Forgejo Backup Report
-          
-          ## Backup Information
-          - Timestamp: {{ backup_timestamp }}
-          - Location: {{ current_backup_dir }}/
-          - Method: Docker container copy approach
-          
-          ## Backup Components
-          - Forgejo: app/forgejo-data.tar.gz {% if forgejo_backup_success|default(false) %}( Success){% else %}( Failed){% endif %}
-          - PostgreSQL: db/postgres-data.tar.gz {% if pg_backup_success|default(false) %}( Success){% else %}( Failed){% endif %}
-          
-          ## Status
-          - Overall Status: {% if backup_success %} Success{% else %} Failed{% endif %}
-          - Mode: {% if update_mode %}Update (keep stopped after backup){% else %}Standard (restart after backup){% endif %}
-          
-          ## Service Status
-          - Service: {% if service_running|default(false) %}Running{% else %}Stopped{% endif %}
-          {% if service_running|default(false) %}
-          - Health Check:
-              * Forgejo Container: {% if forgejo_container_running|default(false) %} Running{% else %} Not Running{% endif %}
-              * PostgreSQL Container: {% if postgres_container_running|default(false) %} Running{% else %} Not Running{% endif %}
-              * Forgejo Application: {% if forgejo_app_started|default(false) %} Started{% else %} Not Started{% endif %}
-              * Overall Health: {% if forgejo_health_status|default(false) %} Healthy{% else %} Unhealthy{% endif %}
-          {% endif %}
-          
-          ## Backup Rotation
-          - Retention Period: {{ backup_keep_days }} days
-          
-          Generated: {{ lookup('pipe', 'date') }}
-        dest: "{{ current_backup_dir }}/backup-report.txt"
-        mode: '0644'
-        owner: "{{ ansible_user }}"
-        group: "{{ ansible_user }}"
-      when: pg_backup_success|default(false)|bool or forgejo_backup_success|default(false)|bool
-    
-    #-----------------------------------------------
-    # 3.3. ERROR HANDLING FOR UPDATE MODE
-    #-----------------------------------------------
-    
-    - name: Error handling for update mode
-      ansible.builtin.fail:
-        msg: |
-          Backup failed in update mode. Update operation canceled and service has been restarted.
-          Check {{ current_backup_dir }}/backup-report.txt for details.
-      when: update_mode|bool and not backup_success|bool
+- name: Show final backup status
+  ansible.builtin.debug:
+    msg: >-
+      Backup {{ 'SUCCEEDED' if backup_succeeded else 'FAILED' }}.
+      PostgreSQL: {{ 'OK' if postgres_backup_succeeded else 'FAILED' }}.
+      Forgejo: {{ 'OK' if forgejo_backup_succeeded else 'FAILED' }}.
+      {{ 'Services were restarted.' if restore_services else 'Services remain STOPPED (update mode).' }}
