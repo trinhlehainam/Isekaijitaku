@@ -1,4 +1,4 @@
 ansible_user: vagrant
 ansible_ssh_private_key_file: ~/.vagrant.d/insecure_private_key
-ansible_python_interpreter: /usr/bin/python3
+ansible_python_interpreter: "{{ ansible_user_dir }}/.pyenv/shims/python3"
 use_docker: true
