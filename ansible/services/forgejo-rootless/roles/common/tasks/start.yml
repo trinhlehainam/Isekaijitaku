@@ -1,0 +1,19 @@
+- name: Start services
+  community.docker.docker_compose_v2:
+    project_src: "{{ forgejo_project_src }}"
+    state: present
+  register: services_facts
+  when: forgejo_project_src is defined
+
+- name: Wait for services to be running and healthy
+  when: services_facts is defined
+  community.docker.docker_container_info:
+    name: "{{ item.ID }}"
+  loop: "{{ services_facts.containers }}"
+  loop_control:
+    label: "{{ item.Service }}"
+  register: container_info
+  failed_when: not container_info.container.State.Running or container_info.container.State.Health.Status == 'unhealthy'
+  until: container_info.container.State.Running and container_info.container.State.Health.Status == 'healthy'
+  delay: 10
+  retries: 5

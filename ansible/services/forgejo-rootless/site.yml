@@ -7,9 +7,9 @@
   hosts: all
   become: true
   gather_facts: true
+  tags: [never, deploy]
   roles:
     - role: geerlingguy.docker
-      tags: deploy
       vars:
         docker_users:
           - "{{ ansible_user }}"
@@ -17,15 +17,18 @@
 - name: Deploy Forgejo Rootless services
   hosts: all
   gather_facts: true
+  tags: [never, deploy]
   roles:
     - role: common
-      tags: deploy
     
 - name: Backup Forgejo Rootless services
   hosts: all
   gather_facts: true
-  roles:
-    - role: common
-      tags: backup
+  tags: [never, backup]
+  tasks:
+    - name: Include backup tasks
+      ansible.builtin.include_role:
+        name: common
+        tasks_from: backup.yml
       vars:
         update_mode: false
