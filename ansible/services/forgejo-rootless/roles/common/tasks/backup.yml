@@ -35,7 +35,7 @@
 
 - name: Set backup timestamp
   ansible.builtin.set_fact:
-    backup_timestamp: "{{ lookup('pipe', 'date +%Y%m%d-%H%M%S') }}"
+    backup_timestamp: "{{ lookup('pipe', 'date +%Y-%m-%d_%H-%M') }}"
     backup_succeeded: false
     postgres_backup_succeeded: false
     postgres_backup_filename: "forgejo-db-backup.dump"
