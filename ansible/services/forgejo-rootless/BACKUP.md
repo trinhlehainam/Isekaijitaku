@@ -21,14 +21,16 @@ The backup process employs a sophisticated error handling structure with the fol
 The backup process follows these steps:
 
 1. Stops all Forgejo services to ensure data consistency
-2. Launches a dedicated Forgejo backup container that remains active during the backup process
-3. Runs the Forgejo dump command in the backup container
-4. Backs up the PostgreSQL database using `pg_dump` with the custom format (-Fc)
-5. Copies the backup files from containers to the host system using Docker copy commands
-6. Performs cleanup of temporary files and containers
-7. Creates a backup report with detailed component status and error information
-8. Restarts services (in standard mode) or leaves them stopped (in update mode)
-9. Verifies service health after restart
+2. Sets up backup variables including timestamps and file paths
+3. Launches a dedicated Forgejo backup container that remains active during the backup process
+4. Runs the Forgejo dump command in the backup container using predefined paths
+5. Backs up the PostgreSQL database using `pg_dump` with the custom format (-Fc)
+6. Copies the backup files from containers to the host system using consistent path references
+7. Verifies container existence before performing cleanup operations
+8. Cleans up temporary files in containers
+9. Creates a backup report with detailed component status and error information
+10. Notifies the service restoration handler if needed (in standard mode)
+11. Verifies service health after restart
 
 ## Running Backups
 
@@ -60,6 +62,8 @@ The backup system supports the following configuration options:
 |----------|-------------|---------|
 | `forgejo_backup_dir` | Directory where backups are stored | `<forgejo_project_src>/backups` |
 | `update_mode` | If true, services remain stopped after backup | `false` |
+| `forgejo_backup_filename` | Filename for Forgejo application backup | `forgejo-app-dump.zip` |
+| `postgres_backup_filename` | Filename for PostgreSQL database backup | `forgejo-db-backup.dump` |
 
 You can set these variables in your inventory files or pass them as extra vars when running the playbook.
 
@@ -87,6 +91,8 @@ The backup system integrates multiple technologies to ensure reliable backups:
 - **Container lifecycle management**: Manages dedicated backup containers with controlled lifecycles
 - **Ansible handlers**: Provides reliable service restoration even after failures
 - **Hierarchical error handling**: Employs block/rescue/always structures for robust failure management
+- **Centralized backup paths**: Uses variables to consistently define and reference backup file paths
+- **Container existence verification**: Checks for container existence before attempting cleanup operations
 
 ### Docker Compose Entrypoint Behavior
 
