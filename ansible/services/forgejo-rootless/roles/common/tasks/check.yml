@@ -56,10 +56,10 @@
             'id': item.Id,
             'service': item.Labels['com.docker.compose.service'],
             'state': item.State,
-            'healthy': item.Status | regex_search('\\(healthy\\)') is not none,
+            'health': item.Status | regex_search('\\(([^)]*)\\)') | default(''),
             'name': item.Names[0] | regex_replace('^/', ''),
             'status': item.Status,
-            'uptime': item.Status | regex_search('Up ([^\\(]*)') | default('Unknown'),
+            'uptime': item.Status | regex_search('Up ([^\\(]*)') | default('') | trim | default('Unknown'),
             'image': item.Image
           }
         ]
@@ -90,7 +90,13 @@
       - **State**: {{ service.state }}
       - **Status**: {{ service.status }}
       - **Uptime**: {{ service.uptime }}
-      - **Health**: {{ 'Healthy ✅' if service.healthy else 'Not healthy ❌' }}
+      - **Health**: {{ 
+          service.health | default('No health check') }}{{
+          ' ✅' if service.health is search('healthy') else
+          ' ⏳' if service.health is search('starting') else
+          ' ❌' if service.health is search('unhealthy') else
+          ''
+        }}
       - **Image**: {{ service.image }}
       {% endfor %}
       
