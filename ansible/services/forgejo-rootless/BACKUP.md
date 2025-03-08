@@ -89,10 +89,33 @@ The backup system integrates multiple technologies to ensure reliable backups:
 - **pg_dump**: Generates consistent PostgreSQL backups in custom format (-Fc) for optimal restoration
 - **docker cp**: Transfers backup files from containers to the host filesystem
 - **Container lifecycle management**: Manages dedicated backup containers with controlled lifecycles
-- **Ansible handlers**: Provides reliable service restoration even after failures
+- **Ansible handlers**: Provides reliable service restoration even after failures through task inclusion
 - **Hierarchical error handling**: Employs block/rescue/always structures for robust failure management
 - **Centralized backup paths**: Uses variables to consistently define and reference backup file paths
 - **Container existence verification**: Checks for container existence before attempting cleanup operations
+- **Force handlers execution**: Ensures service restoration handlers run even when the playbook fails
+
+### Handler Implementation
+
+The backup system uses Ansible handlers to ensure services are restored after a backup failure in standard mode. Since Ansible handlers don't support blocks directly, we use the `include_tasks` mechanism to execute multiple tasks in a single handler:
+
+```yaml
+- name: Restore services
+  ansible.builtin.include_tasks: ../tasks/start.yml
+```
+
+This approach allows reusing the same service startup logic in both the initial deployment and the failure recovery scenarios, promoting code reuse and consistency.
+
+Additionally, the playbook is configured with `force_handlers: true` to ensure that handlers are executed even when the playbook fails, which is essential for service restoration after backup failures:
+
+```yaml
+- name: Backup Forgejo Rootless services
+  hosts: all
+  gather_facts: true
+  tags: [never, backup]
+  force_handlers: true
+  # Rest of the playbook...
+```
 
 ### Docker Compose Entrypoint Behavior
 

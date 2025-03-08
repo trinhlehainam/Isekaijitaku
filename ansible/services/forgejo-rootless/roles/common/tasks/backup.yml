@@ -194,7 +194,7 @@
       ansible.builtin.debug:
         msg: "Notifying service restore handler due to backup failure"
       changed_when: true
-      notify: "Restore services"
+      notify: Restore services
       when: restore_services|bool
 
 #################################################
