@@ -1,6 +1,6 @@
 # Forgejo Backup System
 
-This document describes the backup functionality for Forgejo and PostgreSQL databases in a Docker-based deployment. The system implements a hierarchical error handling approach with service state preservation that ensures data consistency, robust failure recovery, and intelligent service restoration.
+This document describes the backup functionality for Forgejo and PostgreSQL databases in a Docker-based deployment. The system implements a hierarchical error handling approach with service state preservation that ensures data consistency, robust failure handling, and intelligent service state rollback.
 
 ## Backup Architecture
 
@@ -14,7 +14,7 @@ The backup process employs a sophisticated error handling structure with the fol
 
 4. **Container Health Detection**: Provides accurate container health status detection with support for multiple health states (healthy, starting, unhealthy).
 
-5. **State-Aware Service Recovery**: Uses captured service state information to intelligently restore services to their original running state after backup operations.
+5. **State-Aware Service Rollback**: Uses captured service state information to intelligently return services to their original running state after backup operations.
 
 6. **Detailed Error Reporting**: Captures specific error information at each level and includes it in the backup report.
 
@@ -34,8 +34,8 @@ The backup process follows these steps:
 8. Verifies container existence before performing cleanup operations
 9. Cleans up temporary files in containers
 10. Creates a backup report with detailed component status and error information
-11. Notifies the service recovery handler to restore services to their original state
-12. Recovers services to their original state (running or stopped) based on preserved state information
+11. Notifies the service rollback handler to return services to their original state
+12. Rolls back services to their original state (running or stopped) based on preserved state information
 
 ## Running Backups
 
@@ -45,7 +45,7 @@ To run a backup with automatic service recovery afterward:
 ansible-playbook site.yml -i inventories/production/hosts.yml -t backup
 ```
 
-The system will intelligently recover services to their original state after backup completion, regardless of success or failure. This ensures services are properly restored to their pre-backup state, maintaining the expected service availability through state-aware recovery handlers.
+The system will intelligently roll back services to their original state after backup completion, regardless of success or failure. This ensures services are properly returned to their pre-backup state, maintaining the expected service availability through state-aware rollback handlers.
 
 ### Configuration Options
 
@@ -87,7 +87,7 @@ The backup system integrates multiple technologies to ensure reliable backups:
 - **Container existence verification**: Checks for container existence before attempting cleanup operations
 - **Force handlers execution**: Ensures service restoration handlers run even when the playbook fails
 
-### Service State Preservation and Recovery
+### Service State Preservation and Rollback
 
 The backup system includes a sophisticated service state preservation and recovery mechanism:
 
@@ -98,10 +98,10 @@ The backup system includes a sophisticated service state preservation and recove
    - Health status (healthy, starting, unhealthy)
    - Other metadata such as uptime and image information
 
-2. **State-Aware Recovery Handler**: After backup completion, a specialized handler restores each service to its original state:
+2. **State-Aware Rollback Handler**: After backup completion, a specialized handler returns each service to its original state:
 
 ```yaml
-- name: Recover services
+- name: Rollback services
   community.docker.docker_compose_v2:
     project_src: "{{ forgejo_project_src }}"
     services: "{{ item.service }}"
@@ -119,7 +119,7 @@ This handler uses container state information preserved in `check_result.service
    - `starting`: Container is running but health checks are still in progress
    - `unhealthy`: Container is running but failing health checks
 
-The playbook is configured with `force_handlers: true` to ensure that state recovery is executed even when the playbook fails, which is essential for service restoration after backup failures:
+The playbook is configured with `force_handlers: true` to ensure that state rollback is executed even when the playbook fails, which is essential for service restoration after backup failures:
 
 ```yaml
 - name: Backup Forgejo Rootless services
@@ -130,7 +130,7 @@ The playbook is configured with `force_handlers: true` to ensure that state reco
   # Rest of the playbook...
 ```
 
-This configuration guarantees that services will always be restored to their original state after backup operations, maintaining system consistency.
+This configuration guarantees that services will always be rolled back to their original state after backup operations, maintaining system consistency.
 
 ### Docker Compose Entrypoint Behavior
 

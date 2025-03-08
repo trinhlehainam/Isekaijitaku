@@ -58,7 +58,7 @@
 
 - name: Show backup mode
   ansible.builtin.debug:
-    msg: "Running in BACKUP mode - services state will be RECOVERED after backup"
+    msg: "Running in BACKUP mode - services state will be ROLLED BACK after backup"
     
 - name: Create timestamp-based backup directory
   ansible.builtin.file:
@@ -187,11 +187,11 @@
         backup_error: "{{ ansible_failed_task.name|default('Unknown error in backup process') }}"
         backup_succeeded: false
         
-    - name: Notify Recover services handler
+    - name: Notify Rollback services handler
       ansible.builtin.debug:
-        msg: "Notifying service recover handler due to backup failure"
+        msg: "Notifying service rollback handler due to backup failure"
       changed_when: true
-      notify: Recover services
+      notify: Rollback services
 
 #################################################
 # Backup Status and Reporting
@@ -232,12 +232,12 @@
 # Cleanup and Service Restoration
 #################################################
 
-- name: Notify Recover services handler
+- name: Notify Rollback services handler
   ansible.builtin.debug:
-    msg: "Notifying Recover services handler"
+    msg: "Notifying Rollback services handler"
   when: backup_succeeded|bool
   changed_when: true
-  notify: Recover services
+  notify: Rollback services
   
 - name: Show final backup status
   vars:
@@ -245,7 +245,7 @@
       Backup {{ 'SUCCEEDED' if backup_succeeded else 'FAILED' }}.
       PostgreSQL: {{ 'OK' if postgres_backup_succeeded else 'FAILED' }}{% if postgres_backup_error is defined and not postgres_backup_succeeded %} ({{ postgres_backup_error }}){% endif %}.
       Forgejo: {{ 'OK' if forgejo_backup_succeeded else 'FAILED' }}{% if forgejo_backup_error is defined and not forgejo_backup_succeeded %} ({{ forgejo_backup_error }}){% endif %}.
-      Services state will be RECOVERED.
+      Services state will be ROLLED BACK.
   ansible.builtin.debug:
     msg: "{{ msg.split('\n') }}"
       

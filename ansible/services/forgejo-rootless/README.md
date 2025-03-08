@@ -96,12 +96,12 @@ For detailed backup and restore documentation, please see [BACKUP.md](./BACKUP.m
 
 ### Quick Reference
 
-- **Running a backup with intelligent service recovery**:
+- **Running a backup with intelligent service rollback**:
   ```bash
   ansible-playbook site.yml -i inventories/[env]/hosts.yml --tags "backup"
   ```
 
-The system will intelligently preserve service state before backup and restore each service to its original state afterward. This smart recovery mechanism captures the following information:
+The system will intelligently preserve service state before backup and roll back each service to its original state afterward. This smart rollback mechanism captures the following information:
 
 - Container running state (running or stopped)
 - Container health status (healthy, starting, or unhealthy)

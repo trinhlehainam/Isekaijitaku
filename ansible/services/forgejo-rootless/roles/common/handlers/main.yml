@@ -3,7 +3,7 @@
   # https://stackoverflow.com/a/71583324
   ansible.builtin.include_tasks: ../tasks/start.yml
   
-- name: Recover services
+- name: Rollback services
   community.docker.docker_compose_v2:
     project_src: "{{ forgejo_project_src }}"
     services: "{{ item.service }}"
