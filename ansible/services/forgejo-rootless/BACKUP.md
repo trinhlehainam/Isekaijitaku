@@ -34,25 +34,13 @@ The backup process follows these steps:
 
 ## Running Backups
 
-### Standard Mode
-
 To run a backup with automatic service restart afterward:
 
 ```bash
 ansible-playbook site.yml -i inventories/production/hosts.yml -t backup
 ```
 
-In standard mode, the system will automatically restart services after backup completion. If the backup process fails, the system will use Ansible handlers to ensure services are still restored, maintaining availability even in failure scenarios.
-
-### Update Mode
-
-To run a backup and keep services stopped (useful for maintenance or updates):
-
-```bash
-ansible-playbook site.yml -i inventories/production/hosts.yml -t backup -e "update_mode=true"
-```
-
-In update mode, services remain stopped after backup regardless of success or failure, allowing for maintenance operations to be performed.
+The system will always restart services after backup completion, regardless of success or failure. This ensures services are always restored, maintaining availability even in failure scenarios through Ansible handlers.
 
 ### Configuration Options
 
@@ -61,7 +49,6 @@ The backup system supports the following configuration options:
 | Variable | Description | Default |
 |----------|-------------|---------|
 | `forgejo_backup_dir` | Directory where backups are stored | `<forgejo_project_src>/backups` |
-| `update_mode` | If true, services remain stopped after backup | `false` |
 | `forgejo_backup_filename` | Filename for Forgejo application backup | `forgejo-app-dump.zip` |
 | `postgres_backup_filename` | Filename for PostgreSQL database backup | `forgejo-db-backup.dump` |
 
@@ -116,6 +103,8 @@ Additionally, the playbook is configured with `force_handlers: true` to ensure t
   force_handlers: true
   # Rest of the playbook...
 ```
+
+This configuration guarantees that services will always be restarted after backup operations, maintaining system availability.
 
 ### Docker Compose Entrypoint Behavior
 
