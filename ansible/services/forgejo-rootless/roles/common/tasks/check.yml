@@ -56,7 +56,12 @@
             'id': item.Id,
             'service': item.Labels['com.docker.compose.service'],
             'state': item.State,
-            'health': item.Status | regex_search('\\(([^)]*)\\)') | default(''),
+            'health': (
+              'healthy' if '(healthy)' in item.Status else
+              'starting' if '(starting)' in item.Status else
+              'unhealthy' if '(unhealthy)' in item.Status else
+              ''
+            ),
             'name': item.Names[0] | regex_replace('^/', ''),
             'status': item.Status,
             'uptime': item.Status | regex_search('Up ([^\\(]*)') | default('') | trim | default('Unknown'),
@@ -70,12 +75,12 @@
   when: item.Labels['com.docker.compose.service'] is defined
 
 #################################################
-# Service Status Summary
+# Check Result Summary
 #################################################
 
-- name: Create service status summary
+- name: Create check result summary
   ansible.builtin.set_fact:
-    service_status_summary: |
+    check_result_summary: |
       # Forgejo Service Status Report
       
       ## Summary
@@ -91,7 +96,7 @@
       - **Status**: {{ service.status }}
       - **Uptime**: {{ service.uptime }}
       - **Health**: {{ 
-          service.health | default('No health check') }}{{
+          service.health }}{{ service.health | ternary('', 'No health check') }}{{
           ' ✅' if service.health is search('healthy') else
           ' ⏳' if service.health is search('starting') else
           ' ❌' if service.health is search('unhealthy') else
@@ -109,8 +114,8 @@
 
 - name: Display service status summary
   ansible.builtin.debug:
-    msg: "{{ service_status_summary.split('\n') }}"
-  when: service_status_summary is defined
+    msg: "{{ check_result_summary.split('\n') }}"
+  when: check_result_summary is defined
 
 - name: Generate service check metadata
   ansible.builtin.set_fact:
