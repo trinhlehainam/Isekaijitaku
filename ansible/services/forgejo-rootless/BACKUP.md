@@ -1,18 +1,32 @@
 # Forgejo Backup System
 
-This document describes the backup functionality for Forgejo and PostgreSQL databases in a Docker-based deployment. The backup system implements a best practice approach that ensures data consistency and reliability while minimizing service disruption.
+This document describes the backup functionality for Forgejo and PostgreSQL databases in a Docker-based deployment. The system implements a hierarchical error handling approach that ensures data consistency, robust failure recovery, and minimal service disruption.
 
-## Backup Approach
+## Backup Architecture
 
-The backup process performs the following steps:
+The backup process employs a sophisticated error handling structure with the following key features:
+
+1. **Hierarchical Error Handling**: Three-level nested block/rescue structure (overall process → component process → individual tasks) that captures and tracks failures at each level.
+
+2. **Component Isolation**: Each backup component (Forgejo and PostgreSQL) executes in its own block with independent error handling, allowing one component to fail without affecting the execution of the other.
+
+3. **Handler-Based Service Restoration**: Uses Ansible handlers to ensure services are properly restarted after backup operations, even when failures occur.
+
+4. **Detailed Error Reporting**: Captures specific error information at each level and includes it in the backup report.
+
+5. **Resource Cleanup Guarantees**: Always sections ensure cleanup tasks execute regardless of success or failure.
+
+## Backup Process Flow
+
+The backup process follows these steps:
 
 1. Stops all Forgejo services to ensure data consistency
-2. Launches a dedicated Forgejo backup container that remains active only during the backup process
-3. Runs the Forgejo dump command in the backup container, storing the backup in the container's volume-mounted directory
+2. Launches a dedicated Forgejo backup container that remains active during the backup process
+3. Runs the Forgejo dump command in the backup container
 4. Backs up the PostgreSQL database using `pg_dump` with the custom format (-Fc)
-5. Copies the backup files from containers to the host system using direct Docker copy commands
-6. Cleans up the temporary backup container after copying backup files
-7. Creates a backup report with component status information
+5. Copies the backup files from containers to the host system using Docker copy commands
+6. Performs cleanup of temporary files and containers
+7. Creates a backup report with detailed component status and error information
 8. Restarts services (in standard mode) or leaves them stopped (in update mode)
 9. Verifies service health after restart
 
@@ -26,6 +40,8 @@ To run a backup with automatic service restart afterward:
 ansible-playbook site.yml -i inventories/production/hosts.yml -t backup
 ```
 
+In standard mode, the system will automatically restart services after backup completion. If the backup process fails, the system will use Ansible handlers to ensure services are still restored, maintaining availability even in failure scenarios.
+
 ### Update Mode
 
 To run a backup and keep services stopped (useful for maintenance or updates):
@@ -33,6 +49,8 @@ To run a backup and keep services stopped (useful for maintenance or updates):
 ```bash
 ansible-playbook site.yml -i inventories/production/hosts.yml -t backup -e "update_mode=true"
 ```
+
+In update mode, services remain stopped after backup regardless of success or failure, allowing for maintenance operations to be performed.
 
 ### Configuration Options
 
@@ -59,14 +77,16 @@ Backups are stored in the configured backup directory (default: `backups` direct
 
 ## Backup Technology
 
-The backup system uses the following technologies to ensure reliable backups:
+The backup system integrates multiple technologies to ensure reliable backups:
 
-- **Docker Compose V2**: For stopping services and launching backup containers
-- **Docker Container Exec**: For executing backup commands in running containers
-- **Forgejo dump**: Official Forgejo backup command that creates a consistent snapshot
-- **pg_dump**: PostgreSQL utility to create a consistent database backup in custom format
-- **docker cp**: For copying backup files from containers to the host system
-- **Container lifecycle management**: Uses dedicated backup containers with controlled lifecycles to prevent memory issues
+- **Docker Compose V2**: Controls service lifecycle and launches backup containers
+- **Docker Container Exec**: Executes backup commands within running containers
+- **Forgejo dump**: Creates consistent application snapshots with official tooling
+- **pg_dump**: Generates consistent PostgreSQL backups in custom format (-Fc) for optimal restoration
+- **docker cp**: Transfers backup files from containers to the host filesystem
+- **Container lifecycle management**: Manages dedicated backup containers with controlled lifecycles
+- **Ansible handlers**: Provides reliable service restoration even after failures
+- **Hierarchical error handling**: Employs block/rescue/always structures for robust failure management
 
 ### Docker Compose Entrypoint Behavior
 
