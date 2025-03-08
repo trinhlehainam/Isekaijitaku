@@ -83,7 +83,7 @@
           community.docker.docker_compose_v2_run:
             project_src: "{{ forgejo_project_src }}"
             service: forgejo
-            command: dummy sh -c "sleep 3600" # Keep container alive for 1 hour (more than enough for backup)
+            command: dummy sh -c "sleep infinity" # Keep container alive indefinitely during backup process
             detach: true
           register: forgejo_backup_container
 
