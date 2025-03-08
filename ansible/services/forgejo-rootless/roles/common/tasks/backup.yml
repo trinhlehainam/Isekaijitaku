@@ -119,13 +119,19 @@
             command: rm -f /var/lib/gitea/forgejo-app-dump.zip
           when: forgejo_dump_result is defined and forgejo_dump_result is success
 
+        - name: Check if Forgejo backup container exists
+          community.docker.docker_container_info:
+            name: "{{ forgejo_backup_container_id }}"
+          register: forgejo_backup_container_info
+          when: forgejo_backup_container_id is defined
+
         - name: Clean up Forgejo backup container
           community.docker.docker_container:
             name: "{{ forgejo_backup_container_id }}"
             state: absent
             force_kill: true
             keep_volumes: false
-          when: forgejo_backup_container_id is defined
+          when: forgejo_backup_container_info.exists
 
     #----- Database Backup - PostgreSQL -----#
     - name: Execute PostgreSQL backup process
@@ -160,7 +166,6 @@
             service: forgejo-db
             command: rm -f /tmp/forgejo-db-backup.dump
           when: pg_dump_result is defined and pg_dump_result is success
-          ignore_errors: yes
   rescue:
     - name: Record overall backup failure
       ansible.builtin.set_fact:
@@ -168,10 +173,10 @@
         backup_succeeded: false
       
     - name: Notify service restart handler if in standard mode
-      ansible.builtin.command: 
-        cmd: "echo 'Notifying service restart handler'"
+      ansible.builtin.debug:
+        msg: "Notifying service restart handler"
       changed_when: true
-      notify: Start services
+      notify: Restore services
       when: restore_services|bool
 
 #################################################
@@ -225,15 +230,14 @@
       Forgejo: {{ 'OK' if forgejo_backup_succeeded else 'FAILED' }}{% if forgejo_backup_error is defined and not forgejo_backup_succeeded %} ({{ forgejo_backup_error }}){% endif %}.
       {{ 'Services were restarted.' if restore_services else 'Services remain STOPPED (update mode).' }}
       
-- name: Clean up backup files if backup failed but keep directory structure for logs
+- name: Clean up backup files if backup failed
   ansible.builtin.file:
     path: "{{ current_backup_dir }}/{{ item }}"
     state: absent
   loop:
     - "forgejo-app-dump.zip"
     - "forgejo-db-backup.dump"
-  when: not backup_succeeded and not (postgres_backup_succeeded or forgejo_backup_succeeded)
-  ignore_errors: yes
+  when: not backup_succeeded
 
 - name: Fail task if backup failed
   ansible.builtin.fail:
