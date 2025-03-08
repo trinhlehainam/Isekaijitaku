@@ -96,15 +96,18 @@ For detailed backup and restore documentation, please see [BACKUP.md](./BACKUP.m
 
 ### Quick Reference
 
-- **Running a standard backup**:
+- **Running a backup with intelligent service recovery**:
   ```bash
   ansible-playbook site.yml -i inventories/[env]/hosts.yml --tags "backup"
   ```
 
-- **Running a backup before updates** (service remains stopped):
-  ```bash
-  ansible-playbook site.yml -i inventories/[env]/hosts.yml --tags "backup" -e "forgejo_update_mode=true"
-  ```
+The system will intelligently preserve service state before backup and restore each service to its original state afterward. This smart recovery mechanism captures the following information:
+
+- Container running state (running or stopped)
+- Container health status (healthy, starting, or unhealthy)
+- Service configuration and dependencies
+
+This ensures minimal disruption to your services while maintaining data consistency and reliability.
 
 ## Initial Setup and Admin User
 
