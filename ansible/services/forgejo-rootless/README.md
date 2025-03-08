@@ -109,6 +109,34 @@ The system will intelligently preserve service state before backup and roll back
 
 This ensures minimal disruption to your services while maintaining data consistency and reliability.
 
+### Docker Compose Entrypoint Behavior
+
+When using `docker compose run` to execute specific commands with custom entrypoints, there's an important behavior to be aware of:
+
+```yaml
+# In docker-compose.yml
+entrypoint:
+  - /bin/sh
+  - -c
+  - |
+    # Setup code...
+    /usr/bin/dumb-init -- /usr/local/bin/docker-entrypoint.sh "$@"
+```
+
+With this configuration:
+
+1. When running `docker compose run service_name command`, the **first word** of the command is ignored/skipped when passed to `"$@"`
+2. Use a dummy prefix for your real command:
+   ```bash
+   # INCORRECT - 'forgejo' will be ignored, only 'dump' passed to entrypoint
+   docker compose run forgejo forgejo dump
+   
+   # CORRECT - 'dummy' will be ignored, 'forgejo dump' passed to entrypoint
+   docker compose run forgejo dummy forgejo dump
+   ```
+
+This behavior only affects `docker compose run` commands, not regular Docker Compose operations like `up` or `down`.
+
 ## Initial Setup and Admin User
 
 The role supports automatic initial configuration with admin user creation, bypassing the web installation wizard. When properly configured, Forgejo will start with the installation lock enabled (`INSTALL_LOCK: true`) and an admin user already created.

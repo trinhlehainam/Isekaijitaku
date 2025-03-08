@@ -134,30 +134,59 @@ This configuration guarantees that services will always be rolled back to their 
 
 ### Docker Compose Entrypoint Behavior
 
-When using a custom entrypoint in docker-compose.yml that forwards arguments with `"$@"` like this:
+#### Understanding Command Handling in Docker Compose Run
+
+When using Docker Compose with custom entrypoints that forward arguments, a critical behavior needs to be understood, especially with the Forgejo container's entrypoint configuration:
 
 ```yaml
+# Example from docker-compose.yml
 entrypoint:
   - /bin/sh
   - -c
   - |
-    # Setup code...
+    # Setup code and environment preparation
     /usr/bin/dumb-init -- /usr/local/bin/docker-entrypoint.sh "$@"
 ```
 
-There's a specific behavior with `docker compose run` that must be accounted for:
+#### Argument Passing Quirk
 
-1. When using `docker compose run service_name command`, the **first word** of the command is ignored/skipped when passed to `"$@"`
-2. To work around this, prefix your actual command with a dummy word:
-   ```bash
-   # INCORRECT - 'forgejo' will be ignored, only 'dump' passed to entrypoint
-   docker compose run forgejo forgejo dump
-   
-   # CORRECT - 'dummy' will be ignored, 'forgejo dump' passed to entrypoint
-   docker compose run forgejo dummy forgejo dump
-   ```
+Docker Compose has a specific behavior when using the `run` command that differs from how regular command execution works:
 
-This behavior only affects `docker compose run` commands and not other Docker Compose operations.
+1. **Command Truncation**: When executing `docker compose run service_name command args`, the **first word** of the command is systematically ignored/dropped when passed to the `"$@"` shell argument placeholder in the entrypoint
+
+2. **Resulting Behavior**: If your entrypoint uses `"$@"` to capture and pass arguments, you'll encounter unexpected command truncation
+
+#### Example and Solution
+
+Consider running the Forgejo dump command:
+
+```bash
+# PROBLEMATIC - The command 'forgejo' is dropped, only 'dump' reaches the entrypoint
+# This will fail because the entrypoint receives only 'dump' instead of 'forgejo dump'
+docker compose run forgejo forgejo dump
+
+# CORRECT APPROACH - Add a dummy placeholder that will be intentionally dropped
+# The entrypoint actually receives 'forgejo dump' as desired
+docker compose run forgejo dummy forgejo dump
+```
+
+#### Implementation in Ansible
+
+The backup system uses this technique in its tasks:
+
+```yaml
+- name: Run Forgejo dump command in the backup container
+  community.docker.docker_compose_v2:
+    project_src: "{{ forgejo_project_src }}"
+    command: dummy forgejo dump -c /data/gitea/conf/app.ini -f /backup/forgejo-app-dump.zip
+    services: [ forgejo ]
+```
+
+This pattern ensures that the actual command (`forgejo dump`) gets correctly passed to the container entrypoint.
+
+#### Scope of Impact
+
+This behavior is specifically a concern with `docker compose run` operations. Other operations like `up`, `down`, `exec`, etc. don't exhibit this argument handling quirk.
 
 ## Restore Process
 
