@@ -18,6 +18,9 @@
 - name: Set up Forgejo Rootless project source path
   ansible.builtin.set_fact:
     forgejo_project_src: "{{ forgejo_project_src|default(ansible_user_dir + '/Docker/forgejo-rootless') }}"
+    
+- name: Check services status
+  ansible.builtin.include_tasks: check.yml
 
 - name: Make sure services are down
   community.docker.docker_compose_v2:
@@ -55,7 +58,7 @@
 
 - name: Show backup mode
   ansible.builtin.debug:
-    msg: "Running in STANDARD mode - services will be RESTARTED after backup"
+    msg: "Running in BACKUP mode - services state will be RECOVERED after backup"
     
 - name: Create timestamp-based backup directory
   ansible.builtin.file:
@@ -184,11 +187,11 @@
         backup_error: "{{ ansible_failed_task.name|default('Unknown error in backup process') }}"
         backup_succeeded: false
         
-    - name: Notify service restore handler if in standard mode
+    - name: Notify Recover services handler
       ansible.builtin.debug:
-        msg: "Notifying service restore handler due to backup failure"
+        msg: "Notifying service recover handler due to backup failure"
       changed_when: true
-      notify: Restore services
+      notify: Recover services
 
 #################################################
 # Backup Status and Reporting
@@ -205,7 +208,7 @@
       # Backup Report
 
       **Timestamp:** {{ backup_timestamp }}
-      **Mode:** {{ 'UPDATE' if not restore_services else 'STANDARD' }}
+      **Mode:** 'BACKUP'
 
       ## Components Status
 
@@ -229,13 +232,22 @@
 # Cleanup and Service Restoration
 #################################################
 
-- name: Show final backup status
+- name: Notify Recover services handler
   ansible.builtin.debug:
-    msg: >
+    msg: "Notifying Recover services handler"
+  when: backup_succeeded|bool
+  changed_when: true
+  notify: Recover services
+  
+- name: Show final backup status
+  vars:
+    msg: |
       Backup {{ 'SUCCEEDED' if backup_succeeded else 'FAILED' }}.
       PostgreSQL: {{ 'OK' if postgres_backup_succeeded else 'FAILED' }}{% if postgres_backup_error is defined and not postgres_backup_succeeded %} ({{ postgres_backup_error }}){% endif %}.
       Forgejo: {{ 'OK' if forgejo_backup_succeeded else 'FAILED' }}{% if forgejo_backup_error is defined and not forgejo_backup_succeeded %} ({{ forgejo_backup_error }}){% endif %}.
-      Services were restarted.
+      Services state will be RECOVERED.
+  ansible.builtin.debug:
+    msg: "{{ msg.split('\n') }}"
       
 - name: Clean up backup files if backup failed
   ansible.builtin.file:
