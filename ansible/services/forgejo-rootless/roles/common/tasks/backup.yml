@@ -118,7 +118,6 @@
             service: forgejo
             command: rm -f /var/lib/gitea/forgejo-app-dump.zip
           when: forgejo_dump_result is defined and forgejo_dump_result is success
-          ignore_errors: yes
 
         - name: Clean up Forgejo backup container
           community.docker.docker_container:
@@ -127,7 +126,6 @@
             force_kill: true
             keep_volumes: false
           when: forgejo_backup_container_id is defined
-          ignore_errors: yes
 
     #----- Database Backup - PostgreSQL -----#
     - name: Execute PostgreSQL backup process
@@ -212,45 +210,6 @@
 # Cleanup and Service Restoration
 #################################################
 
-- name: Restore Forgejo service if backup succeeded and in standard mode
-  community.docker.docker_compose_v2:
-    project_src: "{{ forgejo_project_src }}"
-    services:
-      - forgejo
-    state: present
-  when: restore_services and backup_succeeded
-
-- name: Restore Forgejo service even if backup failed (to ensure service availability)
-  community.docker.docker_compose_v2:
-    project_src: "{{ forgejo_project_src }}"
-    services:
-      - forgejo
-    state: present
-  when: restore_services and not backup_succeeded
-
-- name: Re-gather services facts after restart
-  community.docker.docker_compose_v2:
-    project_src: "{{ forgejo_project_src }}"
-    state: present
-  register: services_facts_post
-  when: restore_services
-
-- name: Wait for Forgejo container to be running and healthy
-  community.docker.docker_container_info:
-    name: "{{ services_facts_post.containers | selectattr('Service', 'eq', 'forgejo') | map(attribute='ID') | first | default('') }}"
-  register: forgejo_container_post
-  failed_when: not forgejo_container_post.container.State.Running or forgejo_container_post.container.State.Health.Status == 'unhealthy'
-  until: forgejo_container_post.container.State.Running and forgejo_container_post.container.State.Health.Status == 'healthy'
-  delay: 10
-  retries: 5
-  when: restore_services and services_facts_post is defined
-
-- name: Clean up empty backup directory if backup failed
-  ansible.builtin.file:
-    path: "{{ current_backup_dir }}"
-    state: absent
-  when: not backup_succeeded
-
 - name: Show final backup status
   ansible.builtin.debug:
     msg: >
@@ -258,3 +217,8 @@
       PostgreSQL: {{ 'OK' if postgres_backup_succeeded else 'FAILED' }}{% if postgres_backup_error is defined and not postgres_backup_succeeded %} ({{ postgres_backup_error }}){% endif %}.
       Forgejo: {{ 'OK' if forgejo_backup_succeeded else 'FAILED' }}{% if forgejo_backup_error is defined and not forgejo_backup_succeeded %} ({{ forgejo_backup_error }}){% endif %}.
       {{ 'Services were restarted.' if restore_services else 'Services remain STOPPED (update mode).' }}
+      
+- name: Fail task if backup failed
+  ansible.builtin.fail:
+    msg: "Backup failed: {{ backup_error }}"
+  when: not backup_succeeded

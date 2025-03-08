@@ -136,7 +136,7 @@
         state: present
       register: services_facts
         
-    - name: Wait for services to run and healthy
+    - name: Wait for services to be running and healthy
       community.docker.docker_container_info:
         name: "{{ item.ID }}"
       loop: "{{ services_facts.containers }}"
