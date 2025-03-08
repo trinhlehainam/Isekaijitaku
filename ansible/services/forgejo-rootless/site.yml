@@ -32,3 +32,15 @@
       ansible.builtin.include_role:
         name: common
         tasks_from: backup.yml
+        
+- name: Check Forgejo Rootless services
+  hosts: all
+  gather_facts: true
+  tags: [never, check]
+  tasks:
+    - name: Include check tasks
+      ansible.builtin.include_role:
+        name: common
+        tasks_from: check.yml
+      vars:
+        forgejo_project_src: "{{ ansible_user_dir + '/Docker/forgejo-rootless' }}"
