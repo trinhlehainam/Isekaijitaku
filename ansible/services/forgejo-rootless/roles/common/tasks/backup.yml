@@ -22,12 +22,14 @@
 - name: Check services status
   ansible.builtin.include_tasks: check.yml
 
-- name: Make sure services are down
+- name: Make sure services are stopped before backup
   community.docker.docker_compose_v2:
     project_src: "{{ forgejo_project_src }}"
-    services:
-    state: absent
-  register: stop_result
+    services: "{{ item.service }}"
+    state: stopped
+  loop: "{{ check_result.services }}"
+  loop_control:
+    label: "{{ item.service }}"
 
 #################################################
 # Initialization and Setup
