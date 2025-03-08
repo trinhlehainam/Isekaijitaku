@@ -1,5 +1,5 @@
 ---
-- name: Start services
+- name: Restore services
   block:
     - name: Start services
       community.docker.docker_compose_v2:
