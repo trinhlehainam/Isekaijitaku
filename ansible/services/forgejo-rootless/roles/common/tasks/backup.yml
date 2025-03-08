@@ -38,7 +38,6 @@
     postgres_backup_filename: "forgejo-db-backup.dump"
     forgejo_backup_succeeded: false
     forgejo_backup_filename: "forgejo-app-dump.zip"
-    restore_services: true
 
 - name: Check if backup directory is defined in inventory
   ansible.builtin.set_fact:
@@ -54,14 +53,9 @@
     state: directory
     mode: '0755'
 
-- name: Check if update mode is enabled
-  ansible.builtin.set_fact:
-    restore_services: "{{ not (update_mode|default(false)|bool) }}"
-  when: update_mode is defined
-
 - name: Show backup mode
   ansible.builtin.debug:
-    msg: "Running in {{ 'UPDATE mode - services will remain STOPPED after backup' if not restore_services else 'STANDARD mode - services will be RESTARTED after backup' }}"
+    msg: "Running in STANDARD mode - services will be RESTARTED after backup"
     
 - name: Create timestamp-based backup directory
   ansible.builtin.file:
@@ -195,7 +189,6 @@
         msg: "Notifying service restore handler due to backup failure"
       changed_when: true
       notify: Restore services
-      when: restore_services|bool
 
 #################################################
 # Backup Status and Reporting
@@ -228,11 +221,7 @@
       Error: {{ backup_error }}
       {% endif %}
       
-      {% if restore_services %}
       Services were restarted after backup.
-      {% else %}
-      Services remained stopped after backup (UPDATE mode).
-      {% endif %}
     mode: '0644'
   when: postgres_backup_succeeded or forgejo_backup_succeeded
 
@@ -246,7 +235,7 @@
       Backup {{ 'SUCCEEDED' if backup_succeeded else 'FAILED' }}.
       PostgreSQL: {{ 'OK' if postgres_backup_succeeded else 'FAILED' }}{% if postgres_backup_error is defined and not postgres_backup_succeeded %} ({{ postgres_backup_error }}){% endif %}.
       Forgejo: {{ 'OK' if forgejo_backup_succeeded else 'FAILED' }}{% if forgejo_backup_error is defined and not forgejo_backup_succeeded %} ({{ forgejo_backup_error }}){% endif %}.
-      {{ 'Services were restarted.' if restore_services else 'Services remain STOPPED (update mode).' }}
+      Services were restarted.
       
 - name: Clean up backup files if backup failed
   ansible.builtin.file:

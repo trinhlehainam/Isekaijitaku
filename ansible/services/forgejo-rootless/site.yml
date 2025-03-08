@@ -32,5 +32,3 @@
       ansible.builtin.include_role:
         name: common
         tasks_from: backup.yml
-      vars:
-        update_mode: false
