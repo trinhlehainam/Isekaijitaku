@@ -225,11 +225,15 @@
       Forgejo: {{ 'OK' if forgejo_backup_succeeded else 'FAILED' }}{% if forgejo_backup_error is defined and not forgejo_backup_succeeded %} ({{ forgejo_backup_error }}){% endif %}.
       {{ 'Services were restarted.' if restore_services else 'Services remain STOPPED (update mode).' }}
       
-- name: Clean up empty backup directory if backup failed
+- name: Clean up backup files if backup failed but keep directory structure for logs
   ansible.builtin.file:
-    path: "{{ current_backup_dir }}"
+    path: "{{ current_backup_dir }}/{{ item }}"
     state: absent
+  loop:
+    - "forgejo-app-dump.zip"
+    - "forgejo-db-backup.dump"
   when: not backup_succeeded and not (postgres_backup_succeeded or forgejo_backup_succeeded)
+  ignore_errors: yes
 
 - name: Fail task if backup failed
   ansible.builtin.fail:
