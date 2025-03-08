@@ -117,6 +117,10 @@
           ansible.builtin.set_fact:
             forgejo_backup_succeeded: false
             forgejo_backup_error: "{{ ansible_failed_task.name|default('Unknown error') }}"
+        
+        - name: Fail task to propagate error to parent block
+          ansible.builtin.fail:
+            msg: "Forgejo backup component failed: {{ ansible_failed_task.name|default('Unknown error') }}"
       always:
         - name: Clean up temporary Forgejo backup file in container
           community.docker.docker_compose_v2_exec:
@@ -169,6 +173,10 @@
           ansible.builtin.set_fact:
             postgres_backup_succeeded: false
             postgres_backup_error: "{{ ansible_failed_task.name|default('Unknown error') }}"
+            
+        - name: Fail task to propagate error to parent block
+          ansible.builtin.fail:
+            msg: "PostgreSQL backup component failed: {{ ansible_failed_task.name|default('Unknown error') }}"
       always:
         - name: Clean up temporary PostgreSQL backup file in container
           community.docker.docker_compose_v2_exec:
@@ -181,10 +189,10 @@
       ansible.builtin.set_fact:
         backup_error: "{{ ansible_failed_task.name|default('Unknown error in backup process') }}"
         backup_succeeded: false
-      
-    - name: Notify service restart handler if in standard mode
+        
+    - name: Notify service restore handler if in standard mode
       ansible.builtin.debug:
-        msg: "Notifying service restart handler"
+        msg: "Notifying service restore handler due to backup failure"
       changed_when: true
       notify: Restore services
       when: restore_services|bool
@@ -195,7 +203,7 @@
 
 - name: Set overall backup success status
   ansible.builtin.set_fact:
-    backup_succeeded: "{{ postgres_backup_succeeded or forgejo_backup_succeeded }}"
+    backup_succeeded: "{{ postgres_backup_succeeded and forgejo_backup_succeeded }}"
 
 - name: Create backup report
   ansible.builtin.copy:
@@ -245,8 +253,8 @@
     path: "{{ current_backup_dir }}/{{ item }}"
     state: absent
   loop:
-    - "forgejo-app-dump.zip"
-    - "forgejo-db-backup.dump"
+    - "{{ forgejo_backup_filename }}"
+    - "{{ postgres_backup_filename }}"
   when: not backup_succeeded
 
 - name: Fail task if backup failed
