@@ -2,6 +2,7 @@
 # Forgejo Rootless Playbook
 # Use -t deploy to deploy services
 # Use -t backup to perform backups
+# Use -t upgrade to check for and apply upgrades
 
 - name: Ensure Docker is installed and running
   hosts: all
@@ -20,15 +21,27 @@
   tags: [never, deploy]
   roles:
     - role: common
+      vars:
+        operation_mode: deploy
     
 - name: Backup Forgejo Rootless services
   hosts: all
   gather_facts: true
   tags: [never, backup]
   # https://docs.ansible.com/ansible/latest/playbook_guide/playbooks_error_handling.html#handlers-and-failure
+  # Ensure handlers are executed even if a task fails
   force_handlers: true
-  tasks:
-    - name: Include backup tasks
-      ansible.builtin.include_role:
-        name: common
-        tasks_from: backup.yml
+  roles:
+    - role: common
+      vars:
+        operation_mode: backup
+
+- name: Upgrade Forgejo Rootless services
+  hosts: all
+  gather_facts: true
+  tags: [never, upgrade]
+  force_handlers: true
+  roles:
+    - role: common
+      vars:
+        operation_mode: upgrade

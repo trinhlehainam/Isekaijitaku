@@ -1,3 +1,19 @@
 ---
-- name: Include deploy tasks
+# Forgejo Rootless Main Entry Point
+# This file determines which tasks to include based on operation mode
+
+- name: Set default operation mode if not defined
+  ansible.builtin.set_fact:
+    operation_mode: "{{ operation_mode | default('deploy') }}"
+
+- name: Include deploy tasks (default)
   ansible.builtin.include_tasks: deploy.yml
+  when: operation_mode == 'deploy'
+
+- name: Include backup tasks
+  ansible.builtin.include_tasks: backup.yml
+  when: operation_mode == 'backup' 
+
+- name: Include upgrade tasks
+  ansible.builtin.include_tasks: upgrade.yml
+  when: operation_mode == 'upgrade'
