@@ -1,28 +1,36 @@
 ---
-# Forgejo Upgrade Tasks
+##############################################################################
+# Forgejo Upgrade Management
+##############################################################################
 #
-# This file implements forgejo container upgrade functionality by:
-# - Checking the current Forgejo container status and version
-# - Comparing with the version specified in the docker-compose template
-# - Backing up data before upgrading if version change detected
-# - Pulling the new image and restarting the service
+# This playbook implements a safe, incremental upgrade process for Forgejo containers.
+# It follows these key principles:
 #
-# Key concepts:
-# - Only performs an upgrade if the template version is newer than the running version
-# - Safely backs up all data before performing any upgrade
-# - Verifies service health after upgrade is complete
-
-#################################################
-# Initialization and Setup
-#################################################
+# 1. SAFETY: Creates backups before any upgrade to ensure rollback capability
+# 2. VERIFICATION: Performs version comparison to determine if upgrade is needed
+# 3. TRANSPARENCY: Generates detailed reports of both success and failure states
+# 4. HEALTH ASSURANCE: Verifies container health after upgrade completion
+#
+# The upgrade process includes:
+# - Current version detection and comparison with target version
+# - Configuration backup and preservation
+# - Data backup via the standard backup process
+# - Container upgrade with proper sequencing
+# - Health verification to ensure system stability
+# - Detailed reporting for audit and troubleshooting
+#
+##############################################################################
+# Initialization
+##############################################################################
 
 - name: Set up Forgejo Rootless project source path
   ansible.builtin.set_fact:
     forgejo_project_src: "{{ forgejo_project_src|default(ansible_user_dir + '/Docker/forgejo-rootless') }}"
+    upgrade_start_time: "{{ ansible_date_time.iso8601 }}"
 
-#################################################
-# Check Current Version
-#################################################
+##############################################################################
+# Current Version Analysis
+##############################################################################
 
 - name: Check current forgejo container status
   ansible.builtin.include_tasks: check.yml
@@ -52,13 +60,14 @@
     current_image_name: "{{ current_forgejo_service.image.split('@')[0] if '@' in current_forgejo_service.image else current_forgejo_service.image }}"
     current_image_tag: "{{ (current_forgejo_service.image.split('@')[0] if '@' in current_forgejo_service.image else current_forgejo_service.image).split(':')[1] if ':' in (current_forgejo_service.image.split('@')[0] if '@' in current_forgejo_service.image else current_forgejo_service.image) else 'latest' }}"
 
-#################################################
-# Backup Current Docker Compose and Copy New Template
-#################################################
+##############################################################################
+# Configuration Preservation and Template Management
+##############################################################################
 
-- name: Create backup timestamp for docker-compose backup
+- name: Create timestamped identifier for docker-compose backup
   ansible.builtin.set_fact:
     docker_compose_backup_timestamp: "{{ lookup('pipe', 'date +%Y-%m-%d_%H-%M-%S') }}"
+    docker_compose_backup_path: "{{ forgejo_project_src }}/docker-compose.yml.backup-{{ lookup('pipe', 'date +%Y-%m-%d_%H-%M-%S') }}"
 
 - name: Check if current docker-compose file exists
   ansible.builtin.stat:
@@ -68,10 +77,16 @@
 - name: Backup current docker-compose file
   ansible.builtin.copy:
     src: "{{ forgejo_project_src }}/docker-compose.yml"
-    dest: "{{ forgejo_project_src }}/docker-compose.yml.backup-{{ docker_compose_backup_timestamp }}"
+    dest: "{{ docker_compose_backup_path }}"
     mode: '0644'
     remote_src: true
+  register: docker_compose_backup
   when: docker_compose_file.stat.exists
+
+- name: Verify configuration backup success
+  ansible.builtin.debug:
+    msg: "Configuration backup created successfully at {{ docker_compose_backup_path }}"
+  when: docker_compose_backup is defined and docker_compose_backup.changed
 
 # Set required variables for template processing to avoid undefined variable errors
 - name: Set default values for template variables
@@ -138,9 +153,9 @@
       - "Force upgrade: {{ force_upgrade|bool }}"
       - "Reason: {{ 'Force upgrade enabled' if force_upgrade|bool else ('Version upgrade' if version_upgrade_needed|default(false)|bool else 'Tag change' if upgrade_special_case|default(false)|bool else 'No upgrade needed') }}"
 
-#################################################
-# Perform Upgrade if Needed
-#################################################
+##############################################################################
+# Upgrade Implementation
+##############################################################################
 
 - name: Perform Forgejo upgrade
   when: upgrade_needed|bool
@@ -156,11 +171,17 @@
       ansible.builtin.include_tasks: backup.yml
     
     #----- Upgrade Step -----#
+        #----- Container Management -----#
     - name: Pull updated images
       community.docker.docker_compose_v2:
         project_src: "{{ forgejo_project_src }}"
         pull: "always"
       register: pull_result
+      
+    - name: Display image pull results
+      ansible.builtin.debug:
+        msg: "Updated images pulled successfully"
+      when: pull_result is defined and pull_result.changed
         
     - name: Stop existing services before starting with new configuration
       community.docker.docker_compose_v2:
@@ -168,43 +189,65 @@
         state: absent
       register: stop_result
       
+    - name: Verify services stopped successfully
+      ansible.builtin.debug:
+        msg: "All services stopped successfully for upgrade"
+      when: stop_result is defined and stop_result.changed
+      
     - name: Start services with new docker-compose configuration
       community.docker.docker_compose_v2:
         project_src: "{{ forgejo_project_src }}"
         state: present
       register: restart_result
+      
+    - name: Verify services started successfully
+      ansible.builtin.debug:
+        msg: "Services started with new configuration"
+      when: restart_result is defined and restart_result.changed
     
-    #----- Health Verification -----#
-    - name: Wait for services to start up
+    #----- Service Health Verification -----#
+    - name: Wait for services to start up and stabilize
       ansible.builtin.pause:
         seconds: 30
-        prompt: "Waiting for services to initialize..."
+        prompt: "Waiting for services to initialize and achieve healthy state..."
     
-    - name: Perform detailed health check
+    - name: Perform comprehensive container health check
       ansible.builtin.include_tasks: check.yml
     
-    - name: Verify containers are running after upgrade
-      ansible.builtin.assert:
-        that:
-          - (check_result.services | selectattr('service', 'equalto', 'forgejo') | list)[0].state == 'running'
-          - (check_result.services | selectattr('service', 'equalto', 'forgejo-db') | list)[0].state == 'running'
-        fail_msg: "One or more containers failed to start properly after upgrade"
-    
-    - name: Get current forgejo container status after upgrade
+    - name: Track container status after upgrade
       ansible.builtin.set_fact:
-        upgraded_forgejo_service: "{{ check_result.services | selectattr('service', 'equalto', 'forgejo') | first }}"
-      when: check_result.services | selectattr('service', 'equalto', 'forgejo')
+        forgejo_container: "{{ check_result.services | selectattr('service', 'equalto', 'forgejo') | list | first }}"
+        db_container: "{{ check_result.services | selectattr('service', 'equalto', 'forgejo-db') | list | first }}"
     
-    - name: Verify service health after upgrade
+    - name: Verify container runtime state
       ansible.builtin.assert:
         that:
-          - (check_result.services | selectattr('service', 'equalto', 'forgejo') | list)[0].health == 'healthy'
-          - (check_result.services | selectattr('service', 'equalto', 'forgejo-db') | list)[0].health == 'healthy'
-          - upgraded_forgejo_service.image is search(new_image_tag)
-        fail_msg: "Services failed to reach healthy state after upgrade or new version was not applied correctly"
+          - forgejo_container.state == 'running'
+          - db_container.state == 'running'
+        fail_msg: |
+          One or more containers failed to start properly after upgrade.
+          Forgejo state: {{ forgejo_container.state }}
+          Database state: {{ db_container.state }}
     
-    #----- Success Report -----#
-    - name: Generate upgrade success report
+    - name: Verify container health state
+      ansible.builtin.assert:
+        that:
+          - forgejo_container.health == 'healthy'
+          - db_container.health == 'healthy'
+          - forgejo_container.image is search(new_image_tag)
+        fail_msg: |
+          Services failed to reach healthy state after upgrade or new version was not applied correctly.
+          Forgejo health: {{ forgejo_container.health }}
+          Database health: {{ db_container.health }}
+          Image verification: {{ 'OK' if forgejo_container.image is search(new_image_tag) else 'FAILED' }}
+    
+    #----- Success Report Generation -----#
+    - name: Calculate upgrade duration
+      ansible.builtin.set_fact:
+        upgrade_duration: "{{ 'Unknown' }}"
+      changed_when: false
+    
+    - name: Generate comprehensive upgrade success report
       ansible.builtin.set_fact:
         upgrade_report: |
           # Forgejo Upgrade Report
@@ -215,10 +258,15 @@
           - **Previous Version:** {{ current_image_tag }}
           - **New Version:** {{ new_image_tag }}
           - **Status:** SUCCESS ✅
+          - **Duration:** {{ upgrade_duration | default('Unknown') }}
           
           ## Service Health
-          - **Forgejo:** {{ 'HEALTHY ✅' if (check_result.services | selectattr('service', 'equalto', 'forgejo') | list)[0].health == 'healthy' else 'RUNNING ⚠️' }}
-          - **PostgreSQL:** {{ 'HEALTHY ✅' if (check_result.services | selectattr('service', 'equalto', 'forgejo-db') | list)[0].health == 'healthy' else 'RUNNING ⚠️' }}
+          - **Forgejo:** {{ 'HEALTHY ✅' if forgejo_container.health == 'healthy' else 'RUNNING ⚠️' }}
+          - **PostgreSQL:** {{ 'HEALTHY ✅' if db_container.health == 'healthy' else 'RUNNING ⚠️' }}
+          
+          ## Configuration
+          - **Source Path:** {{ forgejo_project_src }}
+          - **Backup Created:** {{ 'Yes' if docker_compose_backup is defined and docker_compose_backup.changed else 'No (not needed)' }}
           
           Services are now running with the updated version.
           
@@ -232,7 +280,13 @@
         content: "{{ upgrade_report }}"
         mode: '0644'
   rescue:
-    - name: Record upgrade failure
+    #----- Failure Handling -----#
+    - name: Calculate upgrade attempt duration
+      ansible.builtin.set_fact:
+        upgrade_attempt_duration: "{{ 'Unknown' }}"
+      changed_when: false
+    
+    - name: Record detailed upgrade failure information
       ansible.builtin.set_fact:
         upgrade_failure_report: |
           # Forgejo Upgrade Failure Report
@@ -243,9 +297,16 @@
           - **From Version:** {{ current_image_tag }}
           - **To Version:** {{ new_image_tag }}
           - **Status:** FAILED ❌
+          - **Duration:** {{ upgrade_attempt_duration | default('Unknown') }}
+          - **Forced Upgrade:** {{ force_upgrade | default(false) | ternary('Yes', 'No') }}
           
           ## Error Information
           - **Failed Task:** {{ ansible_failed_task.name|default('Unknown error') }}
+          - **Error Message:** {{ ansible_failed_result.msg|default('No detailed error message available') }}
+          
+          ## Environment
+          - **Project Directory:** {{ forgejo_project_src }}
+          - **Backup Created:** {{ docker_compose_backup is defined and docker_compose_backup.changed | ternary('Yes', 'No') }}
           
           Please check the logs for more details about the failure.
     
@@ -259,6 +320,9 @@
         content: "{{ upgrade_failure_report }}"
         mode: '0644'
         
-    - name: Fail task on upgrade error
+    - name: Fail task with clear upgrade error message
       ansible.builtin.fail:
-        msg: "Forgejo upgrade failed. Please see {{ forgejo_project_src }}/UPGRADE_FAILURE_REPORT.md for details."
+        msg: |
+          Forgejo upgrade failed. 
+          Please see {{ forgejo_project_src }}/UPGRADE_FAILURE_REPORT.md for details.
+          Failed task: {{ ansible_failed_task.name|default('Unknown task') }}
