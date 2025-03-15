@@ -81,31 +81,23 @@
 # Services Management
 #################################################
 
-- name: Stop all services before restore
+- name: Check services status
+  ansible.builtin.include_tasks: check.yml
+
+- name: Make sure services are stopped before restore
   community.docker.docker_compose_v2:
     project_src: "{{ forgejo_project_src }}"
-    state: absent
-  register: stop_result
+    services: "{{ item.service }}"
+    state: stopped
+  loop: "{{ check_result.services }}"
+  loop_control:
+    label: "{{ item.service }}"
 
-- name: Create backup for current data directories
-  block:
-    - name: Create temp backup directory
-      ansible.builtin.file:
-        path: "{{ forgejo_project_src }}/temp_restore_backup"
-        state: directory
-        mode: '0755'
-
-    - name: Backup current data directories
-      ansible.builtin.copy:
-        src: "{{ item.path }}/"
-        dest: "{{ forgejo_project_src }}/temp_restore_backup/{{ item.path | basename }}"
-        remote_src: true
-        directory_mode: yes
-      loop:
-        - { path: "{{ forgejo_data_dir }}", when: forgejo_backup_file.stat.exists }
-        - { path: "{{ postgres_data_dir }}", when: postgres_backup_file.stat.exists }
-      when: item.when
-      ignore_errors: true
+- name: Create restore workspace directory
+  ansible.builtin.file:
+    path: "{{ current_backup_dir }}/restore"
+    state: directory
+    mode: '0755'
 
 - name: Remove current data directories
   ansible.builtin.file:
@@ -125,6 +117,117 @@
     - { path: "{{ forgejo_data_dir }}", when: forgejo_backup_file.stat.exists }
     - { path: "{{ postgres_data_dir }}", when: postgres_backup_file.stat.exists }
   when: item.when
+
+#################################################
+# Forgejo Application Data Restore
+#################################################
+
+- name: Restore Forgejo application data
+  block:
+    - name: Create temp directory for unzipping
+      ansible.builtin.file:
+        path: "{{ current_backup_dir }}/restore/forgejo_temp"
+        state: directory
+        mode: '0755'
+      register: temp_unzip_dir
+      when: forgejo_backup_file.stat.exists
+
+    - name: Unzip Forgejo backup to temp directory
+      ansible.builtin.unarchive:
+        src: "{{ forgejo_backup_file.stat.path }}"
+        dest: "{{ current_backup_dir }}/restore/forgejo_temp"
+        remote_src: true
+      register: unzip_result
+      when: forgejo_backup_file.stat.exists
+
+    - name: Check if app.ini exists in unzipped backup
+      ansible.builtin.stat:
+        path: "{{ current_backup_dir }}/restore/forgejo_temp/data/conf/app.ini"
+      register: app_ini_in_backup
+      when: 
+        - forgejo_backup_file.stat.exists
+        - unzip_result is success
+
+    - name: Copy Forgejo data to data directory
+      ansible.builtin.copy:
+        src: "{{ current_backup_dir }}/restore/forgejo_temp/data/"
+        dest: "{{ forgejo_data_dir }}/"
+        remote_src: true
+        directory_mode: yes
+      register: data_copy_result
+      when:
+        - forgejo_backup_file.stat.exists
+        - unzip_result is success
+
+    - name: Copy Forgejo repositories to data directory
+      ansible.builtin.copy:
+        src: "{{ current_backup_dir }}/restore/forgejo_temp/repos/"
+        dest: "{{ forgejo_data_dir }}/git/repositories/"
+        remote_src: true
+        directory_mode: yes
+      register: repos_copy_result
+      when:
+        - forgejo_backup_file.stat.exists
+        - unzip_result is success
+
+    - name: Ensure proper ownership of Forgejo data directories
+      ansible.builtin.file:
+        path: "{{ forgejo_data_dir }}"
+        state: directory
+        recurse: yes
+        owner: "{{ forgejo_user_id }}"
+        group: "{{ forgejo_group_id }}"
+      when:
+        - forgejo_backup_file.stat.exists
+        - data_copy_result is success or repos_copy_result is success
+
+    - name: Mark Forgejo restoration as successful
+      ansible.builtin.set_fact:
+        forgejo_restore_succeeded: true
+      when:
+        - forgejo_backup_file.stat.exists
+        - data_copy_result is success or repos_copy_result is success
+
+  rescue:
+    - name: Record Forgejo restoration failure
+      ansible.builtin.set_fact:
+        forgejo_restore_error: "{{ ansible_failed_result.msg | default('Unknown error during Forgejo restoration') }}"
+        restore_failure_reason: "Forgejo restoration failed: {{ ansible_failed_result.msg | default('Unknown error') }}"
+
+#################################################
+# Configuration Restore
+#################################################
+
+- name: Restore app.ini configuration file
+  block:
+    - name: Create configuration directory if it doesn't exist
+      ansible.builtin.file:
+        path: "{{ forgejo_conf_dir }}"
+        state: directory
+        mode: '0755'
+        owner: "{{ forgejo_user_id }}"
+        group: "{{ forgejo_group_id }}"
+      when: 
+        - forgejo_backup_file.stat.exists
+        - unzip_result is defined
+        - unzip_result is success
+        - app_ini_in_backup is defined
+        - app_ini_in_backup.stat.exists
+
+    - name: Copy app.ini configuration file to configuration directory
+      ansible.builtin.copy:
+        src: "{{ current_backup_dir }}/restore/forgejo_temp/data/conf/app.ini"
+        dest: "{{ forgejo_conf_dir }}/app.ini"
+        mode: '0644'
+        owner: "{{ forgejo_user_id }}"
+        group: "{{ forgejo_group_id }}"
+      register: app_ini_copy_result
+      when: 
+        - forgejo_backup_file.stat.exists
+        - unzip_result is defined
+        - unzip_result is success
+        - app_ini_in_backup is defined
+        - app_ini_in_backup.stat.exists
 
 #################################################
 # PostgreSQL Database Restore
@@ -147,17 +250,19 @@
       when: postgres_backup_file.stat.exists
 
     - name: Create temp directory for PostgreSQL restore
-      ansible.builtin.tempfile:
+      ansible.builtin.file:
+        path: "{{ current_backup_dir }}/restore/pg_temp"
         state: directory
-        suffix: postgres_restore
+        mode: '0755'
       register: temp_pg_dir
       when: postgres_backup_file.stat.exists
 
     - name: Copy PostgreSQL backup to restore directory
       ansible.builtin.copy:
         src: "{{ postgres_backup_file.stat.path }}"
-        dest: "{{ temp_pg_dir.path }}/forgejo-db-backup.dump"
+        dest: "{{ current_backup_dir }}/restore/pg_temp/forgejo-db-backup.dump"
         mode: '0644'
+        remote_src: true
       register: pg_copy_result
       when: postgres_backup_file.stat.exists
 
@@ -170,7 +275,7 @@
       community.docker.docker_compose_v2_exec:
         project_src: "{{ forgejo_project_src }}"
         service: forgejo-db
-        command: cp {{ temp_pg_dir.path | replace(forgejo_project_src, '/srv') }}/forgejo-db-backup.dump {{ postgres_container_restore_filepath }}
+        command: cp {{ current_backup_dir }}/restore/pg_temp/forgejo-db-backup.dump {{ postgres_container_restore_filepath }}
       register: cp_result
       when: postgres_backup_file.stat.exists
 
@@ -219,131 +324,6 @@
         state: absent
       when: postgres_backup_file.stat.exists
 
-    - name: Remove temp directory
-      ansible.builtin.file:
-        path: "{{ temp_pg_dir.path }}"
-        state: absent
-      when: temp_pg_dir is defined
-      ignore_errors: true
-
-#################################################
-# Forgejo Application Data Restore
-#################################################
-
-- name: Restore Forgejo application data
-  block:
-    - name: Create temp directory for unzipping
-      ansible.builtin.tempfile:
-        state: directory
-        suffix: forgejo_restore
-      register: temp_unzip_dir
-      when: forgejo_backup_file.stat.exists
-
-    - name: Unzip Forgejo backup to temp directory
-      ansible.builtin.unarchive:
-        src: "{{ forgejo_backup_file.stat.path }}"
-        dest: "{{ temp_unzip_dir.path }}"
-        remote_src: true
-      register: unzip_result
-      when: forgejo_backup_file.stat.exists
-
-    - name: Check if app.ini exists in unzipped backup
-      ansible.builtin.stat:
-        path: "{{ temp_unzip_dir.path }}/data/conf/app.ini"
-      register: app_ini_in_backup
-      when: 
-        - forgejo_backup_file.stat.exists
-        - unzip_result is success
-
-    - name: Copy Forgejo data to data directory
-      ansible.builtin.copy:
-        src: "{{ temp_unzip_dir.path }}/data/"
-        dest: "{{ forgejo_data_dir }}/"
-        remote_src: true
-        directory_mode: yes
-      register: data_copy_result
-      when:
-        - forgejo_backup_file.stat.exists
-        - unzip_result is success
-
-    - name: Copy Forgejo repositories to data directory
-      ansible.builtin.copy:
-        src: "{{ temp_unzip_dir.path }}/repos/"
-        dest: "{{ forgejo_data_dir }}/git/repositories/"
-        remote_src: true
-        directory_mode: yes
-      register: repos_copy_result
-      when:
-        - forgejo_backup_file.stat.exists
-        - unzip_result is success
-
-    - name: Ensure proper ownership of Forgejo data directories
-      ansible.builtin.file:
-        path: "{{ forgejo_data_dir }}"
-        state: directory
-        recurse: yes
-        owner: 1000  # UID for rootless Forgejo
-        group: 1000  # GID for rootless Forgejo
-      when:
-        - forgejo_backup_file.stat.exists
-        - data_copy_result is success or repos_copy_result is success
-
-    - name: Mark Forgejo restoration as successful
-      ansible.builtin.set_fact:
-        forgejo_restore_succeeded: true
-      when:
-        - forgejo_backup_file.stat.exists
-        - data_copy_result is success or repos_copy_result is success
-
-  rescue:
-    - name: Record Forgejo restoration failure
-      ansible.builtin.set_fact:
-        forgejo_restore_error: "{{ ansible_failed_result.msg | default('Unknown error during Forgejo restoration') }}"
-        restore_failure_reason: "Forgejo restoration failed: {{ ansible_failed_result.msg | default('Unknown error') }}"
-
-  always:
-    - name: Remove temp directory
-      ansible.builtin.file:
-        path: "{{ temp_unzip_dir.path }}"
-        state: absent
-      when: temp_unzip_dir is defined
-      ignore_errors: true
-
-#################################################
-# Configuration Restore
-#################################################
-
-- name: Restore app.ini configuration file
-  block:
-    - name: Create configuration directory if it doesn't exist
-      ansible.builtin.file:
-        path: "{{ forgejo_conf_dir }}"
-        state: directory
-        mode: '0755'
-        owner: 1000  # UID for rootless Forgejo
-        group: 1000  # GID for rootless Forgejo
-      when: 
-        - forgejo_backup_file.stat.exists
-        - unzip_result is defined
-        - unzip_result is success
-        - app_ini_in_backup is defined
-        - app_ini_in_backup.stat.exists
-
-    - name: Copy app.ini configuration file to configuration directory
-      ansible.builtin.copy:
-        src: "{{ temp_unzip_dir.path }}/data/conf/app.ini"
-        dest: "{{ forgejo_conf_dir }}/app.ini"
-        mode: '0644'
-        owner: 1000  # UID for rootless Forgejo
-        group: 1000  # GID for rootless Forgejo
-      register: app_ini_copy_result
-      when: 
-        - forgejo_backup_file.stat.exists
-        - unzip_result is defined
-        - unzip_result is success
-        - app_ini_in_backup is defined
-        - app_ini_in_backup.stat.exists
-
 #################################################
 # Restoration Status and Reporting
 #################################################
@@ -354,7 +334,7 @@
 
 - name: Create restoration report
   ansible.builtin.copy:
-    dest: "{{ forgejo_backup_dir }}/RESTORE_REPORT.md"
+    dest: "{{ current_backup_dir }}/restore/RESTORE_REPORT.md"
     content: |
       # Restore Report
 
@@ -394,14 +374,14 @@
   ansible.builtin.debug:
     msg: |
       Forgejo has been successfully restored from backup.
-      Restoration report saved to {{ forgejo_backup_dir }}/RESTORE_REPORT.md
+      Restoration report saved to {{ current_backup_dir }}/restore/RESTORE_REPORT.md
   when: restore_succeeded
 
 - name: Build full error message
   ansible.builtin.set_fact:
     msg: |
       Forgejo restoration failed!
-      Restoration report saved to {{ forgejo_backup_dir }}/RESTORE_REPORT.md
+      Restoration report saved to {{ current_backup_dir }}/restore/RESTORE_REPORT.md
       Error: {{ restore_failure_reason|default('Unknown error') }}
   when: not restore_succeeded
 
@@ -413,3 +393,9 @@
   ansible.builtin.fail:
     msg: "Restoration failed: {{ restore_failure_reason|default('Unknown error') }}"
   when: not restore_succeeded
+
+- name: Clean up temporary restore folders
+  ansible.builtin.file:
+    path: "{{ current_backup_dir }}/restore"
+    state: absent
+  when: restore_succeeded
