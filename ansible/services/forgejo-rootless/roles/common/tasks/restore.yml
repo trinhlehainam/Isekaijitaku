@@ -338,7 +338,7 @@
       Error: {{ restore_failure_reason }}
       {% endif %}
 
-      Services will be {{ 'started' if restore_succeeded else 'left stopped' }} after restoration.
+      Services will be {{ 'started' if restore_succeeded else 'left down' }} after restoration.
     mode: '0644'
 
 #################################################

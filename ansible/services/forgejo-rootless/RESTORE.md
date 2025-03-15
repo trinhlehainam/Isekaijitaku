@@ -69,18 +69,18 @@ The restore process works in the following sequence:
 To restore from a backup, run the following command:
 
 ```bash
-ansible-playbook site.yml -e "operation=restore backup_path=/path/to/your/backup"
+ansible-playbook site.yml --tags restore
 ```
 
-Where:
-- `operation=restore` triggers the restore process
-- `backup_path` specifies the full path to the backup directory
+This command will automatically find the most recent backup in the configured backup directory and restore from it.
 
-You can also run just the restore task with tags:
+If you want to restore from a specific backup directory, you can define the `forgejo_backup_dir` variable:
 
 ```bash
-ansible-playbook site.yml --tags restore -e "operation=restore backup_path=/path/to/your/backup"
+ansible-playbook site.yml --tags restore -e "forgejo_backup_dir=/path/to/your/backup/directory"
 ```
+
+The system will then find the most recent backup timestamp within that directory and use it for restoration.
 
 ## Restoration Report
 
