@@ -108,9 +108,9 @@
     path: "{{ item.path }}"
     state: absent
   loop:
-    - { path: "{{ forgejo_data_dir }}", when: forgejo_backup_file.stat.exists }
-    - { path: "{{ postgres_data_dir }}", when: postgres_backup_file.stat.exists }
-  when: item.when
+    - { path: "{{ forgejo_data_dir }}" }
+    - { path: "{{ forgejo_conf_dir }}" }
+    - { path: "{{ postgres_data_dir }}" }
 
 - name: Create new data directories
   ansible.builtin.file:
@@ -118,9 +118,9 @@
     state: directory
     mode: '0755'
   loop:
-    - { path: "{{ forgejo_data_dir }}", when: forgejo_backup_file.stat.exists }
-    - { path: "{{ postgres_data_dir }}", when: postgres_backup_file.stat.exists }
-  when: item.when
+    - { path: "{{ forgejo_data_dir }}" }
+    - { path: "{{ forgejo_conf_dir }}" }
+    - { path: "{{ postgres_data_dir }}" }
 
 #################################################
 # Forgejo Application Data Restore
@@ -144,56 +144,13 @@
       register: unzip_result
       when: forgejo_backup_file.stat.exists
 
-    - name: Check if app.ini exists in unzipped backup
-      ansible.builtin.stat:
-        path: "{{ current_restore_dir }}/temp/app.ini"
-      register: app_ini_in_backup
-      when: forgejo_backup_file.stat.exists and unzip_result is success
-
-    - name: Copy Forgejo data to data directory
-      ansible.builtin.copy:
-        src: "{{ current_restore_dir }}/temp/data/"
-        dest: "{{ forgejo_data_dir }}/"
-        remote_src: true
-        directory_mode: yes
-      register: data_copy_result
-      when: forgejo_backup_file.stat.exists and unzip_result is success
-
-    - name: Copy Forgejo repositories to data directory
-      ansible.builtin.copy:
-        src: "{{ current_restore_dir }}/temp/repos/"
-        dest: "{{ forgejo_data_dir }}/git/repositories/"
-        remote_src: true
-        directory_mode: yes
-      register: repos_copy_result
-      when: forgejo_backup_file.stat.exists and unzip_result is success
-
-    - name: Create configuration directory if it doesn't exist
+    - name: Ensure proper ownership of Forgejo configuration directory
       ansible.builtin.file:
         path: "{{ forgejo_conf_dir }}"
         state: directory
         mode: '0755'
         owner: "{{ forgejo_user_id }}"
         group: "{{ forgejo_group_id }}"
-      when: 
-        - forgejo_backup_file.stat.exists
-        - unzip_result is success
-        - app_ini_in_backup.stat.exists
-
-    - name: Copy app.ini configuration file to configuration directory
-      ansible.builtin.copy:
-        src: "{{ current_restore_dir }}/temp/app.ini"
-        dest: "{{ forgejo_conf_dir }}/app.ini"
-        mode: '0644'
-        owner: "{{ forgejo_user_id }}"
-        group: "{{ forgejo_group_id }}"
-      register: app_ini_copy_result
-      when: 
-        - forgejo_backup_file.stat.exists
-        - unzip_result is defined
-        - unzip_result is success
-        - app_ini_in_backup is defined
-        - app_ini_in_backup.stat.exists
 
     - name: Ensure proper ownership of Forgejo data directories
       ansible.builtin.file:
@@ -202,16 +159,31 @@
         recurse: yes
         owner: "{{ forgejo_user_id }}"
         group: "{{ forgejo_group_id }}"
-      when:
-        - forgejo_backup_file.stat.exists
-        - data_copy_result is success or repos_copy_result is success
-
+      
+    - name: Setup Forgejo restore item variables
+      ansible.builtin.set_fact:
+        forgejo_restore_items:
+          - { src: "{{ current_restore_dir }}/temp/app.ini", dest: "{{ forgejo_conf_dir }}/app.ini", required: true }
+          - { src: "{{ current_restore_dir }}/temp/repos", dest: "{{ forgejo_data_dir }}/git/repositories/", required: true }
+          - { src: "{{ current_restore_dir }}/temp/data", dest: "{{ forgejo_data_dir }}/data", required: true }
+          - { src: "{{ current_restore_dir }}/temp/log", dest: "{{ forgejo_data_dir }}/data/log", required: false }
+          
+    - name: Check Forgejo restore items
+      ansible.builtin.stat:
+        path: "{{ item.src }}"
+      register: item_stats
+      loop: "{{ forgejo_restore_items }}"
+      when: unzip_result is success
+      
+    - name: Copy Forgejo restore items
+      ansible.builtin.include_tasks: copy.yml
+      loop: "{{ forgejo_restore_items }}"
+      when: "{{ item_stats.results | map(attribute='stat.exists') | all }}"
+          
     - name: Mark Forgejo restoration as successful
       ansible.builtin.set_fact:
         forgejo_restore_succeeded: true
-      when:
-        - forgejo_backup_file.stat.exists
-        - data_copy_result is success or repos_copy_result is success
+      when: unzip_result is success
 
   rescue:
     - name: Record Forgejo restoration failure
@@ -230,89 +202,49 @@
         project_src: "{{ forgejo_project_src }}"
         services: forgejo-db
         state: present
-        build: false
-      register: start_postgres_result
       when: postgres_backup_file.stat.exists
+      register: postgres_start_result
 
-    - name: Wait for PostgreSQL to be ready
-      ansible.builtin.pause:
-        seconds: 15
-      when: postgres_backup_file.stat.exists
-
-    - name: Create temp directory for PostgreSQL restore
-      ansible.builtin.file:
-        path: "{{ current_restore_dir }}/pg_temp"
-        state: directory
-        mode: '0755'
-      register: temp_pg_dir
-      when: postgres_backup_file.stat.exists
-
-    - name: Copy PostgreSQL backup to restore directory
-      ansible.builtin.copy:
-        src: "{{ postgres_backup_file.stat.path }}"
-        dest: "{{ current_restore_dir }}/pg_temp/forgejo-db-backup.dump"
-        mode: '0644'
-        remote_src: true
-      register: pg_copy_result
-      when: postgres_backup_file.stat.exists
+    - name: Wait for PostgreSQL to be running and healthy
+      when: postgres_start_result is defined
+      community.docker.docker_container_info:
+        name: "{{ postgres_start_result.containers[0].ID }}"
+      register: postgres_container_info
+      failed_when: not postgres_container_info.container.State.Running or postgres_container_info.container.State.Health.Status == 'unhealthy'
+      until: postgres_container_info.container.State.Running and postgres_container_info.container.State.Health.Status == 'healthy'
+      delay: 5
+      retries: 5
 
     - name: Set PostgreSQL container restore filepath
       ansible.builtin.set_fact:
-        postgres_container_restore_filepath: "/docker-entrypoint-initdb.d/forgejo-db-backup.dump"
-      when: postgres_backup_file.stat.exists
+        postgres_backup_filepath: "{{ current_restore_dir }}/{{ postgres_backup_filename }}"
+        
+    - name: Verify restore file exists
+      ansible.builtin.stat:
+        path: "{{ postgres_backup_filepath }}"
+      register: postgres_backup_file_stat
 
-    - name: Copy backup file into PostgreSQL container
+    - name: Restore backup file into PostgreSQL container
       community.docker.docker_compose_v2_exec:
         project_src: "{{ forgejo_project_src }}"
         service: forgejo-db
-        command: cp {{ current_restore_dir }}/pg_temp/forgejo-db-backup.dump {{ postgres_container_restore_filepath }}
-      register: cp_result
-      when: postgres_backup_file.stat.exists
-
-    - name: Restore PostgreSQL database from backup file
-      community.docker.docker_compose_v2_exec:
-        project_src: "{{ forgejo_project_src }}"
-        service: forgejo-db
-        command: pg_restore -c -C -U {{ db_user }} -d {{ db_name }} {{ postgres_container_restore_filepath }}
-      register: pg_restore_result
-      when:
-        - postgres_backup_file.stat.exists
-        - pg_copy_result is defined
-        - pg_copy_result is success or (pg_copy_result is failed and pg_copy_result.stderr is regex('ERROR:  database ".*" does not exist'))
-      ignore_errors: true  # Ignore errors as some DROP statements might fail if objects don't exist
+        command: pg_restore -U {{ db_user }} -d {{ db_name }} < {{ postgres_backup_filepath }}
+        tty: false
+      register: postgres_restore_result
+      when: postgres_backup_file_stat.stat.exists
 
     - name: Mark PostgreSQL restoration as successful
       ansible.builtin.set_fact:
         postgres_restore_succeeded: true
       when:
-        - postgres_backup_file.stat.exists
-        - pg_restore_result is defined
-        - pg_restore_result is success or (pg_restore_result is failed and pg_restore_result.stderr is regex('ERROR:  database ".*" does not exist'))
+        - postgres_restore_result is defined
+        - postgres_restore_result is success or (postgres_restore_result is failed and postgres_restore_result.stderr is regex('ERROR:  database ".*" does not exist'))
 
   rescue:
     - name: Record PostgreSQL restoration failure
       ansible.builtin.set_fact:
         postgres_restore_error: "{{ ansible_failed_result.msg | default('Unknown error during PostgreSQL restoration') }}"
         restore_failure_reason: "PostgreSQL restoration failed: {{ ansible_failed_result.msg | default('Unknown error') }}"
-
-  always:
-    - name: Remove temporary backup file from PostgreSQL container
-      community.docker.docker_compose_v2_exec:
-        project_src: "{{ forgejo_project_src }}"
-        service: forgejo-db
-        command: rm -f {{ postgres_container_restore_filepath }}
-      when:
-        - postgres_backup_file.stat.exists
-        - pg_copy_result is defined
-        - pg_copy_result is success
-      ignore_errors: true
-
-    - name: Stop PostgreSQL container after restoration attempt
-      community.docker.docker_compose_v2:
-        project_src: "{{ forgejo_project_src }}"
-        services: forgejo-db
-        state: absent
-      when: postgres_backup_file.stat.exists
 
 #################################################
 # Restoration Status and Reporting
@@ -357,7 +289,6 @@
   community.docker.docker_compose_v2:
     project_src: "{{ forgejo_project_src }}"
     state: present
-    build: false
   when: restore_succeeded
 
 - name: Display success message
