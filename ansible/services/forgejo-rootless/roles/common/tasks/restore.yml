@@ -93,9 +93,13 @@
   loop_control:
     label: "{{ item.service }}"
 
+- name: Set restore directory variable
+  ansible.builtin.set_fact:
+    current_restore_dir: "{{ current_backup_dir }}/restore"
+
 - name: Create restore workspace directory
   ansible.builtin.file:
-    path: "{{ current_backup_dir }}/restore"
+    path: "{{ current_restore_dir }}"
     state: directory
     mode: '0755'
 
@@ -126,7 +130,7 @@
   block:
     - name: Create temp directory for unzipping
       ansible.builtin.file:
-        path: "{{ current_backup_dir }}/restore/forgejo_temp"
+        path: "{{ current_restore_dir }}/temp"
         state: directory
         mode: '0755'
       register: temp_unzip_dir
@@ -135,40 +139,61 @@
     - name: Unzip Forgejo backup to temp directory
       ansible.builtin.unarchive:
         src: "{{ forgejo_backup_file.stat.path }}"
-        dest: "{{ current_backup_dir }}/restore/forgejo_temp"
+        dest: "{{ current_restore_dir }}/temp"
         remote_src: true
       register: unzip_result
       when: forgejo_backup_file.stat.exists
 
     - name: Check if app.ini exists in unzipped backup
       ansible.builtin.stat:
-        path: "{{ current_backup_dir }}/restore/forgejo_temp/data/conf/app.ini"
+        path: "{{ current_restore_dir }}/temp/app.ini"
       register: app_ini_in_backup
-      when: 
-        - forgejo_backup_file.stat.exists
-        - unzip_result is success
+      when: forgejo_backup_file.stat.exists and unzip_result is success
 
     - name: Copy Forgejo data to data directory
       ansible.builtin.copy:
-        src: "{{ current_backup_dir }}/restore/forgejo_temp/data/"
+        src: "{{ current_restore_dir }}/temp/data/"
         dest: "{{ forgejo_data_dir }}/"
         remote_src: true
         directory_mode: yes
       register: data_copy_result
-      when:
-        - forgejo_backup_file.stat.exists
-        - unzip_result is success
+      when: forgejo_backup_file.stat.exists and unzip_result is success
 
     - name: Copy Forgejo repositories to data directory
       ansible.builtin.copy:
-        src: "{{ current_backup_dir }}/restore/forgejo_temp/repos/"
+        src: "{{ current_restore_dir }}/temp/repos/"
         dest: "{{ forgejo_data_dir }}/git/repositories/"
         remote_src: true
         directory_mode: yes
       register: repos_copy_result
-      when:
+      when: forgejo_backup_file.stat.exists and unzip_result is success
+
+    - name: Create configuration directory if it doesn't exist
+      ansible.builtin.file:
+        path: "{{ forgejo_conf_dir }}"
+        state: directory
+        mode: '0755'
+        owner: "{{ forgejo_user_id }}"
+        group: "{{ forgejo_group_id }}"
+      when: 
         - forgejo_backup_file.stat.exists
         - unzip_result is success
+        - app_ini_in_backup.stat.exists
+
+    - name: Copy app.ini configuration file to configuration directory
+      ansible.builtin.copy:
+        src: "{{ current_restore_dir }}/temp/app.ini"
+        dest: "{{ forgejo_conf_dir }}/app.ini"
+        mode: '0644'
+        owner: "{{ forgejo_user_id }}"
+        group: "{{ forgejo_group_id }}"
+      register: app_ini_copy_result
+      when: 
+        - forgejo_backup_file.stat.exists
+        - unzip_result is defined
+        - unzip_result is success
+        - app_ini_in_backup is defined
+        - app_ini_in_backup.stat.exists
 
     - name: Ensure proper ownership of Forgejo data directories
       ansible.builtin.file:
@@ -195,41 +220,6 @@
         restore_failure_reason: "Forgejo restoration failed: {{ ansible_failed_result.msg | default('Unknown error') }}"
 
 #################################################
-# Configuration Restore
-#################################################
-
-- name: Restore app.ini configuration file
-  block:
-    - name: Create configuration directory if it doesn't exist
-      ansible.builtin.file:
-        path: "{{ forgejo_conf_dir }}"
-        state: directory
-        mode: '0755'
-        owner: "{{ forgejo_user_id }}"
-        group: "{{ forgejo_group_id }}"
-      when: 
-        - forgejo_backup_file.stat.exists
-        - unzip_result is defined
-        - unzip_result is success
-        - app_ini_in_backup is defined
-        - app_ini_in_backup.stat.exists
-
-    - name: Copy app.ini configuration file to configuration directory
-      ansible.builtin.copy:
-        src: "{{ current_backup_dir }}/restore/forgejo_temp/data/conf/app.ini"
-        dest: "{{ forgejo_conf_dir }}/app.ini"
-        mode: '0644'
-        owner: "{{ forgejo_user_id }}"
-        group: "{{ forgejo_group_id }}"
-      register: app_ini_copy_result
-      when: 
-        - forgejo_backup_file.stat.exists
-        - unzip_result is defined
-        - unzip_result is success
-        - app_ini_in_backup is defined
-        - app_ini_in_backup.stat.exists
-
-#################################################
 # PostgreSQL Database Restore
 #################################################
 
@@ -251,7 +241,7 @@
 
     - name: Create temp directory for PostgreSQL restore
       ansible.builtin.file:
-        path: "{{ current_backup_dir }}/restore/pg_temp"
+        path: "{{ current_restore_dir }}/pg_temp"
         state: directory
         mode: '0755'
       register: temp_pg_dir
@@ -260,7 +250,7 @@
     - name: Copy PostgreSQL backup to restore directory
       ansible.builtin.copy:
         src: "{{ postgres_backup_file.stat.path }}"
-        dest: "{{ current_backup_dir }}/restore/pg_temp/forgejo-db-backup.dump"
+        dest: "{{ current_restore_dir }}/pg_temp/forgejo-db-backup.dump"
         mode: '0644'
         remote_src: true
       register: pg_copy_result
@@ -275,7 +265,7 @@
       community.docker.docker_compose_v2_exec:
         project_src: "{{ forgejo_project_src }}"
         service: forgejo-db
-        command: cp {{ current_backup_dir }}/restore/pg_temp/forgejo-db-backup.dump {{ postgres_container_restore_filepath }}
+        command: cp {{ current_restore_dir }}/pg_temp/forgejo-db-backup.dump {{ postgres_container_restore_filepath }}
       register: cp_result
       when: postgres_backup_file.stat.exists
 
