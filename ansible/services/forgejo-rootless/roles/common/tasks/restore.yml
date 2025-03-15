@@ -97,6 +97,12 @@
   ansible.builtin.set_fact:
     current_restore_dir: "{{ current_backup_dir }}/restore"
 
+- name: Check forgejo bind mount variables
+  ansible.builtin.set_fact:
+    forgejo_data_dir: "{{ forgejo_data_dir if forgejo_data_dir is defined and (forgejo_data_dir.startswith('/') or forgejo_data_dir.startswith('./')) else './data' }}"
+    forgejo_conf_dir: "{{ forgejo_conf_dir if forgejo_conf_dir is defined and (forgejo_conf_dir.startswith('/') or forgejo_conf_dir.startswith('./')) else './conf' }}"
+    postgres_data_dir: "{{ postgres_data_dir if postgres_data_dir is defined and (postgres_data_dir.startswith('/') or postgres_data_dir.startswith('./')) else './postgres' }}"
+
 - name: Create restore workspace directory
   ansible.builtin.file:
     path: "{{ current_restore_dir }}"
@@ -163,27 +169,65 @@
     - name: Setup Forgejo restore item variables
       ansible.builtin.set_fact:
         forgejo_restore_items:
-          - { src: "{{ current_restore_dir }}/temp/app.ini", dest: "{{ forgejo_conf_dir }}/app.ini", required: true }
-          - { src: "{{ current_restore_dir }}/temp/repos", dest: "{{ forgejo_data_dir }}/git/repositories/", required: true }
-          - { src: "{{ current_restore_dir }}/temp/data", dest: "{{ forgejo_data_dir }}/data", required: true }
-          - { src: "{{ current_restore_dir }}/temp/log", dest: "{{ forgejo_data_dir }}/data/log", required: false }
+          - src: "{{ current_restore_dir }}/temp/app.ini"
+            dest: "{{ forgejo_conf_dir }}/app.ini"
+            required: true
+          - src: "{{ current_restore_dir }}/temp/repos"
+            dest: "{{ forgejo_data_dir }}/git/repositories/"
+            required: true
+          - src: "{{ current_restore_dir }}/temp/data"
+            dest: "{{ forgejo_data_dir }}/data"
+            required: true
+          - src: "{{ current_restore_dir }}/temp/log"
+            dest: "{{ forgejo_data_dir }}/data/log"
+            required: false
           
     - name: Check Forgejo restore items
       ansible.builtin.stat:
         path: "{{ item.src }}"
-      register: item_stats
       loop: "{{ forgejo_restore_items }}"
       when: unzip_result is success
+      register: item_stats
+      
+    - name: Build update list for item restore stats
+      ansible.builtin.set_fact:
+        update_list: "{{ update_list + update }}"
+      loop: "{{ forgejo_restore_items }}"
+      loop_control:
+        index_var: idx
+      vars:
+        update_list: []
+        update:
+          - path: forgejo_restore_items[{{ idx }}].exists
+            value: "{{ (item_stats.results | selectattr('stat.path', 'equalto', item.src) | first).stat.exists }}"
+            
+    - name: Make the updates for item restore stats
+      # https://docs.ansible.com/ansible/latest/collections/ansible/utils/update_fact_module.html
+      ansible.utils.update_fact:
+        updates: "{{ update_list }}"
+      register: update_result
+      
+    - name: Fail if required item is missing
+      ansible.builtin.fail:
+        msg: "Required item {{ item.src }} is missing"
+      loop: "{{ forgejo_restore_items }}"
+      loop_control:
+        index_var: idx
+      when: item.required and not item_stats.results[idx].exists
       
     - name: Copy Forgejo restore items
-      ansible.builtin.include_tasks: copy.yml
+      ansible.builtin.copy:
+        src: "{{ item.src }}"
+        dest: "{{ item.dest }}"
+        owner: "{{ forgejo_user_id }}"
+        group: "{{ forgejo_group_id }}"
+        mode: '0644'
       loop: "{{ forgejo_restore_items }}"
-      when: "{{ item_stats.results | map(attribute='stat.exists') | all }}"
+      when: item_stats.results[idx].exists
           
     - name: Mark Forgejo restoration as successful
       ansible.builtin.set_fact:
         forgejo_restore_succeeded: true
-      when: unzip_result is success
 
   rescue:
     - name: Record Forgejo restoration failure
@@ -206,9 +250,11 @@
       register: postgres_start_result
 
     - name: Wait for PostgreSQL to be running and healthy
+      vars:
+        postgres_container_id: "{{ (postgres_start_result.containers | selectattr('Service', 'equalto', 'forgejo-db') | first).ID }}"
       when: postgres_start_result is defined
       community.docker.docker_container_info:
-        name: "{{ postgres_start_result.containers[0].ID }}"
+        name: "{{ postgres_container_id }}"
       register: postgres_container_info
       failed_when: not postgres_container_info.container.State.Running or postgres_container_info.container.State.Health.Status == 'unhealthy'
       until: postgres_container_info.container.State.Running and postgres_container_info.container.State.Health.Status == 'healthy'
