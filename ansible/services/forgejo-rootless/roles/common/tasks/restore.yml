@@ -15,13 +15,23 @@
 # Initialization and Setup
 #################################################
 
-- name: Set up Forgejo Rootless project source path
+- name: Set up project source path variable 
   ansible.builtin.set_fact:
     forgejo_project_src: "{{ forgejo_project_src|default(ansible_user_dir + '/Docker/forgejo-rootless') }}"
-
-- name: Check if backup directory is defined in inventory
+    
+- name: Set up backup directory variable
   ansible.builtin.set_fact:
     forgejo_backup_dir: "{{ forgejo_backup_dir|default(forgejo_project_src + '/backups') }}"
+
+- name: Gather backup directory information
+  ansible.builtin.stat:
+    path: "{{ forgejo_backup_dir }}"
+  register: backup_dir_stat
+
+- name: Fail if backup directory doesn't exist
+  ansible.builtin.fail:
+    msg: "Backup directory {{ forgejo_backup_dir }} doesn't exist or is not a directory"
+  when: not backup_dir_stat.stat.exists or not backup_dir_stat.stat.isdir
 
 - name: Find most recent backup directory
   ansible.builtin.find:
@@ -162,7 +172,7 @@
             dest: "{{ forgejo_data_dir }}/git/repositories/"
             required: true
           - src: "{{ current_restore_dir }}/temp/data"
-            dest: "{{ forgejo_data_dir }}/data"
+            dest: "{{ forgejo_data_dir }}"
             required: true
           - src: "{{ current_restore_dir }}/temp/log"
             dest: "{{ forgejo_data_dir }}/data/log"
@@ -221,7 +231,6 @@
         dest: "{{ item.dest }}"
         owner: "{{ forgejo_user_id }}"
         group: "{{ forgejo_group_id }}"
-        mode: '0755'
         remote_src: true
       loop: "{{ forgejo_restore_items }}"
       when: item.exists
@@ -267,7 +276,7 @@
 
     - name: Set PostgreSQL container restore filepath
       ansible.builtin.set_fact:
-        postgres_backup_filepath: "{{ current_restore_dir }}/{{ postgres_backup_filename }}"
+        postgres_backup_filepath: "{{ current_backup_dir }}/{{ postgres_backup_filename }}"
 
     - name: Verify restore file exists
       ansible.builtin.stat:
@@ -282,6 +291,10 @@
         tty: false
       register: postgres_restore_result
       when: postgres_backup_file_stat.stat.exists
+      
+    - name: Debug PostgreSQL restore result
+      ansible.builtin.debug:
+        var: postgres_restore_result
 
     - name: Mark PostgreSQL restoration as successful
       ansible.builtin.set_fact:
@@ -319,9 +332,8 @@
 
       | Component | Status | Details |
       |-----------|--------|---------|
-      | PostgreSQL | {% if postgres_backup_file.stat.exists %}{{ 'SUCCESS ✅' if postgres_restore_succeeded else 'FAILED ❌' }}{% else %}SKIPPED ⏭️{% endif %} | {{ postgres_restore_error | default('') if postgres_backup_file.stat.exists and not postgres_restore_succeeded else '' }} |
-      | Forgejo | {% if forgejo_backup_file.stat.exists %}{{ 'SUCCESS ✅' if forgejo_restore_succeeded else 'FAILED ❌' }}{% else %}SKIPPED ⏭️{% endif %} | {{ forgejo_restore_error | default('') if forgejo_backup_file.stat.exists and not forgejo_restore_succeeded else '' }} |
-      | Configuration | {% if app_ini_in_backup is defined and app_ini_in_backup.stat.exists %}{{ 'SUCCESS ✅' if forgejo_restore_succeeded else 'FAILED ❌' }}{% else %}SKIPPED ⏭️{% endif %} | {{ 'Failed to copy configuration file' if not forgejo_restore_succeeded else '' }} |
+      | PostgreSQL | {{ 'SUCCESS ✅' if postgres_restore_succeeded else 'FAILED ❌' }} | {{ postgres_restore_error | default('') if not postgres_restore_succeeded else '' }} |
+      | Forgejo | {{ 'SUCCESS ✅' if forgejo_restore_succeeded else 'FAILED ❌' }} | {{ forgejo_restore_error | default('') if not forgejo_restore_succeeded else '' }} |
 
       ## Restored Files Information
 

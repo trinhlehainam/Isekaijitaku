@@ -103,3 +103,8 @@ After completion, a timestamped `RESTORE_REPORT_YYYY-MM-DD_HH-MM.md` file is cre
 5. The PostgreSQL database is restored using a clean approach, with existing objects dropped before recreation.
 6. The restore process verifies that all required files exist in the backup before proceeding with the restore.
 7. Temporary extraction directories are automatically cleaned up after successful restoration.
+
+## References
+- [[Upgrade PostgreSQL in Docker]]
+- [Gitea Backup and Restore](https://gitea.com/gitea/docs/src/branch/main/docs/administration/backup-and-restore.md#restore-command-restore)
+- [Forgejo Upgrade and Restore](https://forgejo.org/docs/latest/admin/upgrade/#verify-forgejo-works)
