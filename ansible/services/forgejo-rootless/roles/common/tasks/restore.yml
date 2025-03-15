@@ -84,11 +84,11 @@
 - name: Check services status
   ansible.builtin.include_tasks: check.yml
 
-- name: Make sure services are stopped before restore
+- name: Make sure services are down before restore
   community.docker.docker_compose_v2:
     project_src: "{{ forgejo_project_src }}"
     services: "{{ item.service }}"
-    state: stopped
+    state: absent
   loop: "{{ check_result.services }}"
   loop_control:
     label: "{{ item.service }}"
@@ -177,10 +177,6 @@
       when: unzip_result is success
       register: item_stats
       
-    - name: Debug item stats
-      ansible.builtin.debug:
-        var: item_stats
-
     - name: Build update list for item restore stats
       ansible.builtin.set_fact:
         update_list: "{{ update_list + update }}"
@@ -189,10 +185,10 @@
         index_var: idx
       vars:
         update_list: []
-        item_stat: "{{ item_stats.results | selectattr('stat.path', '==', item.src) | map(attribute='stat') | first }}"
+        item_stat: "{{ item_stats.results | selectattr('item.src', '==', item.src) | first }}"
         update:
           - path: forgejo_restore_items[{{ idx }}].exists
-            value: "{{ item_stat.exists if item_stat is defined else false }}"
+            value: "{{ item_stat.stat.exists if item_stat is defined else false }}"
             
     - name: Make the Frogejo restore items update list
       # https://docs.ansible.com/ansible/latest/collections/ansible/utils/update_fact_module.html
@@ -354,23 +350,19 @@
 
 - name: Build full error message
   ansible.builtin.set_fact:
-    msg: |
+    error_msg: |
       Forgejo restoration failed!
       Restoration report saved to {{ current_backup_dir }}/restore/RESTORE_REPORT.md
       Error: {{ restore_failure_reason|default('Unknown error') }}
   when: not restore_succeeded
 
-- name: Display error message
-  ansible.builtin.debug:
-    msg: "{{ msg.split('\n') }}"
-
 - name: Fail when restoration is unsuccessful
   ansible.builtin.fail:
-    msg: "Restoration failed: {{ restore_failure_reason|default('Unknown error') }}"
-  when: not restore_succeeded
+    msg: "{{ error_msg }}"
+  when: error_msg is defined
 
 - name: Clean up temporary restore folders
   ansible.builtin.file:
-    path: "{{ current_backup_dir }}/restore"
+    path: "{{ current_backup_dir }}/restore/temp"
     state: absent
   when: restore_succeeded
