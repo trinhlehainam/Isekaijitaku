@@ -309,10 +309,11 @@
   ansible.builtin.copy:
     dest: "{{ restore_report_path }}"
     content: |
-      # Restore Report
+      # Forgejo Restoration Report
 
       **Timestamp:** {{ restore_timestamp }}
-      **Backup Path:** {{ current_backup_dir }}
+      **Backup Source:** {{ current_backup_dir }}
+      **Project Directory:** {{ forgejo_project_src }}
 
       ## Components Status
 
@@ -320,7 +321,15 @@
       |-----------|--------|---------|
       | PostgreSQL | {% if postgres_backup_file.stat.exists %}{{ 'SUCCESS ✅' if postgres_restore_succeeded else 'FAILED ❌' }}{% else %}SKIPPED ⏭️{% endif %} | {{ postgres_restore_error | default('') if postgres_backup_file.stat.exists and not postgres_restore_succeeded else '' }} |
       | Forgejo | {% if forgejo_backup_file.stat.exists %}{{ 'SUCCESS ✅' if forgejo_restore_succeeded else 'FAILED ❌' }}{% else %}SKIPPED ⏭️{% endif %} | {{ forgejo_restore_error | default('') if forgejo_backup_file.stat.exists and not forgejo_restore_succeeded else '' }} |
-      | Configuration | {% if app_ini_in_backup is defined and app_ini_in_backup.stat.exists %}{{ 'SUCCESS ✅' if app_ini_copy_result is success else 'FAILED ❌' }}{% else %}SKIPPED ⏭️{% endif %} | {{ 'Failed to copy configuration file' if app_ini_in_backup is defined and app_ini_in_backup.stat.exists and app_ini_copy_result is failed else '' }} |
+      | Configuration | {% if app_ini_in_backup is defined and app_ini_in_backup.stat.exists %}{{ 'SUCCESS ✅' if forgejo_restore_succeeded else 'FAILED ❌' }}{% else %}SKIPPED ⏭️{% endif %} | {{ 'Failed to copy configuration file' if not forgejo_restore_succeeded else '' }} |
+
+      ## Restored Files Information
+
+      | Component | Source Path | Destination Path | Status |
+      |-----------|------------|-----------------|--------|
+      {% for item in forgejo_restore_items %}
+      | {{ item.src | basename }} | {{ item.src }} | {{ item.dest }} | {{ 'RESTORED ✅' if item.exists else 'MISSING ❌' }} |
+      {% endfor %}
 
       ## Summary
 
@@ -329,7 +338,7 @@
       Error: {{ restore_failure_reason }}
       {% endif %}
 
-      Services will be started after restoration.
+      Services will be {{ 'started' if restore_succeeded else 'left stopped' }} after restoration.
     mode: '0644'
 
 #################################################

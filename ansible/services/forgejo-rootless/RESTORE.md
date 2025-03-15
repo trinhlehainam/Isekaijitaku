@@ -12,7 +12,7 @@ The restore process is designed to recover Forgejo and PostgreSQL services from 
 4. Restores the PostgreSQL database using Docker's native capabilities
 5. Extracts and restores Forgejo application data to the appropriate locations
 6. Starts services again after successful restoration
-7. Generates a detailed restoration report
+7. Generates a detailed timestamped restoration report
 
 ## Prerequisites
 
@@ -20,6 +20,7 @@ The restore process is designed to recover Forgejo and PostgreSQL services from 
   - PostgreSQL backup file (`forgejo-db-backup.dump`)
   - Forgejo application backup file (`forgejo-app-dump.zip`)
 - The Forgejo rootless Docker Compose environment properly configured
+- `unzip` utility installed on the target system (automatically installed by Vagrant)
 
 ## Execution Process
 
@@ -32,7 +33,7 @@ The restore process works in the following sequence:
 
 ### Service Management
 - Checks current service status
-- Stops all running Forgejo and PostgreSQL services
+- Completely removes all running Forgejo and PostgreSQL containers to ensure clean restoration
 
 ### Data Directory Handling
 - Backs up current data directories to timestamped archive files
@@ -48,16 +49,19 @@ The restore process works in the following sequence:
 ### Application Restoration
 - Creates a temporary extraction directory
 - Unzips the Forgejo backup file
+- Validates that all required files exist in the backup
 - Copies data and repository files to appropriate locations
-- Sets proper ownership for rootless operation
+- Sets proper ownership and permissions for rootless operation
 
 ### Service Restart
 - Starts all services after successful restoration
+- Waits for services to reach healthy state
 - Handles failures appropriately with clear error messages
 
 ### Reporting
-- Generates a detailed restoration report in Markdown format
-- Includes success/failure status for each component
+- Generates a detailed timestamped restoration report in Markdown format
+- Includes success/failure status for each component with visual indicators
+- Lists all restored files with their status
 - Records specific error information when available
 
 ## Usage
@@ -72,12 +76,21 @@ Where:
 - `operation=restore` triggers the restore process
 - `backup_path` specifies the full path to the backup directory
 
+You can also run just the restore task with tags:
+
+```bash
+ansible-playbook site.yml --tags restore -e "operation=restore backup_path=/path/to/your/backup"
+```
+
 ## Restoration Report
 
-After completion, a `RESTORE_REPORT.md` file is created in the backup directory with detailed information about:
+After completion, a timestamped `RESTORE_REPORT_YYYY-MM-DD_HH-MM.md` file is created in the backup directory with detailed information about:
 
 - Timestamp of the restore operation
-- Status of each component (PostgreSQL, Forgejo)
+- Backup source path
+- Project directory path
+- Status of each component (PostgreSQL, Forgejo, Configuration)
+- List of all restored files with their paths and status
 - Overall restoration status
 - Any error messages or failures
 
@@ -88,3 +101,5 @@ After completion, a `RESTORE_REPORT.md` file is created in the backup directory 
 3. Original data directories are automatically backed up before removal as a safety measure.
 4. Services are automatically restarted after successful restoration.
 5. The PostgreSQL database is restored using a clean approach, with existing objects dropped before recreation.
+6. The restore process verifies that all required files exist in the backup before proceeding with the restore.
+7. Temporary extraction directories are automatically cleaned up after successful restoration.
