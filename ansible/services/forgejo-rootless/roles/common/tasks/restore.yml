@@ -168,11 +168,11 @@
           - src: "{{ current_restore_dir }}/temp/app.ini"
             dest: "{{ forgejo_conf_dir }}/app.ini"
             required: true
-          - src: "{{ current_restore_dir }}/temp/repos"
-            dest: "{{ forgejo_data_dir }}/git/repositories/"
-            required: true
           - src: "{{ current_restore_dir }}/temp/data"
             dest: "{{ forgejo_data_dir }}"
+            required: true
+          - src: "{{ current_restore_dir }}/temp/repos"
+            dest: "{{ forgejo_data_dir }}/git/repositories/"
             required: true
           - src: "{{ current_restore_dir }}/temp/log"
             dest: "{{ forgejo_data_dir }}/data/log"
@@ -284,18 +284,19 @@
       register: postgres_backup_file_stat
 
     - name: Restore backup file into PostgreSQL container
-      community.docker.docker_compose_v2_exec:
-        project_src: "{{ forgejo_project_src }}"
-        service: forgejo-db
-        command: pg_restore -U {{ db_user }} -d {{ db_name }} < {{ postgres_backup_filepath }}
-        tty: false
+      ansible.builtin.shell:
+        chdir: "{{ forgejo_project_src }}"
+        cmd: docker compose exec -T forgejo-db pg_restore -U {{ db_user }} -d {{ db_name }} < {{ postgres_backup_filepath }}
       register: postgres_restore_result
       when: postgres_backup_file_stat.stat.exists
       
-    - name: Debug PostgreSQL restore result
-      ansible.builtin.debug:
-        var: postgres_restore_result
-
+    - name: Verify PostgreSQL restoration
+      ansible.builtin.assert:
+        that:
+          - postgres_restore_result.rc == 0
+        fail_msg: "Failed to restore PostgreSQL database: {{ postgres_restore_result.stderr }}"
+        success_msg: "Successfully restored PostgreSQL database"
+      
     - name: Mark PostgreSQL restoration as successful
       ansible.builtin.set_fact:
         postgres_restore_succeeded: true
