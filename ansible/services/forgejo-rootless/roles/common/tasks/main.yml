@@ -17,3 +17,7 @@
 - name: Include upgrade tasks
   ansible.builtin.include_tasks: upgrade.yml
   when: operation_mode == 'upgrade'
+
+- name: Include repository creation tasks
+  ansible.builtin.include_tasks: create_repo.yml
+  when: operation_mode == 'create_repo'

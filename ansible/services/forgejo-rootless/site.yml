@@ -45,3 +45,12 @@
     - role: common
       vars:
         operation_mode: upgrade
+
+- name: Create test repositories in Forgejo
+  hosts: all
+  gather_facts: true
+  tags: [never, create_repo]
+  roles:
+    - role: common
+      vars:
+        operation_mode: create_repo

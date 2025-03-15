@@ -1,0 +1,60 @@
+---
+- name: Set valid object_format_name
+  vars:
+    object_format_name_enum: ["sha1", "sha256"]
+  ansible.builtin.set_fact:
+    valid_object_format_name: >-
+      {% if forgejo_repo_object_format_name is defined and forgejo_repo_object_format_name in object_format_name_enum %}
+      {{ forgejo_repo_object_format_name }}
+      {% else %}
+      sha1
+      {% endif %}
+
+- name: Set valid trust_model
+  vars:
+    trust_model_enum: ["default", "collaborator", "committer", "collaboratorcommitter"]
+  ansible.builtin.set_fact:
+    valid_trust_model: >-
+      {% if forgejo_repo_trust_model is defined and forgejo_repo_trust_model in trust_model_enum %}
+      {{ forgejo_repo_trust_model }}
+      {% else %}
+      default
+      {% endif %}
+
+- name: Prepare Create Repository API variables
+  ansible.builtin.set_fact:
+    # https://codeberg.org/api/swagger/#/repository/createCurrentUserRepo
+    create_repo_options:
+      auto_init: "{{ forgejo_repo_auto_init | default(true) }}"
+      default_branch: "{{ forgejo_repo_default_branch | default('main') }}"
+      description: "{{ forgejo_repo_description | default('Repository created via Ansible automation') }}"
+      gitignores: "{{ forgejo_repo_gitignores | default('') }}"
+      issue_labels: "{{ forgejo_repo_issue_labels | default('') }}"
+      license: "{{ forgejo_repo_license | default('') }}"
+      name: "{{ forgejo_repo_name | default('ansible-managed-repo') }}"
+      object_format_name: "{{ valid_object_format_name }}"
+      private: "{{ forgejo_repo_private | default(true) }}"
+      readme: "{{ forgejo_repo_readme | default('# Ansible-Managed Repository\n\nThis repository was automatically created by Ansible during Forgejo deployment.') }}"
+      template: "{{ forgejo_repo_template | default(false) }}"
+      trust_model: "{{ valid_trust_model }}"
+      
+
+- name: Create Forgejo repository through API
+  # https://codeberg.org/api/swagger/#/repository/createCurrentUserRepo
+  ansible.builtin.uri:
+    url: "http://{{ ansible_host }}:3000/api/v1/user/repos"
+    method: POST
+    user: "{{ forgejo_admin_username }}"
+    password: "{{ forgejo_admin_password }}"
+    force_basic_auth: true
+    body_format: json
+    body: "{{ create_repo_options }}"
+    status_code: [200, 201]
+    headers:
+      Content-Type: application/json
+  register: repo_creation
+
+- name: Display repository creation results
+  ansible.builtin.debug:
+    var: repo_creation
+    verbosity: 1
