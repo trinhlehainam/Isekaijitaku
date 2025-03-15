@@ -7,10 +7,10 @@ This document outlines the Forgejo rootless service restore process implemented 
 The restore process is designed to recover Forgejo and PostgreSQL services from previously created backups. It follows a comprehensive approach to ensure proper service restoration:
 
 1. Verifies backup files exist before attempting restoration
-2. Stops all running services to prevent conflicts
+2. Completely removes all running services to ensure a clean slate
 3. Backs up current data directories before removing them
-4. Restores the PostgreSQL database using Docker's native capabilities
-5. Extracts and restores Forgejo application data to the appropriate locations
+4. Restores the PostgreSQL database using direct shell commands
+5. Extracts and moves Forgejo application data to the appropriate locations
 6. Starts services again after successful restoration
 7. Generates a detailed timestamped restoration report
 
@@ -32,8 +32,8 @@ The restore process works in the following sequence:
 - Sets initial success/failure status variables
 
 ### Service Management
-- Checks current service status
-- Completely removes all running Forgejo and PostgreSQL containers to ensure clean restoration
+- Directly removes all running Docker containers to ensure clean restoration
+- Uses Docker Compose to ensure consistent service management
 
 ### Data Directory Handling
 - Backs up current data directories to timestamped archive files
@@ -42,16 +42,16 @@ The restore process works in the following sequence:
 
 ### Database Restoration
 - Starts the PostgreSQL container temporarily
-- Copies the backup dump file to the container
-- Executes `pg_restore` to restore the database
-- Handles common error scenarios gracefully
+- Uses a direct shell command to execute pg_restore for better error handling
+- Validates the restoration output to detect any issues
+- Provides detailed error messages in case of failure
 
 ### Application Restoration
 - Creates a temporary extraction directory
 - Unzips the Forgejo backup file
 - Validates that all required files exist in the backup
-- Copies data and repository files to appropriate locations
-- Sets proper ownership and permissions for rootless operation
+- Directly moves files from temporary location to destination paths for better performance
+- Sets proper permissions on the configuration directory
 
 ### Service Restart
 - Starts all services after successful restoration

@@ -91,17 +91,10 @@
 # Services Management
 #################################################
 
-- name: Check services status
-  ansible.builtin.include_tasks: check.yml
-
 - name: Make sure services are down before restore
   community.docker.docker_compose_v2:
     project_src: "{{ forgejo_project_src }}"
-    services: "{{ item.service }}"
     state: absent
-  loop: "{{ check_result.services }}"
-  loop_control:
-    label: "{{ item.service }}"
 
 - name: Set restore directory variable
   ansible.builtin.set_fact:
@@ -151,16 +144,13 @@
       register: unzip_result
       when: forgejo_backup_file.stat.exists
 
-    - name: Ensure Forgejo data directories exist and have proper ownership
+    - name: Ensure Forgejo configuration directory exists and has proper ownership
       ansible.builtin.file:
-        path: "{{ item.path }}"
+        path: "{{ forgejo_conf_dir }}"
         state: directory
         mode: '0755'
         owner: "{{ forgejo_user_id }}"
         group: "{{ forgejo_group_id }}"
-      loop:
-        - { path: "{{ forgejo_conf_dir }}" }
-        - { path: "{{ forgejo_data_dir }}" }
 
     - name: Setup Forgejo restore item variables
       ansible.builtin.set_fact:
@@ -172,7 +162,7 @@
             dest: "{{ forgejo_data_dir }}"
             required: true
           - src: "{{ current_restore_dir }}/temp/repos"
-            dest: "{{ forgejo_data_dir }}/git/repositories/"
+            dest: "{{ forgejo_data_dir }}/git/repositories"
             required: true
           - src: "{{ current_restore_dir }}/temp/log"
             dest: "{{ forgejo_data_dir }}/data/log"
@@ -225,13 +215,8 @@
         fail_msg: "Required items missing: {{ missing_required_items | map(attribute='src') | join(', ') }}"
         success_msg: "All required items for Forgejo restoration are available"
 
-    - name: Copy Forgejo restore items
-      ansible.builtin.copy:
-        src: "{{ item.src }}"
-        dest: "{{ item.dest }}"
-        owner: "{{ forgejo_user_id }}"
-        group: "{{ forgejo_group_id }}"
-        remote_src: true
+    - name: Move Forgejo restore items
+      ansible.builtin.command: mv "{{ item.src }}" "{{ item.dest }}"
       loop: "{{ forgejo_restore_items }}"
       when: item.exists
 
