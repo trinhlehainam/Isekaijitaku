@@ -27,7 +27,7 @@
   ansible.builtin.find:
     paths: "{{ forgejo_backup_dir }}"
     file_type: directory
-    patterns: "20*-*-*_*-*"
+    patterns: "*-*-*_*-*"
   register: timestamp_dirs
 
 - name: Sort timestamp directories by modification time
@@ -221,7 +221,7 @@
         dest: "{{ item.dest }}"
         owner: "{{ forgejo_user_id }}"
         group: "{{ forgejo_group_id }}"
-        mode: '0644'
+        mode: '0755'
         remote_src: true
       loop: "{{ forgejo_restore_items }}"
       when: item.exists
@@ -302,11 +302,12 @@
 
 - name: Set overall restoration success status
   ansible.builtin.set_fact:
+    restore_report_path: "{{ current_backup_dir }}/restore/RESTORE_REPORT_{{ restore_timestamp }}.md"
     restore_succeeded: "{{ ((postgres_backup_file.stat.exists and postgres_restore_succeeded) or not postgres_backup_file.stat.exists) and ((forgejo_backup_file.stat.exists and forgejo_restore_succeeded) or not forgejo_backup_file.stat.exists) }}"
 
 - name: Create restoration report
   ansible.builtin.copy:
-    dest: "{{ current_backup_dir }}/restore/RESTORE_REPORT.md"
+    dest: "{{ restore_report_path }}"
     content: |
       # Restore Report
 
@@ -335,24 +336,22 @@
 # Post-restore Service Management
 #################################################
 
-- name: Start all services after successful restore
-  community.docker.docker_compose_v2:
-    project_src: "{{ forgejo_project_src }}"
-    state: present
+- name: Start and wait for services to be running and healthy
+  ansible.builtin.include_tasks: start.yml
   when: restore_succeeded
 
 - name: Display success message
   ansible.builtin.debug:
     msg: |
       Forgejo has been successfully restored from backup.
-      Restoration report saved to {{ current_backup_dir }}/restore/RESTORE_REPORT.md
+      Restoration report saved to {{ restore_report_path }}
   when: restore_succeeded
 
 - name: Build full error message
   ansible.builtin.set_fact:
     error_msg: |
       Forgejo restoration failed!
-      Restoration report saved to {{ current_backup_dir }}/restore/RESTORE_REPORT.md
+      Restoration report saved to {{ restore_report_path }}
       Error: {{ restore_failure_reason|default('Unknown error') }}
   when: not restore_succeeded
 

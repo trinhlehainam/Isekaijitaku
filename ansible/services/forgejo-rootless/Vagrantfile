@@ -27,7 +27,7 @@ Vagrant.configure("2") do |config|
     
     node.vm.provision "shell", inline: <<-SHELL
       # Restore task dependencies
-      apt install unzip -y
+      apt-get install unzip -y
     SHELL
   end
 
