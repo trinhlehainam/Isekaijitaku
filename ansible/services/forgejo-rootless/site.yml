@@ -2,6 +2,7 @@
 # Forgejo Rootless Playbook
 # Use -t deploy to deploy services
 # Use -t backup to perform backups
+# Use -t restore to restore from backups
 # Use -t upgrade to check for and apply upgrades
 
 - name: Ensure Docker is installed and running
@@ -35,6 +36,16 @@
     - role: common
       vars:
         operation_mode: backup
+
+- name: Restore Forgejo Rootless services
+  hosts: all
+  gather_facts: true
+  tags: [never, restore]
+  force_handlers: true
+  roles:
+    - role: common
+      vars:
+        operation_mode: restore
 
 - name: Upgrade Forgejo Rootless services
   hosts: all

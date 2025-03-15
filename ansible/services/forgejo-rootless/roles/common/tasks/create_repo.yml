@@ -30,6 +30,7 @@
       
 - name: Create Forgejo repository through API
   ansible.builtin.uri:
+    # TODO: this tasks only use for testing for now, need to resolve url if use traefik
     url: "http://{{ ansible_host }}:3000/api/v1/user/repos"
     method: POST
     user: "{{ forgejo_admin_username }}"
@@ -38,9 +39,9 @@
     body_format: json
     body: "{{ create_repo_options }}"
     status_code: [200, 201]
-  register: repo_creation
+  register: create_repo_result
 
 - name: Display repository creation results
   ansible.builtin.debug:
-    var: repo_creation
+    var: create_repo_result
     verbosity: 1
