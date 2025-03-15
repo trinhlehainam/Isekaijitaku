@@ -99,9 +99,9 @@
 
 - name: Check forgejo bind mount variables
   ansible.builtin.set_fact:
-    forgejo_data_dir: "{{ forgejo_data_dir if forgejo_data_dir is defined and (forgejo_data_dir.startswith('/') or forgejo_data_dir.startswith('./')) else './data' }}"
-    forgejo_conf_dir: "{{ forgejo_conf_dir if forgejo_conf_dir is defined and (forgejo_conf_dir.startswith('/') or forgejo_conf_dir.startswith('./')) else './conf' }}"
-    postgres_data_dir: "{{ postgres_data_dir if postgres_data_dir is defined and (postgres_data_dir.startswith('/') or postgres_data_dir.startswith('./')) else './postgres' }}"
+    forgejo_data_dir: "{{ forgejo_data_dir if forgejo_data_dir is defined and (forgejo_data_dir.startswith('/') or forgejo_data_dir.startswith('./')) else forgejo_project_src + '/data' }}"
+    forgejo_conf_dir: "{{ forgejo_conf_dir if forgejo_conf_dir is defined and (forgejo_conf_dir.startswith('/') or forgejo_conf_dir.startswith('./')) else forgejo_project_src + '/conf' }}"
+    postgres_data_dir: "{{ postgres_data_dir if postgres_data_dir is defined and (postgres_data_dir.startswith('/') or postgres_data_dir.startswith('./')) else forgejo_project_src + '/postgres' }}"
 
 - name: Create restore workspace directory
   ansible.builtin.file:
@@ -110,19 +110,10 @@
     mode: '0755'
 
 - name: Remove current data directories
+  become: true
   ansible.builtin.file:
     path: "{{ item.path }}"
     state: absent
-  loop:
-    - { path: "{{ forgejo_data_dir }}" }
-    - { path: "{{ forgejo_conf_dir }}" }
-    - { path: "{{ postgres_data_dir }}" }
-
-- name: Create new data directories
-  ansible.builtin.file:
-    path: "{{ item.path }}"
-    state: directory
-    mode: '0755'
   loop:
     - { path: "{{ forgejo_data_dir }}" }
     - { path: "{{ forgejo_conf_dir }}" }
@@ -150,22 +141,17 @@
       register: unzip_result
       when: forgejo_backup_file.stat.exists
 
-    - name: Ensure proper ownership of Forgejo configuration directory
+    - name: Ensure Forgejo data directories exist and have proper ownership
       ansible.builtin.file:
-        path: "{{ forgejo_conf_dir }}"
+        path: "{{ item.path }}"
         state: directory
         mode: '0755'
         owner: "{{ forgejo_user_id }}"
         group: "{{ forgejo_group_id }}"
+      loop:
+        - { path: "{{ forgejo_conf_dir }}" }
+        - { path: "{{ forgejo_data_dir }}" }
 
-    - name: Ensure proper ownership of Forgejo data directories
-      ansible.builtin.file:
-        path: "{{ forgejo_data_dir }}"
-        state: directory
-        recurse: yes
-        owner: "{{ forgejo_user_id }}"
-        group: "{{ forgejo_group_id }}"
-      
     - name: Setup Forgejo restore item variables
       ansible.builtin.set_fact:
         forgejo_restore_items:
@@ -186,9 +172,15 @@
       ansible.builtin.stat:
         path: "{{ item.src }}"
       loop: "{{ forgejo_restore_items }}"
+      loop_control:
+        label: "{{ item.src }}"
       when: unzip_result is success
       register: item_stats
       
+    - name: Debug item stats
+      ansible.builtin.debug:
+        var: item_stats
+
     - name: Build update list for item restore stats
       ansible.builtin.set_fact:
         update_list: "{{ update_list + update }}"
@@ -197,24 +189,36 @@
         index_var: idx
       vars:
         update_list: []
+        item_stat: "{{ item_stats.results | selectattr('stat.path', '==', item.src) | map(attribute='stat') | first }}"
         update:
           - path: forgejo_restore_items[{{ idx }}].exists
-            value: "{{ (item_stats.results | selectattr('stat.path', 'equalto', item.src) | first).stat.exists }}"
+            value: "{{ item_stat.exists if item_stat is defined else false }}"
             
-    - name: Make the updates for item restore stats
+    - name: Make the Frogejo restore items update list
       # https://docs.ansible.com/ansible/latest/collections/ansible/utils/update_fact_module.html
       ansible.utils.update_fact:
         updates: "{{ update_list }}"
-      register: update_result
+      register: updated_result
       
-    - name: Fail if required item is missing
-      ansible.builtin.fail:
-        msg: "Required item {{ item.src }} is missing"
-      loop: "{{ forgejo_restore_items }}"
-      loop_control:
-        index_var: idx
-      when: item.required and not item_stats.results[idx].exists
-      
+    - name: Verify update result
+      ansible.builtin.assert:
+        that: "updated_result.failed == false"
+        fail_msg: "Failed to update Forgejo restore items"
+        success_msg: "Successfully updated Forgejo restore items"
+
+    - name: Update Forgejo restore items
+      ansible.builtin.set_fact:
+        forgejo_restore_items: "{{ updated_result.forgejo_restore_items }}"
+        
+    - name: Verify required items exist
+      vars:
+        missing_required_items: "{{ forgejo_restore_items | selectattr('required', '==', true) | selectattr('exists', '==', false) }}"
+      ansible.builtin.assert:
+        that: 
+          - "missing_required_items | length == 0"
+        fail_msg: "Required items missing: {{ missing_required_items | map(attribute='src') | join(', ') }}"
+        success_msg: "All required items for Forgejo restoration are available"
+
     - name: Copy Forgejo restore items
       ansible.builtin.copy:
         src: "{{ item.src }}"
@@ -222,9 +226,10 @@
         owner: "{{ forgejo_user_id }}"
         group: "{{ forgejo_group_id }}"
         mode: '0644'
+        remote_src: true
       loop: "{{ forgejo_restore_items }}"
-      when: item_stats.results[idx].exists
-          
+      when: item.exists
+
     - name: Mark Forgejo restoration as successful
       ansible.builtin.set_fact:
         forgejo_restore_succeeded: true
@@ -246,13 +251,16 @@
         project_src: "{{ forgejo_project_src }}"
         services: forgejo-db
         state: present
-      when: postgres_backup_file.stat.exists
       register: postgres_start_result
+      when: postgres_backup_file.stat.exists
+
+    - name: Get PostgreSQL container ID
+      ansible.builtin.set_fact:
+        postgres_container_id: "{{ (postgres_start_result.containers | selectattr('Service', '==', 'forgejo-db') | first).ID }}"
+      when: postgres_start_result is success
 
     - name: Wait for PostgreSQL to be running and healthy
-      vars:
-        postgres_container_id: "{{ (postgres_start_result.containers | selectattr('Service', 'equalto', 'forgejo-db') | first).ID }}"
-      when: postgres_start_result is defined
+      when: postgres_container_id is defined
       community.docker.docker_container_info:
         name: "{{ postgres_container_id }}"
       register: postgres_container_info
@@ -264,7 +272,7 @@
     - name: Set PostgreSQL container restore filepath
       ansible.builtin.set_fact:
         postgres_backup_filepath: "{{ current_restore_dir }}/{{ postgres_backup_filename }}"
-        
+
     - name: Verify restore file exists
       ansible.builtin.stat:
         path: "{{ postgres_backup_filepath }}"
@@ -308,22 +316,22 @@
 
       **Timestamp:** {{ restore_timestamp }}
       **Backup Path:** {{ current_backup_dir }}
-      
+
       ## Components Status
 
       | Component | Status | Details |
-      |-----------|--------|--------|
+      |-----------|--------|---------|
       | PostgreSQL | {% if postgres_backup_file.stat.exists %}{{ 'SUCCESS ✅' if postgres_restore_succeeded else 'FAILED ❌' }}{% else %}SKIPPED ⏭️{% endif %} | {{ postgres_restore_error | default('') if postgres_backup_file.stat.exists and not postgres_restore_succeeded else '' }} |
       | Forgejo | {% if forgejo_backup_file.stat.exists %}{{ 'SUCCESS ✅' if forgejo_restore_succeeded else 'FAILED ❌' }}{% else %}SKIPPED ⏭️{% endif %} | {{ forgejo_restore_error | default('') if forgejo_backup_file.stat.exists and not forgejo_restore_succeeded else '' }} |
       | Configuration | {% if app_ini_in_backup is defined and app_ini_in_backup.stat.exists %}{{ 'SUCCESS ✅' if app_ini_copy_result is success else 'FAILED ❌' }}{% else %}SKIPPED ⏭️{% endif %} | {{ 'Failed to copy configuration file' if app_ini_in_backup is defined and app_ini_in_backup.stat.exists and app_ini_copy_result is failed else '' }} |
 
       ## Summary
-      
+
       Overall restoration status: {{ 'SUCCESS ✅' if restore_succeeded else 'FAILED ❌' }}
       {% if restore_failure_reason is defined and not restore_succeeded %}
       Error: {{ restore_failure_reason }}
       {% endif %}
-      
+
       Services will be started after restoration.
     mode: '0644'
 
@@ -355,7 +363,7 @@
 - name: Display error message
   ansible.builtin.debug:
     msg: "{{ msg.split('\n') }}"
-    
+
 - name: Fail when restoration is unsuccessful
   ansible.builtin.fail:
     msg: "Restoration failed: {{ restore_failure_reason|default('Unknown error') }}"
