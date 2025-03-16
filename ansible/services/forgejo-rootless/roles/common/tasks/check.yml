@@ -32,10 +32,11 @@
   ansible.builtin.stat:
     path: "{{ item.path }}"
   loop:
-    - { path: "{{ forgejo_project_src }}/docker-compose.yml", id: "docker_compose", name: "Docker Compose File" }
-    - { path: "{{ forgejo_data_dir|trim }}", id: "forgejo_data", name: "Forgejo Data Directory" }
-    - { path: "{{ forgejo_conf_dir|trim }}", id: "forgejo_config", name: "Forgejo Configuration Directory" }
-    - { path: "{{ postgres_data_dir|trim }}", id: "postgres_data", name: "PostgreSQL Data Directory" }
+    - { id: "docker_compose",   path: "{{ forgejo_project_src }}/docker-compose.yml",   name: "Docker Compose File" }
+    - { id: "project_secrets",  path: "{{ forgejo_project_src }}/secrets",              name: "Project Secrets Directory" }
+    - { id: "forgejo_data",     path: "{{ forgejo_data_dir|trim }}",                    name: "Forgejo Data Directory" }
+    - { id: "forgejo_config",   path: "{{ forgejo_conf_dir|trim }}",                    name: "Forgejo Configuration Directory" }
+    - { id: "postgres_data",    path: "{{ postgres_data_dir|trim }}",                   name: "PostgreSQL Data Directory" }
   register: data_stats
 
 #################################################
