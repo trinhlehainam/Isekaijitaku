@@ -75,12 +75,12 @@
 - name: Check if existing docker-compose.yml exists
   ansible.builtin.stat:
     path: "{{ current_backup_dir }}/setup/docker-compose.yml"
-  register: setup_compose_file
+  register: compose_backup_file
 
 - name: Check if existing secrets directory exists
   ansible.builtin.stat:
     path: "{{ current_backup_dir }}/setup/secrets"
-  register: setup_secrets_dir
+  register: secrets_backup_dir
 
 - name: Check if PostgreSQL backup file exists
   ansible.builtin.stat:
@@ -97,8 +97,8 @@
     that:
       - postgres_backup_file.stat.exists
       - forgejo_backup_file.stat.exists
-      - setup_compose_file.stat.exists
-      - setup_secrets_dir.stat.exists
+      - compose_backup_file.stat.exists
+      - secrets_backup_dir.stat.exists
     fail_msg: "Missing required backup files in {{ current_backup_dir }}."
 
 #################################################
@@ -146,16 +146,6 @@
 
 - name: Check for project setup files in backup
   block:
-    - name: Check for docker-compose.yml in backup
-      ansible.builtin.stat:
-        path: "{{ current_backup_dir }}/setup/docker-compose.yml"
-      register: backup_compose_file
-
-    - name: Check for secrets directory in backup
-      ansible.builtin.stat:
-        path: "{{ current_backup_dir }}/setup/secrets"
-      register: backup_secrets_dir
-
     - name: Restore project setup files from backup
       block:
         - name: Copy docker-compose.yml from backup
@@ -164,7 +154,7 @@
             dest: "{{ forgejo_project_src }}/docker-compose.yml"
             remote_src: true
             mode: '0644'
-          when: backup_compose_file.stat.exists
+          when: compose_backup_file.stat.exists
           register: compose_restore_result
 
         - name: Copy secrets directory from backup
@@ -172,7 +162,7 @@
             src: "{{ current_backup_dir }}/setup/secrets"
             dest: "{{ forgejo_project_src }}"
             remote_src: true
-          when: backup_secrets_dir.stat.exists
+          when: secrets_backup_dir.stat.exists
           register: secrets_restore_result
 
 #################################################
