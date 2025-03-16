@@ -91,8 +91,9 @@
 #################################################
     
 - name: Extract name, exists and path values from data stats results
+  # https://docs.ansible.com/ansible/latest/playbook_guide/playbooks_filters.html#combining-items-from-multiple-lists-zip-and-zip-longest
   ansible.builtin.set_fact:
-    file_stats_values: "{{ data_stats.results | map(attribute='stat.exists') | zip(data_stats.results | map(attribute='item.path')) | zip(data_stats.results | map(attribute='item.name')) | list }}"
+    file_stats_values: "{{ data_stats.results | map(attribute='stat.exists') | zip(data_stats.results | map(attribute='item.path'), data_stats.results | map(attribute='item.name')) | list }}"
     
 - name: Convert file stats array to list of dictionaries
   # https://docs.ansible.com/ansible/latest/collections/community/general/dict_filter.html#examples
@@ -119,7 +120,7 @@
 
       ## File System Checks
       {% for key in file_check_stats.keys() %}
-      - **{{ file_check_stats[key].path }}**: {{ 'Exists ✅' if file_check_stats[key].exists else 'Missing ❌' }}
+      - **{{ file_check_stats[key].name }}**: {{ 'Exists ✅' if file_check_stats[key].exists else 'Missing ❌' }}
       {% endfor %}
       
       ## Detailed Container Status
@@ -157,6 +158,6 @@
     check_result:
       timestamp: "{{ ansible_date_time.iso8601 }}"
       project_src: "{{ forgejo_project_src }}"
+      file_check_stats: "{{ file_check_stats }}"
       container_count: "{{ services_facts | length }}"
       services: "{{ services_facts }}"
-      file_check_stats: "{{ file_check_stats }}"
