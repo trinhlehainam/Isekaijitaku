@@ -35,7 +35,7 @@
 # Initialization and Setup
 #################################################
 
-- name: Set backup timestamp
+- name: Set up backup variables
   ansible.builtin.set_fact:
     backup_timestamp: "{{ lookup('pipe', 'date +%Y-%m-%d_%H-%M') }}"
     backup_succeeded: false
@@ -43,6 +43,14 @@
     postgres_backup_filename: "forgejo-db-backup.dump"
     forgejo_backup_succeeded: false
     forgejo_backup_filename: "forgejo-app-dump.zip"
+
+- name: Extract Forgejo version information
+  ansible.builtin.set_fact:
+    forgejo_image: "{{ check_result.services | selectattr('service', 'equalto', 'forgejo') | map(attribute='image') | first | default('unknown') }}"
+
+- name: Extract PostgreSQL version information
+  ansible.builtin.set_fact:
+    postgres_image: "{{ check_result.services | selectattr('service', 'equalto', 'forgejo-db') | map(attribute='image') | first | default('unknown') }}"
 
 - name: Check if backup directory is defined in inventory
   ansible.builtin.set_fact:
@@ -99,6 +107,7 @@
             container: "{{ forgejo_backup_container_id }}"
             command: forgejo dump -f {{ forgejo_container_backup_filepath }}
           register: forgejo_dump_result
+          ignore_errors: "{{ operation_mode == 'upgrade' }}"
           when: forgejo_backup_container_id is defined
 
         - name: Copy Forgejo backup from container to host
@@ -186,7 +195,7 @@
   rescue:
     - name: Record overall backup failure
       ansible.builtin.set_fact:
-        backup_error: "{{ ansible_failed_task.name|default('Unknown error in backup process') }}"
+        backup_failure_reason: "{{ ansible_failed_task.name|default('Unknown error in backup process') }}"
         backup_succeeded: false
         
     - name: Notify Rollback services handler
@@ -212,6 +221,10 @@
       **Timestamp:** {{ backup_timestamp }}
       **Mode:** 'BACKUP'
 
+      ## Versions
+      **Forgejo:** {{ forgejo_image | default('unknown') }}
+      **PostgreSQL:** {{ postgres_image | default('unknown') }}
+
       ## Components Status
 
       | Component | Status | Details |
@@ -222,8 +235,8 @@
       ## Summary
       
       Overall backup status: {{ 'SUCCESS ✅' if backup_succeeded else 'FAILED ❌' }}
-      {% if backup_error is defined and not backup_succeeded %}
-      Error: {{ backup_error }}
+      {% if backup_failure_reason is defined and not backup_succeeded %}
+      Error: {{ backup_failure_reason }}
       {% endif %}
       
       Services were restarted after backup.
@@ -237,7 +250,7 @@
 - name: Notify Rollback services handler
   ansible.builtin.debug:
     msg: "Notifying Rollback services handler"
-  when: backup_succeeded|bool
+  when: backup_succeeded|bool and operation_mode != 'upgrade'
   changed_when: true
   notify: Rollback services
   
@@ -262,5 +275,5 @@
 
 - name: Fail task if backup failed
   ansible.builtin.fail:
-    msg: "Backup failed: {{ backup_error }}"
+    msg: "Backup failed: {{ backup_failure_reason|default('Unknown error') }}"
   when: not backup_succeeded

@@ -136,13 +136,11 @@
   ansible.builtin.set_fact:
     upgrade_special_case: "{{ current_image_tag != new_image_tag and (current_image_tag == 'latest' or new_image_tag == 'latest' or version_upgrade_needed is not defined) }}"
 
-- name: Set default for force_upgrade if not defined
-  ansible.builtin.set_fact:
-    force_upgrade: "{{ force_upgrade | default(false) }}"
+# We don't need force_upgrade as we don't want to proceed if backup fails
 
 - name: Set final upgrade flag
   ansible.builtin.set_fact:
-    upgrade_needed: "{{ version_upgrade_needed|default(false)|bool or upgrade_special_case|default(false)|bool or force_upgrade|bool }}"
+    upgrade_needed: "{{ version_upgrade_needed|default(false)|bool or upgrade_special_case|default(false)|bool }}"
 
 - name: Show version comparison
   ansible.builtin.debug:
@@ -150,8 +148,7 @@
       - "Current Forgejo version: {{ current_image_name }}:{{ current_image_tag }}"
       - "New Forgejo version: {{ new_image_full }}"
       - "Upgrade needed: {{ upgrade_needed|bool }}"
-      - "Force upgrade: {{ force_upgrade|bool }}"
-      - "Reason: {{ 'Force upgrade enabled' if force_upgrade|bool else ('Version upgrade' if version_upgrade_needed|default(false)|bool else 'Tag change' if upgrade_special_case|default(false)|bool else 'No upgrade needed') }}"
+      - "Reason: {{ 'Version upgrade' if version_upgrade_needed|default(false)|bool else 'Tag change' if upgrade_special_case|default(false)|bool else 'No upgrade needed' }}"
 
 ##############################################################################
 # Upgrade Implementation
@@ -169,6 +166,9 @@
     #----- Backup Step -----#
     - name: Execute backup before upgrade
       ansible.builtin.include_tasks: backup.yml
+      vars:
+        operation_mode: "upgrade"
+      register: backup_result
     
     #----- Upgrade Step -----#
         #----- Container Management -----#
@@ -246,6 +246,13 @@
       ansible.builtin.set_fact:
         upgrade_duration: "{{ 'Unknown' }}"
       changed_when: false
+      
+    - name: Remove backup docker-compose file on successful upgrade
+      ansible.builtin.file:
+        path: "{{ docker_compose_backup_path }}"
+        state: absent
+      when: docker_compose_backup_path is defined and docker_compose_backup.changed
+      register: backup_cleanup
     
     - name: Generate comprehensive upgrade success report
       ansible.builtin.set_fact:
@@ -267,6 +274,7 @@
           ## Configuration
           - **Source Path:** {{ forgejo_project_src }}
           - **Backup Created:** {{ 'Yes' if docker_compose_backup is defined and docker_compose_backup.changed else 'No (not needed)' }}
+          - **Backup Cleanup:** {{ 'Yes' if backup_cleanup is defined and backup_cleanup.changed else 'No' }}
           
           Services are now running with the updated version.
           
@@ -285,6 +293,18 @@
       ansible.builtin.set_fact:
         upgrade_attempt_duration: "{{ 'Unknown' }}"
       changed_when: false
+      
+    - name: Restore original docker-compose file from backup
+      ansible.builtin.command: 
+        cmd: "cp {{ docker_compose_backup_path }} {{ forgejo_project_src }}/docker-compose.yml"
+      when: docker_compose_backup_path is defined
+      register: restore_result
+      ignore_errors: true
+      
+    - name: Report restoration status
+      ansible.builtin.debug:
+        msg: "{{ 'Successfully restored original docker-compose file' if restore_result is defined and restore_result.rc == 0 else 'Failed to restore docker-compose file from backup' }}"
+      when: docker_compose_backup_path is defined
     
     - name: Record detailed upgrade failure information
       ansible.builtin.set_fact:

@@ -354,6 +354,12 @@
       Restoration report saved to {{ restore_report_path }}
   when: restore_succeeded
 
+- name: Clean up temporary restore folders
+  ansible.builtin.file:
+    path: "{{ current_backup_dir }}/restore/temp"
+    state: absent
+  when: restore_succeeded
+
 - name: Build full error message
   ansible.builtin.set_fact:
     error_msg: |
@@ -366,9 +372,3 @@
   ansible.builtin.fail:
     msg: "{{ error_msg }}"
   when: error_msg is defined
-
-- name: Clean up temporary restore folders
-  ansible.builtin.file:
-    path: "{{ current_backup_dir }}/restore/temp"
-    state: absent
-  when: restore_succeeded
