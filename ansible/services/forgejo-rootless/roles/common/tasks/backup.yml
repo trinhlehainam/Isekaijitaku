@@ -15,10 +15,6 @@
 # Service Control - Stop Services
 #################################################
 
-- name: Set up Forgejo Rootless project source path
-  ansible.builtin.set_fact:
-    forgejo_project_src: "{{ forgejo_project_src|default(ansible_user_dir + '/Docker/forgejo-rootless') }}"
-    
 - name: Check services status
   ansible.builtin.include_tasks: check.yml
 

@@ -25,7 +25,6 @@
 
 - name: Set up Forgejo Rootless project source path
   ansible.builtin.set_fact:
-    forgejo_project_src: "{{ forgejo_project_src|default(ansible_user_dir + '/Docker/forgejo-rootless') }}"
     upgrade_start_time: "{{ ansible_date_time.iso8601 }}"
 
 ##############################################################################
@@ -57,36 +56,12 @@
 
 - name: Extract current forgejo version
   ansible.builtin.set_fact:
-    current_image_name: "{{ current_forgejo_service.image.split('@')[0] if '@' in current_forgejo_service.image else current_forgejo_service.image }}"
-    current_image_tag: "{{ (current_forgejo_service.image.split('@')[0] if '@' in current_forgejo_service.image else current_forgejo_service.image).split(':')[1] if ':' in (current_forgejo_service.image.split('@')[0] if '@' in current_forgejo_service.image else current_forgejo_service.image) else 'latest' }}"
+    forgejo_current_image_name: "{{ current_forgejo_service.image }}"
+    forgejo_current_image_tag: "{{ current_forgejo_service.image.split(':')[1] if ':' in current_forgejo_service.image else 'latest' }}"
 
 ##############################################################################
 # Configuration Preservation and Template Management
 ##############################################################################
-
-- name: Create timestamped identifier for docker-compose backup
-  ansible.builtin.set_fact:
-    docker_compose_backup_timestamp: "{{ lookup('pipe', 'date +%Y-%m-%d_%H-%M-%S') }}"
-    docker_compose_backup_path: "{{ forgejo_project_src }}/docker-compose.yml.backup-{{ lookup('pipe', 'date +%Y-%m-%d_%H-%M-%S') }}"
-
-- name: Check if current docker-compose file exists
-  ansible.builtin.stat:
-    path: "{{ forgejo_project_src }}/docker-compose.yml"
-  register: docker_compose_file
-
-- name: Backup current docker-compose file
-  ansible.builtin.copy:
-    src: "{{ forgejo_project_src }}/docker-compose.yml"
-    dest: "{{ docker_compose_backup_path }}"
-    mode: '0644'
-    remote_src: true
-  register: docker_compose_backup
-  when: docker_compose_file.stat.exists
-
-- name: Verify configuration backup success
-  ansible.builtin.debug:
-    msg: "Configuration backup created successfully at {{ docker_compose_backup_path }}"
-  when: docker_compose_backup is defined and docker_compose_backup.changed
 
 # Set required variables for template processing to avoid undefined variable errors
 - name: Set default values for template variables
@@ -105,48 +80,46 @@
     dest: "{{ forgejo_project_src }}/docker-compose.yml"
     mode: '0644'
 
-- name: Get new forgejo version from updated docker-compose template
-  ansible.builtin.shell:
-    cmd: grep -A1 "forgejo:" {{ forgejo_project_src }}/docker-compose.yml | grep "image:" | awk '{print $2}'
-  register: new_image_result
-  changed_when: false
-
-- name: Extract new forgejo version
+- name: Get updated forgejo image from Ansible docker compose template
   ansible.builtin.set_fact:
-    new_image_full: "{{ new_image_result.stdout.strip() }}"
-    new_image_tag: "{{ new_image_result.stdout.strip().split(':')[1] if ':' in new_image_result.stdout.strip() else 'latest' }}"
+    forgejo_new_image_full: "{{ (lookup('file', forgejo_project_src + '/docker-compose.yml') | from_yaml | selectattr('service', 'equalto', 'forgejo') | first).image }}"
+
+- name: Get new forgejo version from updated docker-compose template
+  when: forgejo_new_image_full is defined
+  ansible.builtin.set_fact:
+    forgejo_new_image_tag: "{{ forgejo_new_image_full.split(':')[1] if ':' in forgejo_new_image_full else 'latest' }}"
 
 - name: Parse version numbers for comparison
+  when: forgejo_new_image_tag is defined
   ansible.builtin.set_fact:
-    current_version_parts: "{{ current_image_tag.split('-')[0].split('.') }}"
-    new_version_parts: "{{ new_image_tag.split('-')[0].split('.') }}"
-  when: current_image_tag != 'latest' and new_image_tag != 'latest'
+    forgejo_current_version: "{{ forgejo_current_image_tag.split('-')[0].split('.') }}"
+    forgejo_new_version: "{{ forgejo_new_image_tag.split('-')[0].split('.') }}"
 
 - name: Determine if new version is greater than current
+  when: forgejo_new_image_tag is defined
   ansible.builtin.set_fact:
     version_upgrade_needed: >-
-      {{ 
-        (new_version_parts[0]|int > current_version_parts[0]|int) or 
-        (new_version_parts[0]|int == current_version_parts[0]|int and new_version_parts[1]|int > current_version_parts[1]|int) or 
-        (new_version_parts[0]|int == current_version_parts[0]|int and new_version_parts[1]|int == current_version_parts[1]|int and new_version_parts[2]|int > current_version_parts[2]|int) 
+      {{
+        (forgejo_new_version[0]|int > forgejo_current_version[0]|int) or 
+        (forgejo_new_version[0]|int == forgejo_current_version[0]|int and forgejo_new_version[1]|int > forgejo_current_version[1]|int) or 
+        (forgejo_new_version[0]|int == forgejo_current_version[0]|int and forgejo_new_version[1]|int == forgejo_current_version[1]|int and forgejo_new_version[2]|int > forgejo_current_version[2]|int) 
       }}
-  when: current_version_parts is defined and new_version_parts is defined and current_version_parts|length >= 3 and new_version_parts|length >= 3
 
 - name: Set upgrade needed flag for special cases
+  when: forgejo_new_image_tag is defined
   ansible.builtin.set_fact:
-    upgrade_special_case: "{{ current_image_tag != new_image_tag and (current_image_tag == 'latest' or new_image_tag == 'latest' or version_upgrade_needed is not defined) }}"
-
-# We don't need force_upgrade as we don't want to proceed if backup fails
+    upgrade_special_case: "{{ forgejo_current_image_tag != forgejo_new_image_tag and (forgejo_current_image_tag == 'latest' or forgejo_new_image_tag == 'latest' or version_upgrade_needed is not defined) }}"
 
 - name: Set final upgrade flag
+  when: forgejo_new_image_tag is defined
   ansible.builtin.set_fact:
     upgrade_needed: "{{ version_upgrade_needed|default(false)|bool or upgrade_special_case|default(false)|bool }}"
 
 - name: Show version comparison
   ansible.builtin.debug:
     msg: 
-      - "Current Forgejo version: {{ current_image_name }}:{{ current_image_tag }}"
-      - "New Forgejo version: {{ new_image_full }}"
+      - "Current Forgejo version: {{ forgejo_current_image_name }}:{{ forgejo_current_image_tag }}"
+      - "New Forgejo version: {{ forgejo_new_image_name }}:{{ forgejo_new_image_tag }}"
       - "Upgrade needed: {{ upgrade_needed|bool }}"
       - "Reason: {{ 'Version upgrade' if version_upgrade_needed|default(false)|bool else 'Tag change' if upgrade_special_case|default(false)|bool else 'No upgrade needed' }}"
 
@@ -160,7 +133,7 @@
     - name: Notify user of upgrade status
       ansible.builtin.debug:
         msg: |
-          Preparing to upgrade Forgejo from version {{ current_image_tag }} to {{ new_image_tag }}.
+          Preparing to upgrade Forgejo from version {{ forgejo_current_image_name }}:{{ forgejo_current_image_tag }} to {{ forgejo_new_image_name }}:{{ forgejo_new_image_tag }}.
           A backup will be performed before proceeding with the upgrade.
     
     #----- Backup Step -----#

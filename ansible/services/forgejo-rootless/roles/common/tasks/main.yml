@@ -2,6 +2,22 @@
 # Forgejo Rootless Main Entry Point
 # This file determines which tasks to include based on operation mode
 
+- name: Set up Forgejo Rootless project source path
+  ansible.builtin.set_fact:
+    forgejo_project_src: "{{ forgejo_project_src|default(ansible_user_dir + '/Docker/forgejo-rootless') }}"
+
+- name: Check forgejo bind mount variables
+  ansible.builtin.set_fact:
+    forgejo_data_dir: "{{ forgejo_data_dir if forgejo_data_dir is defined and (forgejo_data_dir.startswith('/') or forgejo_data_dir.startswith('./')) else './data' }}"
+    forgejo_conf_dir: "{{ forgejo_conf_dir if forgejo_conf_dir is defined and (forgejo_conf_dir.startswith('/') or forgejo_conf_dir.startswith('./')) else './conf' }}"
+    postgres_data_dir: "{{ postgres_data_dir if postgres_data_dir is defined and (postgres_data_dir.startswith('/') or postgres_data_dir.startswith('./')) else './postgres' }}"
+
+- name: Resolve forgejo bind mount from relative paths to absolute paths
+  ansible.builtin.set_fact:
+    forgejo_data_dir: "{{ forgejo_data_dir.replace('./', forgejo_project_src + '/') }}"
+    forgejo_conf_dir: "{{ forgejo_conf_dir.replace('./', forgejo_project_src + '/') }}"
+    postgres_data_dir: "{{ postgres_data_dir.replace('./', forgejo_project_src + '/') }}"
+
 - name: Set default operation mode if not defined
   ansible.builtin.set_fact:
     operation_mode: "{{ operation_mode | default('deploy') }}"
