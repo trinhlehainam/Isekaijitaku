@@ -253,7 +253,7 @@
           - path: forgejo_restore_items[{{ idx }}].exists
             value: "{{ item_stat.stat.exists if item_stat is defined else false }}"
             
-    - name: Make the Frogejo restore items update list
+    - name: Make the Forgejo restore items update list
       # https://docs.ansible.com/ansible/latest/collections/ansible/utils/update_fact_module.html
       ansible.utils.update_fact:
         updates: "{{ update_list }}"
