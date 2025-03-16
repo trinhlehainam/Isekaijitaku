@@ -118,10 +118,17 @@
         state: absent
       when: existing_compose_file.stat.exists
 
-    - name: Rename existing docker-compose.yml file
+    - name: Create current project setup backup folder before restoration
+      ansible.builtin.file:
+        path: "{{ forgejo_project_src }}/setup_before_restoration/{{ restore_timestamp }}"
+        state: directory
+        mode: '0755'
+      register: setup_backup_result
+
+    - name: Move existing docker-compose.yml file to setup backup
       ansible.builtin.command:
         chdir: "{{ forgejo_project_src }}"
-        cmd: mv docker-compose.yml docker-compose.{{ restore_timestamp }}.yml
+        cmd: mv docker-compose.yml setup_before_restoration/{{ restore_timestamp }}/docker-compose.yml
       when: existing_compose_file.stat.exists
       register: compose_backup_result
 
@@ -130,10 +137,10 @@
         path: "{{ forgejo_project_src }}/secrets"
       register: existing_secrets_dir
 
-    - name: Rename existing secrets directory
+    - name: Move existing secrets directory to setup backup
       ansible.builtin.command:
         chdir: "{{ forgejo_project_src }}"
-        cmd: mv secrets secrets.{{ restore_timestamp }}
+        cmd: mv secrets setup_before_restoration/{{ restore_timestamp }}/secrets
       when: existing_secrets_dir.stat.exists
       register: secrets_backup_result
 
