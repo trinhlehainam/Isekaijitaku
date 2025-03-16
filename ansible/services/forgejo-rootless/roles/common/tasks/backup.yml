@@ -108,7 +108,6 @@
           ansible.builtin.copy:
             src: "{{ forgejo_project_src }}/secrets"
             dest: "{{ current_backup_dir }}/setup/secrets"
-            mode: '0600'
             remote_src: true
           when: secrets_dir.stat.exists
           register: secrets_backup

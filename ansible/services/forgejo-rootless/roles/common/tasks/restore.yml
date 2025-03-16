@@ -44,24 +44,24 @@
   ansible.builtin.set_fact:
     sorted_backup_dirs: "{{ timestamp_dirs.files | sort(attribute='mtime', reverse=true) }}"
 
-- name: Fail if no timestamp backup directories found
-  ansible.builtin.fail:
-    msg: "No backup directories found in {{ forgejo_backup_dir }}."
-  when: sorted_backup_dirs|length == 0
+- name: Verify backup directories exist
+  ansible.builtin.assert:
+    that: sorted_backup_dirs|length > 0
+    fail_msg: "No backup directories found in {{ forgejo_backup_dir }}."
 
 - name: Set latest backup directory
   ansible.builtin.set_fact:
     current_backup_dir: "{{ sorted_backup_dirs[0].path }}"
 
-- name: Check if backup directory exists
+- name: Get backup directory information
   ansible.builtin.stat:
     path: "{{ current_backup_dir }}"
   register: backup_dir_stat
 
-- name: Fail if backup directory doesn't exist
-  ansible.builtin.fail:
-    msg: "Backup directory {{ current_backup_dir }} doesn't exist or is not a directory"
-  when: not backup_dir_stat.stat.exists or not backup_dir_stat.stat.isdir
+- name: Verify backup directory exists
+  ansible.builtin.assert:
+    that: backup_dir_stat.stat.exists and backup_dir_stat.stat.isdir
+    fail_msg: "Backup directory {{ current_backup_dir }} doesn't exist or is not a directory"
 
 - name: Set up restoration variables
   ansible.builtin.set_fact:
