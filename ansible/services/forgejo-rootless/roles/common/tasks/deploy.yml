@@ -19,7 +19,7 @@
       ansible.builtin.file:
         path: "{{ forgejo_project_src }}/secrets"
         state: directory
-        mode: '0700'
+        mode: '0600'
 
 - name: Resolve directory paths
   block:

@@ -1,6 +1,7 @@
 # https://forgejo.org/docs/latest/admin/installation-docker/
 # https://codeberg.org/forgejo-contrib/delightful-forgejo
 
+name: {{ project_name|default('forgejo-rootless') }}
 services:
   # https://forgejo.org/docs/next/admin/installation-docker/#hosting-repository-data-on-remote-storage-systems
   forgejo:
@@ -130,10 +131,6 @@ services:
     container_name: forgejo-db
     # https://hub.docker.com/_/postgres/tags
     image: postgres:16.6-alpine3.21
-    # depends_on:
-    #   forgejo-mountcheck:
-    #     condition: service_healthy
-    #     restart: true
     environment:
       POSTGRES_PASSWORD_FILE: /run/secrets/db_password
       POSTGRES_USER: {{ db_user }}

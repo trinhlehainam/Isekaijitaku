@@ -8,7 +8,7 @@ The backup process employs a sophisticated error handling structure with the fol
 
 1. **Hierarchical Error Handling**: Three-level nested block/rescue structure (overall process → component process → individual tasks) that captures and tracks failures at each level.
 
-2. **Component Isolation**: Each backup component (Forgejo and PostgreSQL) executes in its own block with independent error handling, allowing one component to fail without affecting the execution of the other.
+2. **Component Isolation**: Each backup component (Forgejo, PostgreSQL, and Project Setup) executes in its own block with independent error handling, allowing one component to fail without affecting the execution of the others.
 
 3. **Smart Service State Preservation**: Captures detailed container state information before shutdown to enable precise service recovery.
 
@@ -27,15 +27,16 @@ The backup process follows these steps:
 1. Checks and captures detailed service state information using Docker's native container inspection
 2. Stops all Forgejo services to ensure data consistency while preserving their original state
 3. Sets up backup variables including timestamps and file paths
-4. Launches a dedicated Forgejo backup container that remains active during the backup process
-5. Runs the Forgejo dump command in the backup container using predefined paths
-6. Backs up the PostgreSQL database using `pg_dump` with the custom format (-Fc)
-7. Copies the backup files from containers to the host system using consistent path references
-8. Verifies container existence before performing cleanup operations
-9. Cleans up temporary files in containers
-10. Creates a backup report with detailed component status and error information
-11. Notifies the service rollback handler to return services to their original state
-12. Rolls back services to their original state (running or stopped) based on preserved state information
+4. Backs up the project setup files (docker-compose.yml and secrets) to maintain deployment configuration
+5. Launches a dedicated Forgejo backup container that remains active during the backup process
+6. Runs the Forgejo dump command in the backup container using predefined paths
+7. Backs up the PostgreSQL database using `pg_dump` with the custom format (-Fc)
+8. Copies the backup files from containers to the host system using consistent path references
+9. Verifies container existence before performing cleanup operations
+10. Cleans up temporary files in containers
+11. Creates a backup report with detailed component status and error information
+12. Notifies the service rollback handler to return services to their original state
+13. Rolls back services to their original state (running or stopped) based on preserved state information
 
 ## Running Backups
 
@@ -66,9 +67,12 @@ Backups are stored in the configured backup directory (default: `backups` direct
 ```
 <forgejo_backup_dir>/
   └── YYYY-MM-DD_HH-MM/
-      ├── BACKUP_REPORT.md    # Detailed backup status report
-      ├── forgejo-app-dump.zip  # Forgejo application data dump
-      └── forgejo-db-backup.dump  # PostgreSQL database dump
+      ├── BACKUP_REPORT.md       # Detailed backup status report with version info
+      ├── forgejo-app-dump.zip   # Forgejo application data dump
+      ├── forgejo-db-backup.dump # PostgreSQL database dump
+      └── setup/                # Project setup backup
+          ├── docker-compose.yml # Docker Compose configuration
+          └── secrets/           # Secrets directory (if exists)
 ```
 
 ## Backup Technology

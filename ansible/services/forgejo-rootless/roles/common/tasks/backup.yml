@@ -43,13 +43,11 @@
     postgres_backup_filename: "forgejo-db-backup.dump"
     forgejo_backup_succeeded: false
     forgejo_backup_filename: "forgejo-app-dump.zip"
+    config_backup_succeeded: false
 
-- name: Extract Forgejo version information
+- name: Extract Forgejo and PostgreSQL version information
   ansible.builtin.set_fact:
-    forgejo_image: "{{ check_result.services | selectattr('service', 'equalto', 'forgejo') | map(attribute='image') | first | default('unknown') }}"
-
-- name: Extract PostgreSQL version information
-  ansible.builtin.set_fact:
+    forgejo_image: "{{ check_result.services| selectattr('service', 'equalto', 'forgejo') | map(attribute='image') | first | default('unknown') }}"
     postgres_image: "{{ check_result.services | selectattr('service', 'equalto', 'forgejo-db') | map(attribute='image') | first | default('unknown') }}"
 
 - name: Check if backup directory is defined in inventory
@@ -82,6 +80,49 @@
 
 - name: Execute backup processes
   block:
+    #----- Project Setup Backup - Docker Compose and Secrets -----#
+    - name: Execute Project Setup backup process
+      block:
+        - name: Create project setup directories in backup location
+          ansible.builtin.file:
+            path: "{{ current_backup_dir }}/setup"
+            state: directory
+            mode: '0755'
+          register: setup_dir_created
+
+        - name: Copy docker-compose.yml to backup location
+          ansible.builtin.copy:
+            src: "{{ forgejo_project_src }}/docker-compose.yml"
+            dest: "{{ current_backup_dir }}/setup/docker-compose.yml"
+            mode: '0644'
+            remote_src: true
+          register: docker_compose_backup
+          when: setup_dir_created is success
+
+        - name: Check if secrets directory exists
+          ansible.builtin.stat:
+            path: "{{ forgejo_project_src }}/secrets"
+          register: secrets_dir
+
+        - name: Copy secrets files to backup location
+          ansible.builtin.copy:
+            src: "{{ forgejo_project_src }}/secrets"
+            dest: "{{ current_backup_dir }}/setup/secrets"
+            mode: '0600'
+            remote_src: true
+          when: secrets_dir.stat.exists
+          register: secrets_backup
+
+        - name: Mark project setup backup as successful
+          ansible.builtin.set_fact:
+            config_backup_succeeded: true
+          when: docker_compose_backup is success and secrets_backup is success
+      rescue:
+        - name: Record project setup backup failure
+          ansible.builtin.set_fact:
+            config_backup_succeeded: false
+            config_backup_error: "{{ ansible_failed_task.name|default('Unknown error') }}"
+
     #----- Application Backup - Forgejo -----#
     - name: Execute Forgejo backup process
       block:
@@ -210,7 +251,7 @@
 
 - name: Set overall backup success status
   ansible.builtin.set_fact:
-    backup_succeeded: "{{ postgres_backup_succeeded and forgejo_backup_succeeded }}"
+    backup_succeeded: "{{ postgres_backup_succeeded and forgejo_backup_succeeded and config_backup_succeeded|default(false) }}"
 
 - name: Create backup report
   ansible.builtin.copy:
@@ -231,6 +272,7 @@
       |-----------|--------|--------|
       | PostgreSQL | {{ 'SUCCESS ✅' if postgres_backup_succeeded else 'FAILED ❌' }} | {{ postgres_backup_error | default('') if not postgres_backup_succeeded else '' }} |
       | Forgejo | {{ 'SUCCESS ✅' if forgejo_backup_succeeded else 'FAILED ❌' }} | {{ forgejo_backup_error | default('') if not forgejo_backup_succeeded else '' }} |
+      | Project Setup | {{ 'SUCCESS ✅' if config_backup_succeeded|default(false) else 'FAILED ❌' }} | {{ config_backup_error | default('') if not config_backup_succeeded|default(false) else '' }} |
 
       ## Summary
       
@@ -241,7 +283,7 @@
       
       Services were restarted after backup.
     mode: '0644'
-  when: postgres_backup_succeeded or forgejo_backup_succeeded
+  when: postgres_backup_succeeded or forgejo_backup_succeeded or config_backup_succeeded|default(false)
 
 #################################################
 # Cleanup and Service Restoration
@@ -260,6 +302,7 @@
       Backup {{ 'SUCCEEDED' if backup_succeeded else 'FAILED' }}.
       PostgreSQL: {{ 'OK' if postgres_backup_succeeded else 'FAILED' }}{% if postgres_backup_error is defined and not postgres_backup_succeeded %} ({{ postgres_backup_error }}){% endif %}.
       Forgejo: {{ 'OK' if forgejo_backup_succeeded else 'FAILED' }}{% if forgejo_backup_error is defined and not forgejo_backup_succeeded %} ({{ forgejo_backup_error }}){% endif %}.
+      Project Setup: {{ 'OK' if config_backup_succeeded|default(false) else 'FAILED' }}{% if config_backup_error is defined and not config_backup_succeeded|default(false) %} ({{ config_backup_error }}){% endif %}.
       Services state will be ROLLED BACK.
   ansible.builtin.debug:
     msg: "{{ msg.split('\n') }}"
