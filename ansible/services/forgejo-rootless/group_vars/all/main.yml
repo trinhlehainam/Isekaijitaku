@@ -8,3 +8,6 @@ db_name: "forgejo"
 # Forgejo
 forgejo_user_id: "1000"
 forgejo_group_id: "1000"
+
+# Project name
+project_name: "forgejo-rootless"

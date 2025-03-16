@@ -6,6 +6,10 @@
   ansible.builtin.set_fact:
     operation_mode: "{{ operation_mode | default('deploy') }}"
 
+- name: Include check tasks
+  ansible.builtin.include_tasks: check.yml
+  when: operation_mode == 'check'
+
 - name: Include deploy tasks (default)
   ansible.builtin.include_tasks: deploy.yml
   when: operation_mode == 'deploy'

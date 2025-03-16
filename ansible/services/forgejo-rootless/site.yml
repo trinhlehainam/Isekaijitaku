@@ -24,6 +24,31 @@
     - role: common
       vars:
         operation_mode: deploy
+        
+- name: Check Forgejo Rootless services status
+  hosts: all
+  gather_facts: true
+  tags: [never, check]
+  tasks:
+    - name: Set default values for bind mount variables
+      ansible.builtin.set_fact:
+        forgejo_project_src: "{{ forgejo_project_src|default(ansible_user_dir + '/Docker/forgejo-rootless') }}"
+        forgejo_data_dir: "{{ forgejo_data_dir if forgejo_data_dir is defined and (forgejo_data_dir.startswith('/') or forgejo_data_dir.startswith('./')) else './data' }}"
+        forgejo_conf_dir: "{{ forgejo_conf_dir if forgejo_conf_dir is defined and (forgejo_conf_dir.startswith('/') or forgejo_conf_dir.startswith('./')) else './conf' }}"
+        postgres_data_dir: "{{ postgres_data_dir if postgres_data_dir is defined and (postgres_data_dir.startswith('/') or postgres_data_dir.startswith('./')) else './postgres' }}"
+
+    - name: Resolve forgejo bind mount from relative paths to absolute paths
+      ansible.builtin.set_fact:
+        forgejo_data_dir: "{{ forgejo_data_dir.replace('./', forgejo_project_src + '/') }}"
+        forgejo_conf_dir: "{{ forgejo_conf_dir.replace('./', forgejo_project_src + '/') }}"
+        postgres_data_dir: "{{ postgres_data_dir.replace('./', forgejo_project_src + '/') }}"
+        
+    - name: Include check tasks
+      vars:
+        operation_mode: check
+      ansible.builtin.include_role:
+        name: common
+        tasks_from: check.yml
     
 - name: Backup Forgejo Rootless services
   hosts: all

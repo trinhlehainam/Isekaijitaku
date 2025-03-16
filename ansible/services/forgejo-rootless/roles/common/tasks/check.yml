@@ -15,10 +15,28 @@
 # Initialization and Setup
 #################################################
 
-- name: Check if Forgejo Rootless project source path is defined
-  ansible.builtin.fail:
-    msg: "Required variable 'forgejo_project_src' is not defined. Please specify the path to the Forgejo project directory."
-  when: forgejo_project_src is not defined
+- name: Verify forgejo project source path and bind mount paths are defined
+  ansible.builtin.assert:
+    that:
+      - forgejo_project_src is defined
+      - forgejo_data_dir is defined
+      - forgejo_conf_dir is defined
+      - postgres_data_dir is defined
+    fail_msg: "Required variables are not defined. Please specify the paths to the Forgejo project directory and bind mount directories."
+  
+#################################################
+# File and Directory Existence Checks
+#################################################
+
+- name: Gather docker-compose and bind mount files statistics
+  ansible.builtin.stat:
+    path: "{{ item.path }}"
+  loop:
+    - { path: "{{ forgejo_project_src }}/docker-compose.yml", id: "docker_compose", name: "Docker Compose File" }
+    - { path: "{{ forgejo_data_dir|trim }}", id: "forgejo_data", name: "Forgejo Data Directory" }
+    - { path: "{{ forgejo_conf_dir|trim }}", id: "forgejo_config", name: "Forgejo Configuration Directory" }
+    - { path: "{{ postgres_data_dir|trim }}", id: "postgres_data", name: "PostgreSQL Data Directory" }
+  register: data_stats
 
 #################################################
 # Container Information Gathering
@@ -30,16 +48,10 @@
     verbose_output: true
     containers_filters:
       label:
-        - com.docker.compose.project=forgejo-rootless
+        - com.docker.compose.project={{ project_name }}
         - com.docker.compose.project.working_dir={{ forgejo_project_src }}
   register: docker_containers_info
 
-- name: Verify services are exists
-  ansible.builtin.assert:
-    that:
-      - docker_containers_info.containers | length > 0
-    fail_msg: "No services found for project directory: {{ forgejo_project_src }}"
-  
 #################################################
 # Process Container Information
 #################################################
@@ -77,7 +89,24 @@
 #################################################
 # Check Result Summary
 #################################################
-
+    
+- name: Extract name, exists and path values from data stats results
+  ansible.builtin.set_fact:
+    file_stats_values: "{{ data_stats.results | map(attribute='stat.exists') | zip(data_stats.results | map(attribute='item.path')) | zip(data_stats.results | map(attribute='item.name')) | list }}"
+    
+- name: Convert file stats array to list of dictionaries
+  # https://docs.ansible.com/ansible/latest/collections/community/general/dict_filter.html#examples
+  ansible.builtin.set_fact:
+    file_check_stats: "{{ file_stats_values | map('zip', ['exists', 'path', 'name']) | map('map', 'reverse') | map('community.general.dict') | list }}"
+    
+- name: Prepare file stats key list
+  ansible.builtin.set_fact:
+    file_check_stats_keys: "{{ data_stats.results | map(attribute='item.id') | list }}"
+    
+- name: Create file check results
+  ansible.builtin.set_fact:
+    file_check_stats: "{{ dict(file_check_stats_keys | zip(file_check_stats)) }}"
+    
 - name: Create check result summary
   ansible.builtin.set_fact:
     check_result_summary: |
@@ -85,7 +114,13 @@
       
       ## Summary
       - **Total Services**: {{ services_facts | length }}
+      - **Project Name**: {{ project_name }}
       - **Project Directory**: {{ forgejo_project_src }}
+
+      ## File System Checks
+      {% for key in file_check_stats.keys() %}
+      - **{{ file_check_stats[key].path }}**: {{ 'Exists ✅' if file_check_stats[key].exists else 'Missing ❌' }}
+      {% endfor %}
       
       ## Detailed Container Status
       {% for service in services_facts %}
@@ -121,7 +156,7 @@
   ansible.builtin.set_fact:
     check_result:
       timestamp: "{{ ansible_date_time.iso8601 }}"
-      project_dir: "{{ forgejo_project_src }}"
+      project_src: "{{ forgejo_project_src }}"
       container_count: "{{ services_facts | length }}"
       services: "{{ services_facts }}"
-  when: services_facts|length > 0
+      file_check_stats: "{{ file_check_stats }}"
