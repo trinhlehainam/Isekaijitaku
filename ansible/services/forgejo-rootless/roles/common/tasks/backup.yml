@@ -107,7 +107,7 @@
         - name: Copy secrets files to backup location
           ansible.builtin.copy:
             src: "{{ forgejo_project_src }}/secrets"
-            dest: "{{ current_backup_dir }}/setup/secrets"
+            dest: "{{ current_backup_dir }}/setup"
             remote_src: true
           when: secrets_dir.stat.exists
           register: secrets_backup
@@ -279,8 +279,6 @@
       {% if backup_failure_reason is defined and not backup_succeeded %}
       Error: {{ backup_failure_reason }}
       {% endif %}
-      
-      Services were restarted after backup.
     mode: '0644'
   when: postgres_backup_succeeded or forgejo_backup_succeeded or config_backup_succeeded|default(false)
 

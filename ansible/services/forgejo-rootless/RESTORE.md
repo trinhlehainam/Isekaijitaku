@@ -8,11 +8,13 @@ The restore process is designed to recover Forgejo and PostgreSQL services from 
 
 1. Verifies backup files exist before attempting restoration
 2. Completely removes all running services to ensure a clean slate
-3. Backs up current data directories before removing them
-4. Restores the PostgreSQL database using direct shell commands
-5. Extracts and moves Forgejo application data to the appropriate locations
-6. Starts services again after successful restoration
-7. Generates a detailed timestamped restoration report
+3. Preserves existing project configuration files with timestamped backups
+4. Restores Docker Compose and secrets files from backup
+5. Backs up current data directories before removing them
+6. Restores the PostgreSQL database using direct shell commands
+7. Extracts and moves Forgejo application data to the appropriate locations
+8. Starts services again after successful restoration
+9. Generates a detailed timestamped restoration report
 
 ## Prerequisites
 
@@ -34,6 +36,12 @@ The restore process works in the following sequence:
 ### Service Management
 - Directly removes all running Docker containers to ensure clean restoration
 - Uses Docker Compose to ensure consistent service management
+
+### Project Configuration Restoration
+- Safely renames existing docker-compose.yml to docker-compose.YYYYMMDD_HH-MM.yml
+- Renames existing secrets directory to secrets.YYYYMMDD_HH-MM
+- Restores docker-compose.yml and secrets directory from backup if available
+- Ensures proper file permissions and ownership
 
 ### Data Directory Handling
 - Backs up current data directories to timestamped archive files

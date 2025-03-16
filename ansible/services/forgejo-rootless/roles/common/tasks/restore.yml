@@ -72,6 +72,16 @@
     forgejo_restore_succeeded: false
     forgejo_backup_filename: "forgejo-app-dump.zip"
 
+- name: Check if existing docker-compose.yml exists
+  ansible.builtin.stat:
+    path: "{{ current_backup_dir }}/setup/docker-compose.yml"
+  register: setup_compose_file
+
+- name: Check if existing secrets directory exists
+  ansible.builtin.stat:
+    path: "{{ current_backup_dir }}/setup/secrets"
+  register: setup_secrets_dir
+
 - name: Check if PostgreSQL backup file exists
   ansible.builtin.stat:
     path: "{{ current_backup_dir }}/{{ postgres_backup_filename }}"
@@ -83,18 +93,84 @@
   register: forgejo_backup_file
 
 - name: Verify both backup files exist
-  ansible.builtin.fail:
-    msg: "No backup files found in {{ current_backup_dir }}. Expected files: {{ postgres_backup_filename }}, {{ forgejo_backup_filename }}"
-  when: not (postgres_backup_file.stat.exists and forgejo_backup_file.stat.exists)
+  ansible.builtin.assert:
+    that:
+      - postgres_backup_file.stat.exists
+      - forgejo_backup_file.stat.exists
+      - setup_compose_file.stat.exists
+      - setup_secrets_dir.stat.exists
+    fail_msg: "Missing required backup files in {{ current_backup_dir }}."
+
+#################################################
+# Project Files Backup and Restoration
+#################################################
+
+- name: Backup existing project files with timestamp
+  block:
+    - name: Check for existing docker-compose.yml file
+      ansible.builtin.stat:
+        path: "{{ forgejo_project_src }}/docker-compose.yml"
+      register: existing_compose_file
+
+    - name: Make sure services are down before restore
+      community.docker.docker_compose_v2:
+        project_src: "{{ forgejo_project_src }}"
+        state: absent
+      when: existing_compose_file.stat.exists
+
+    - name: Rename existing docker-compose.yml file
+      ansible.builtin.command:
+        chdir: "{{ forgejo_project_src }}"
+        cmd: mv docker-compose.yml docker-compose.{{ restore_timestamp }}.yml
+      when: existing_compose_file.stat.exists
+      register: compose_backup_result
+
+    - name: Check for existing secrets directory
+      ansible.builtin.stat:
+        path: "{{ forgejo_project_src }}/secrets"
+      register: existing_secrets_dir
+
+    - name: Rename existing secrets directory
+      ansible.builtin.command:
+        chdir: "{{ forgejo_project_src }}"
+        cmd: mv secrets secrets.{{ restore_timestamp }}
+      when: existing_secrets_dir.stat.exists
+      register: secrets_backup_result
+
+- name: Check for project setup files in backup
+  block:
+    - name: Check for docker-compose.yml in backup
+      ansible.builtin.stat:
+        path: "{{ current_backup_dir }}/setup/docker-compose.yml"
+      register: backup_compose_file
+
+    - name: Check for secrets directory in backup
+      ansible.builtin.stat:
+        path: "{{ current_backup_dir }}/setup/secrets"
+      register: backup_secrets_dir
+
+    - name: Restore project setup files from backup
+      block:
+        - name: Copy docker-compose.yml from backup
+          ansible.builtin.copy:
+            src: "{{ current_backup_dir }}/setup/docker-compose.yml"
+            dest: "{{ forgejo_project_src }}/docker-compose.yml"
+            remote_src: true
+            mode: '0644'
+          when: backup_compose_file.stat.exists
+          register: compose_restore_result
+
+        - name: Copy secrets directory from backup
+          ansible.builtin.copy:
+            src: "{{ current_backup_dir }}/setup/secrets"
+            dest: "{{ forgejo_project_src }}"
+            remote_src: true
+          when: backup_secrets_dir.stat.exists
+          register: secrets_restore_result
 
 #################################################
 # Services Management
 #################################################
-
-- name: Make sure services are down before restore
-  community.docker.docker_compose_v2:
-    project_src: "{{ forgejo_project_src }}"
-    state: absent
 
 - name: Set restore directory variable
   ansible.builtin.set_fact:
