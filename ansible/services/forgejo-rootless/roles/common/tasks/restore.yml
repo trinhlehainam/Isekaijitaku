@@ -114,7 +114,7 @@
         state: absent
       when: existing_compose_file.stat.exists
 
-    - name: Create current project setup backup folder before restoration
+    - name: Create project setup backup folder before restoration
       ansible.builtin.file:
         path: "{{ forgejo_project_src }}/setup_before_restoration/{{ restore_timestamp }}"
         state: directory
@@ -411,10 +411,12 @@
   when: restore_succeeded
 
 - name: Display success message
-  ansible.builtin.debug:
+  vars:
     msg: |
       Forgejo has been successfully restored from backup.
       Restoration report saved to {{ restore_report_path }}
+  ansible.builtin.debug:
+    msg: "{{ msg.split('\n') }}"
   when: restore_succeeded
 
 - name: Clean up temporary restore folders
