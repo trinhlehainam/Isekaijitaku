@@ -150,9 +150,10 @@ services:
       - "traefik.http.routers.nextcloud-whiteboard.entrypoints=websecure"
       - "traefik.http.routers.nextcloud-whiteboard.tls.certresolver=cloudflare"
       
-  # https://collabora-online-for-nextcloud.readthedocs.io/en/latest/install/
   # https://sdk.collaboraonline.com/docs/installation/CODE_Docker_image.html#how-to-configure-docker-image
   # https://forum.collaboraonline.com/t/docker-compose-file-example-needed/2976/4
+  # NOTE: We don't need to setup capabilities MKNOD or priviledged
+  # - https://github.com/CollaboraOnline/online/issues/2800#issuecomment-2684147364
   collabora:
     # https://hub.docker.com/r/collabora/code/tags
     image: collabora/code:24.04.13.2.1
