@@ -12,7 +12,7 @@ services:
   nextcloud:
     # Upgrade to a newer version: https://github.com/nextcloud/docker?tab=readme-ov-file#update-to-a-newer-version
     # https://hub.docker.com/_/nextcloud/tags
-    image: nextcloud:30.0.6-apache
+    image: nextcloud:30.0.7-apache
     container_name: nextcloud
     restart: always
     depends_on:
@@ -22,9 +22,6 @@ services:
       nextcloud-redis:
         condition: service_healthy
         restart: true
-      # nextcloud-mountcheck:
-      #   condition: service_healthy
-      #   restart: true
     # ports:
     #   - 80:80
     volumes:
@@ -153,6 +150,7 @@ services:
       - "traefik.http.routers.nextcloud-whiteboard.entrypoints=websecure"
       - "traefik.http.routers.nextcloud-whiteboard.tls.certresolver=cloudflare"
       
+  # https://collabora-online-for-nextcloud.readthedocs.io/en/latest/install/
   # https://sdk.collaboraonline.com/docs/installation/CODE_Docker_image.html#how-to-configure-docker-image
   # https://forum.collaboraonline.com/t/docker-compose-file-example-needed/2976/4
   collabora:
@@ -168,14 +166,15 @@ services:
       - aliasgroup2=https://nextcloud.yourdomain
       # - dictionaries=en_US,de_DE
       - server_name=collabora.mydomain.local
+      # https://github.com/CollaboraOnline/online/issues/2801
       - "extra_params=--o:ssl.enable=false --o:ssl.termination=true"
     volumes:
-      # NOTE: mount step ca cert to /usr/local/share/ca-certificates
-      # "docker exec -it -u root collabora update-ca-certificates"
-      - /path/to/step-ca/root_ca.crt:/usr/local/share/ca-certificates/root_ca.crt:ro
+      # NOTE: Make sure custom Root CA is installed on host
+      - /etc/ssl/certs:/etc/ssl/certs:ro
     secrets:
       - collabora_username
       - collabora_password
+    # https://github.com/CollaboraOnline/online/blob/master/docker/from-source-gh-action/Dockerfile
     entrypoint:
       - /bin/bash
       - -c
@@ -272,28 +271,6 @@ services:
       timeout: 30s
       retries: 3
     restart: always
-
-  # nextcloud-mountcheck:
-  #   container_name: nextcloud-mountcheck
-  #   # https://hub.docker.com/_/bash/tags
-  #   image: bash:5.2.37-alpine3.21
-  #   entrypoint: bash /mountcheck.sh
-  #   volumes:
-  #     - /mount/point1:/mnt/point1:ro
-  #     - /mount/point2:/mnt/point2:ro
-  #     - /mount/point3:/mnt/point3:ro
-  #     - ./mountcheck/mountcheck.sh:/mountcheck.sh:ro
-  #     - ./mountcheck/healthcheck.sh:/healthcheck.sh:ro
-  #   healthcheck:
-  #     test: ["CMD", "/usr/local/bin/bash", "/healthcheck.sh"]
-  #     interval: 10s
-  #     timeout: 10s
-  #     retries: 3
-  #   restart: always
-  #   user: nobody
-  #   read_only: true
-  #   security_opt:
-  #     - no-new-privileges:true
 
 networks:
   nextcloud:
