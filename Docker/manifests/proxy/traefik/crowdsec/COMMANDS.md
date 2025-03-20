@@ -9,9 +9,17 @@ This document provides common commands for managing and monitoring CrowdSec in a
 docker compose exec crowdsec cscli metrics
 ```
 
+### View Monitored Logs
+```bash
+docker compose exec crowdsec cscli metrics show acquisition
+```
+
 ### View Alerts
 ```bash
 docker compose exec crowdsec cscli alerts list
+
+# Detailed event information
+docker compose exec crowdsec cscli alerts inspect <alert_id> -d
 ```
 
 ## Managing Rules
