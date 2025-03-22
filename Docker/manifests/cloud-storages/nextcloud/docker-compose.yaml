@@ -8,11 +8,14 @@
 ### Dark Mode
 # https://help.nextcloud.com/t/collabora-with-dark-theme-barely-readable/100192/6
 
+# TODO: Nextcloud Office empty Global templates cause below error on Collabora
+# ERR  Failed to get the realpath of [/opt/cool/child-roots/1-f41af7e4/tmp/sharedpresets/template]
+
 services:
   nextcloud:
     # Upgrade to a newer version: https://github.com/nextcloud/docker?tab=readme-ov-file#update-to-a-newer-version
     # https://hub.docker.com/_/nextcloud/tags
-    image: nextcloud:30.0.7-apache
+    image: nextcloud:30.0.8-apache
     container_name: nextcloud
     restart: always
     depends_on:
@@ -166,9 +169,11 @@ services:
       - aliasgroup1=https://nextcloud.yourdomain.local
       - aliasgroup2=https://nextcloud.yourdomain
       # - dictionaries=en_US,de_DE
-      - server_name=collabora.mydomain.local
       # https://github.com/CollaboraOnline/online/issues/2801
       - "extra_params=--o:ssl.enable=false --o:ssl.termination=true"
+      # Enable tracing
+      # https://sdk.collaboraonline.com/docs/installation/Configuration.html#logging
+      # - "extra_params=--o:log.level=trace"
     volumes:
       # NOTE: Make sure custom Root CA is installed on host
       - /etc/ssl/certs:/etc/ssl/certs:ro
@@ -183,6 +188,8 @@ services:
         export username=$$(cat /run/secrets/collabora_username)
         export password=$$(cat /run/secrets/collabora_password)
         /start-collabora-online.sh
+    # ports:
+    #   - "9980:9980"
     networks:
       - nextcloud
       - proxy
