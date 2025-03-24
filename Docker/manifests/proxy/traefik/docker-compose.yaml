@@ -3,10 +3,12 @@ services:
   # https://github.com/dogukancagatay/step-ca-example/blob/main/docker-compose.yml
   # NOTE: 
   # - BEFORE "docker compose up -d":
+  #   - make sure step/certs folder exists: "mkdir -p step/certs"
+  #   - change folder owner:group to 1000:1000: "sudo chown -R 1000:1000 step"
   #   - init step-ca with command: "docker compose run --rm step-ca step ca init"
+  #     - config DNS dames: localhost, step-ca, <host_running_step-ca_ipv4>
   #   - generate password file inside step volumes: 
-  #     - "docker compose run --rm step-ca sh"
-  #     - "echo "<your password here>" > /home/step/secrets/password"
+  #     - "docker compose run --rm step-ca sh -c 'echo "<your password here>" > /home/step/secrets/password'"
   #   - enable step-ca acme provisioner: "docker compose run --rm step-ca step ca provisioner add acme --type ACME"
   step-ca:
     # https://hub.docker.com/r/smallstep/step-ca/tags

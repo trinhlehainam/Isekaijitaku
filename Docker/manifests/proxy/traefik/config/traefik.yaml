@@ -16,8 +16,7 @@ providers:
 # https://doc.traefik.io/traefik/operations/api/
 api:
   dashboard: true
-  debug: true
-  # insecure: true
+  # debug: true
 
 # https://doc.traefik.io/traefik/operations/ping/
 ping: {}
