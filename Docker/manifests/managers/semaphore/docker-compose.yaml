@@ -1,7 +1,7 @@
 services:
   semaphore:
     # https://hub.docker.com/r/semaphoreui/semaphore/tags
-    image: semaphoreui/semaphore:v2.12.14
+    image: semaphoreui/semaphore:v2.13.0
     container_name: semaphore
     # https://github.com/semaphoreui/semaphore/blob/develop/deployment/docker/server/Dockerfile
     entrypoint:

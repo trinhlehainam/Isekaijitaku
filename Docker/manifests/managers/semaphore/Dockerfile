@@ -2,6 +2,6 @@
 FROM tailscale/tailscale:v1.80.3 as tailscale
 
 # https://hub.docker.com/r/semaphoreui/semaphore/tags
-FROM semaphoreui/semaphore:v2.12.17
+FROM semaphoreui/semaphore:v2.13.0
 
 COPY --from=tailscale /usr/local/bin/tailscale /usr/local/bin/tailscale
