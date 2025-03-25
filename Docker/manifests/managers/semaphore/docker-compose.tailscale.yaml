@@ -2,7 +2,7 @@ services:
   # https://tailscale.com/kb/1282/docker#code-examples
   semaphore-tailscale:
     # https://hub.docker.com/r/tailscale/tailscale/tags
-    image: tailscale/tailscale:v1.80.0
+    image: tailscale/tailscale:v1.80.3
     container_name: semaphore-tailscale
     hostname: semaphore-tailscale
     environment:
