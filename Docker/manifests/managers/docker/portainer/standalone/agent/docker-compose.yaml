@@ -4,7 +4,7 @@ services:
   portainer_agent:
     container_name: portainer_agent
     # https://hub.docker.com/r/portainer/agent/tags
-    image: 'portainer/agent:2.27.1-alpine'
+    image: 'portainer/agent:2.27.3-alpine'
     restart: always
     volumes:
       - '/:/host'

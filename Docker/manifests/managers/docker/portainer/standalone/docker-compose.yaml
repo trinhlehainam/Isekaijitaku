@@ -4,7 +4,7 @@ services:
   portainer:
     container_name: portainer
     # https://hub.docker.com/r/portainer/portainer-ce/tags
-    image: portainer/portainer-ce:2.27.1-alpine
+    image: portainer/portainer-ce:2.27.3-alpine
     restart: unless-stopped
     # ports:
     #  - "9443:9443"
