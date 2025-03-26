@@ -6,10 +6,12 @@ services:
   openwebui:
     container_name: openwebui
     # https://github.com/open-webui/open-webui/pkgs/container/open-webui
-    image: ghcr.io/open-webui/open-webui:cuda
+    image: ghcr.io/open-webui/open-webui:git-b03fc97-cuda
     restart: unless-stopped
-    ports:
-      - "3000:8080"
+    depends_on:
+      - ollama
+    # ports:
+    #   - "8080:8080"
     # extra_hosts:
     #   - "host.docker.internal:host-gateway"
     deploy:
@@ -19,24 +21,32 @@ services:
             - driver: nvidia
               count: all
               capabilities: [ gpu ]
-    # environment:
-    #   - 'OLLAMA_BASE_URL=https://example.com:11434'
-    #   - 'ENABLE_LITELLM=false'
+    environment:
+      - 'OLLAMA_API_URL=http://ollama:11434'
+      # # https://docs.openwebui.com/getting-started/env-configuration#ollama
+      # - 'ENABLE_OLLAMA_API=false'
     volumes:
       - open-webui-local:/app/backend/data
     networks:
       - proxy
-    depends_on:
       - ollama
+    labels:
+      - "traefik.enable=true"
+      - 'traefik.docker.network=proxy'
+      - 'traefik.http.services.openwebui.loadbalancer.server.port=8080'
+      - "traefik.http.routers.openwebui-local.rule=Host(`openwebui.yourdomain.local`)"
+      - "traefik.http.routers.openwebui-local.entrypoints=websecure"
+      - "traefik.http.routers.openwebui-local.tls=true"
+      - "traefik.http.routers.openwebui-local.tls.certresolver=stepca"
 
   # https://registry.hub.docker.com/r/ollama/ollama
   ollama:
     container_name: ollama
     # https://hub.docker.com/r/ollama/ollama/tags
-    image: ollama/ollama:0.5.1
+    image: ollama/ollama:0.6.2
     restart: unless-stopped
-    ports:
-      - "11434:11434"
+    # ports:
+    #   - "11434:11434"
     deploy:
       resources:
         reservations:
@@ -48,6 +58,7 @@ services:
       - ollama-local:/root/.ollama
     networks:
       - proxy
+      - ollama
 
 volumes:
   open-webui-local:
@@ -58,3 +69,5 @@ volumes:
 networks:
   proxy:
     external: true
+  ollama:
+    driver: bridge
