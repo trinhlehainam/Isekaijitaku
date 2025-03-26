@@ -1,0 +1,107 @@
+# https://github.com/ItzCrazyKns/Perplexica/discussions/457
+# https://github.com/ItzCrazyKns/Perplexica?tab=readme-ov-file#getting-started-with-docker-recommended
+# https://github.com/ItzCrazyKns/Perplexica/blob/master/docker-compose.yaml
+
+services:
+  perplexica:
+    container_name: perplexica
+    # https://hub.docker.com/r/itzcrazykns1337/perplexica/tags
+    image: itzcrazykns1337/perplexica:main
+    build:
+      context: .
+      dockerfile: app.dockerfile
+    depends_on:
+      searxng:
+        condition: service_started
+    environment:
+      - SEARXNG_API_URL=http://searxng:8080
+    restart: unless-stopped
+    volumes:
+      - backend-dbstore:/home/perplexica/data
+      - uploads:/home/perplexica/uploads
+      - ./config.toml:/home/perplexica/config.toml
+    # ports:
+    #   - 3000:3000
+    networks:
+      - perplexica
+      - proxy
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.docker.network=proxy'
+      - 'traefik.http.services.perplexica.loadbalancer.server.port=3000'
+      - 'traefik.http.routers.perplexica.rule=Host(`perplexica.yourdomain.local`)'
+      - 'traefik.http.routers.perplexica.entrypoints=websecure'
+      - 'traefik.http.routers.perplexica.tls.certresolver=stepca'
+
+  # https://github.com/searxng/searxng-docker
+  # https://blog.ktz.me/replacing-google-with-searxng-as-the-default-in-chrome/
+  searxng:
+    container_name: searxng
+    # https://hub.docker.com/r/searxng/searxng/tags
+    image: searxng/searxng:2025.3.25-c28d35c7f
+    restart: unless-stopped
+    volumes:
+      - ./searxng:/etc/searxng:rw
+    environment:
+      - SEARXNG_BASE_URL=https://${SEARXNG_HOSTNAME:-localhost}/
+      - UWSGI_WORKERS=${SEARXNG_UWSGI_WORKERS:-4}
+      - UWSGI_THREADS=${SEARXNG_UWSGI_THREADS:-4}
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - SETGID
+      - SETUID
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1m"
+        max-file: "1"
+    # ports:
+    #   - 8080:8080
+    networks:
+      - searxng
+      - perplexica
+      - proxy
+    labels:
+      - 'traefik.enable=true'
+      - 'traefik.docker.network=proxy'
+      - 'traefik.http.services.searxng.loadbalancer.server.port=8080'
+      - 'traefik.http.routers.searxng.rule=Host(`searxng.yourdomain.local`)'
+      - 'traefik.http.routers.searxng.entrypoints=websecure'
+      - 'traefik.http.routers.searxng.tls.certresolver=stepca'
+
+  redis:
+    container_name: redis
+    # https://hub.docker.com/r/valkey/valkey/tags
+    image: docker.io/valkey/valkey:8.1-alpine
+    command: valkey-server --save 30 1 --loglevel warning
+    restart: unless-stopped
+    networks:
+      - searxng
+    volumes:
+      - valkey-data:/data
+    cap_drop:
+      - ALL
+    cap_add:
+      - SETGID
+      - SETUID
+      - DAC_OVERRIDE
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "1m"
+        max-file: "1"
+
+volumes:
+  valkey-data:
+  backend-dbstore:
+  uploads:
+
+networks:
+  proxy:
+    external: true
+  perplexica:
+    driver: bridge
+  searxng:
+    driver: bridge
