@@ -7,9 +7,6 @@ services:
     container_name: perplexica
     # https://hub.docker.com/r/itzcrazykns1337/perplexica/tags
     image: itzcrazykns1337/perplexica:main
-    build:
-      context: .
-      dockerfile: app.dockerfile
     depends_on:
       searxng:
         condition: service_started
