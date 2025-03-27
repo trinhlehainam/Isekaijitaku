@@ -101,7 +101,7 @@ volumes:
 networks:
   proxy:
     external: true
-  perplexica:
-    driver: bridge
   searxng:
+    external: true
+  perplexica:
     driver: bridge

@@ -22,14 +22,21 @@ services:
               count: all
               capabilities: [ gpu ]
     environment:
-      - 'OLLAMA_API_URL=http://ollama:11434'
+      OLLAMA_API_URL: http://ollama:11434
       # # https://docs.openwebui.com/getting-started/env-configuration#ollama
-      # - 'ENABLE_OLLAMA_API=false'
+      # ENABLE_OLLAMA_API: false
+      # # https://docs.openwebui.com/tutorials/web-search/searxng/#2-alternative-setup
+      # ENABLE_RAG_WEB_SEARCH: True
+      # RAG_WEB_SEARCH_ENGINE: "searxng"
+      # RAG_WEB_SEARCH_RESULT_COUNT: 3
+      # RAG_WEB_SEARCH_CONCURRENT_REQUESTS: 10
+      # SEARXNG_QUERY_URL: "http://searxng:8080/search?q=<query>"
     volumes:
       - open-webui-local:/app/backend/data
     networks:
       - proxy
       - ollama
+      # - searxng
     labels:
       - "traefik.enable=true"
       - 'traefik.docker.network=proxy'
@@ -71,3 +78,5 @@ networks:
     external: true
   ollama:
     driver: bridge
+  # searxng:
+  #   external: true
