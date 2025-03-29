@@ -1,0 +1,5 @@
+# https://docs.litellm.ai/docs/proxy/deploy#deploy-with-redis
+router_settings:
+  redis_host: litellm-redis
+  redis_password: <your redis password>
+  redis_port: 6379

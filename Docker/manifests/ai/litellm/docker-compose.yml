@@ -1,0 +1,113 @@
+# https://docs.litellm.ai/docs/proxy/deploy#docker-compose
+# https://github.com/BerriAI/litellm/blob/main/docker-compose.yml
+
+services:
+  litellm:
+    container_name: litellm
+    # NOTE: Always use the main-stable tag for production environments
+    # For specific versions, search for tags that also include main-stable (e.g., main-v1.XX.X-stable)
+    # https://github.com/BerriAI/litellm/pkgs/container/litellm
+    image: ghcr.io/berriai/litellm:main-v1.63.14-stable.patch1
+    depends_on:
+      # Indicates that this service depends on the 'litellm-postgres' service, ensuring 'litellm-postgres' has started successfully and is healthy
+      litellm-postgres:
+        condition: service_healthy  
+        restart: true
+    # https://github.com/BerriAI/litellm/blob/main/Dockerfile
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        export LITELLM_MASTER_KEY=$$(cat /run/secrets/litellm_master_key)
+        export POSTGRES_PASSWORD=$$(cat /run/secrets/db_password)
+        export DATABASE_URL=postgresql://${POSTGRES_USER}:$$POSTGRES_PASSWORD@litellm-postgres:5432/${POSTGRES_DB}
+        docker/prod_entrypoint.sh --port 4000 --config /app/config.yaml
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_DB: ${POSTGRES_DB}
+      STORE_MODEL_IN_DB: "True" # allows adding models to proxy via UI
+    volumes:
+     - ./config.yaml:/app/config.yaml
+    secrets:
+      - litellm_master_key
+      - db_password
+    restart: always
+    healthcheck:  # Defines the health check configuration for the container
+      # test: [ "CMD-SHELL", "curl", "-f", "http://localhost:4000/health/liveliness || exit 1" ]  # Command to execute for health check
+      test: [ "CMD-SHELL", "wget -q -O /dev/null http://localhost:4000/health/liveliness || exit 1" ]  # Command to execute for health check
+      interval: 30s  # Perform health check every 30 seconds
+      timeout: 10s   # Health check command times out after 10 seconds
+      retries: 3     # Retry up to 3 times if health check fails
+      start_period: 40s  # Wait 40 seconds after container start before beginning health checks
+    # ports:
+    #   - "4000:4000"
+    networks:
+      - litellm
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.services.litellm.loadbalancer.server.port=4000"
+      - "traefik.http.routers.litellm-local.rule=Host(`litellm.yourdomain.local`)"
+      - "traefik.http.routers.litellm-local.entrypoints=websecure"
+      - "traefik.http.routers.litellm-local.tls.certresolver=stepca"
+ 
+  litellm-postgres:
+    container_name: litellm-postgres
+    image: postgres:16.6-alpine3.21
+    restart: always
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD_FILE: "/run/secrets/db_password"
+    volumes:
+      - ./postgres:/var/lib/postgresql/data
+    secrets:
+      - db_password
+    networks:
+      - litellm
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-q", "-d", "${POSTGRES_DB}", "-U", "${POSTGRES_USER}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+  
+  litellm-redis:
+    # https://hub.docker.com/_/redis/tags
+    image: redis:7.4.2-alpine3.21
+    container_name: litellm-redis
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        /usr/local/bin/redis-server \
+        --port 6379 \
+        --requirepass $(cat /run/secrets/redis_password)
+    volumes:
+      - ./redis:/data
+    secrets:
+      - redis_password
+    # ports:
+    #   - 6379:6379
+    networks:
+      - litellm
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 30s
+      retries: 3
+
+secrets:
+  db_password:
+    file: ./secrets/db_password
+  redis_password:
+    file: ./secrets/redis_password
+  litellm_master_key:
+    file: ./secrets/litellm_master_key
+    
+networks:
+  litellm:
+    driver: bridge
+  proxy:
+    external: true
