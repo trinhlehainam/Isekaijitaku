@@ -19,18 +19,20 @@ services:
       - -c
       - |
         export LITELLM_MASTER_KEY=$$(cat /run/secrets/litellm_master_key)
+        export UI_PASSWORD=$$(cat /run/secrets/ui_password)
         export POSTGRES_PASSWORD=$$(cat /run/secrets/db_password)
         export DATABASE_URL=postgresql://${POSTGRES_USER}:$$POSTGRES_PASSWORD@litellm-postgres:5432/${POSTGRES_DB}
         docker/prod_entrypoint.sh --port 4000 --config /app/config.yaml
     environment:
-      POSTGRES_USER: ${POSTGRES_USER}
-      POSTGRES_DB: ${POSTGRES_DB}
+      # https://docs.litellm.ai/docs/proxy/ui#4-change-default-username--password
+      UI_USERNAME: admin
       STORE_MODEL_IN_DB: "True" # allows adding models to proxy via UI
     volumes:
      - ./config.yaml:/app/config.yaml
     secrets:
       - litellm_master_key
       - db_password
+      - ui_password
     restart: always
     healthcheck:  # Defines the health check configuration for the container
       # test: [ "CMD-SHELL", "curl", "-f", "http://localhost:4000/health/liveliness || exit 1" ]  # Command to execute for health check
@@ -105,6 +107,8 @@ secrets:
     file: ./secrets/redis_password
   litellm_master_key:
     file: ./secrets/litellm_master_key
+  ui_password:
+    file: ./secrets/ui_password
     
 networks:
   litellm:

@@ -12,11 +12,15 @@ services:
         condition: service_started
     environment:
       - SEARXNG_API_URL=http://searxng:8080
+      # Use host's certificate store by mounting /etc/ssl/certs into container
+      # This allows Node.js applications to trust the same certificates as the host system
+      - NODE_EXTRA_CA_CERTS=/etc/ssl/certs/ca-certificates.crt
     restart: unless-stopped
     volumes:
       - backend-dbstore:/home/perplexica/data
       - uploads:/home/perplexica/uploads
       - ./config.toml:/home/perplexica/config.toml
+      - /etc/ssl/certs:/etc/ssl/certs:ro
     # ports:
     #   - 3000:3000
     networks:
