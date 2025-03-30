@@ -5,6 +5,16 @@
     update_cache: true
   register: upgrade_output
 
+- name: Remove unused packages
+  ansible.builtin.apt:
+    autoremove: true
+  when: upgrade_output.changed
+
+- name: Clean apt cache
+  ansible.builtin.apt:
+    autoclean: true
+  when: upgrade_output.changed
+
 - name: Check if reboot is required
   ansible.builtin.stat:
     path: /var/run/reboot-required

@@ -78,7 +78,7 @@ ansible-playbook -i inventories/dev/hosts.yml site.yml \
   --limit ubuntu1
 
 ### 2. Security Updates (security)
-Applies security updates only:
+Applies security updates only, removes unused packages (`autoremove`), and cleans the package cache (`autoclean`):
 ```bash
 # Apply security updates on all hosts
 ansible-playbook -i inventories/dev/hosts.yml site.yml -t security -b
@@ -89,7 +89,7 @@ ansible-playbook -i inventories/dev/hosts.yml site.yml \
   --limit ubuntu1
 
 ### 3. System Updates (update)
-Performs full system update:
+Performs full system update, removes unused packages (`autoremove`), and cleans the package cache (`autoclean`):
 ```bash
 # Update all hosts
 ansible-playbook -i inventories/dev/hosts.yml site.yml -t update -b
