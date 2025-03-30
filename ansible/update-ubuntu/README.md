@@ -271,11 +271,15 @@ The playbook includes the following tags for granular control:
 
 ### security
 - Applies security updates only
+- Removes unused packages (`autoremove`)
+- Cleans the package cache (`autoclean`)
 - Checks for required reboots
 - Lists packages requiring reboot
 
 ### update
 - Performs full system update
+- Removes unused packages (`autoremove`)
+- Cleans the package cache (`autoclean`)
 - Checks for required reboots
 - Lists packages requiring reboot
 

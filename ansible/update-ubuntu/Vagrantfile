@@ -14,9 +14,10 @@ Vagrant.configure("2") do |config|
     v.memory = 512
     v.cpus = 1
     v.linked_clone = true
+    # https://gist.github.com/travelhawk/b9c1b6b7a9cd35cf3898fcb33cdae72d#verr_path_not_found-when-using-vagrant-up
     # https://github.com/joelhandwell/ubuntu_vagrant_boxes/issues/1#issuecomment-292370353
     v.customize ["modifyvm", :id, "--uartmode1", "disconnected"]
-
+    
     # https://stackoverflow.com/a/54481502
     v.customize ["modifyvm", :id, "--cableconnected1", "on"]
   end
