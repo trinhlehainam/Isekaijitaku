@@ -76,28 +76,31 @@ ansible-playbook -i inventories/dev/hosts.yml site.yml -t check -b
 ansible-playbook -i inventories/dev/hosts.yml site.yml \
   -t check -b \
   --limit ubuntu1
+```
 
-### 2. Security Updates (security)
+### 2. Security Upgrades (security-upgrade)
 Applies security updates only, removes unused packages (`autoremove`), and cleans the package cache (`autoclean`):
 ```bash
 # Apply security updates on all hosts
-ansible-playbook -i inventories/dev/hosts.yml site.yml -t security -b
+ansible-playbook -i inventories/dev/hosts.yml site.yml -t security-upgrade -b
 
 # Apply security updates on specific host
 ansible-playbook -i inventories/dev/hosts.yml site.yml \
-  -t security -b \
+  -t security-upgrade -b \
   --limit ubuntu1
+```
 
-### 3. System Updates (update)
+### 3. Distribution Upgrade (dist-upgrade)
 Performs full system update, removes unused packages (`autoremove`), and cleans the package cache (`autoclean`):
 ```bash
 # Update all hosts
-ansible-playbook -i inventories/dev/hosts.yml site.yml -t update -b
+ansible-playbook -i inventories/dev/hosts.yml site.yml -t dist-upgrade -b
 
 # Update specific host
 ansible-playbook -i inventories/dev/hosts.yml site.yml \
-  -t update -b \
+  -t dist-upgrade -b \
   --limit ubuntu1
+```
 
 ### 4. System Reboot (reboot)
 Reboots system if required after updates:
@@ -109,18 +112,20 @@ ansible-playbook -i inventories/dev/hosts.yml site.yml -t reboot -b
 ansible-playbook -i inventories/dev/hosts.yml site.yml \
   -t reboot -b \
   --limit ubuntu1
+```
 
 ### Running Multiple Roles
 You can combine multiple roles by specifying multiple tags:
 ```bash
 # Run check and security updates only
-ansible-playbook -i inventories/dev/hosts.yml site.yml -t check,security -b
+ansible-playbook -i inventories/dev/hosts.yml site.yml -t check,security-upgrade -b
 
 # Full update cycle (all roles)
 ansible-playbook -i inventories/dev/hosts.yml site.yml \
-  -t check,security,update,reboot -b
+  -t check,security-upgrade,dist-upgrade,reboot -b
+```
 
-### Role Output Examples
+## Role Output Examples
 
 1. Check Updates Output:
    ```
@@ -269,14 +274,14 @@ The playbook includes the following tags for granular control:
 - Updates apt cache
 - Lists available package updates
 
-### security
+### security-upgrade
 - Applies security updates only
 - Removes unused packages (`autoremove`)
 - Cleans the package cache (`autoclean`)
 - Checks for required reboots
 - Lists packages requiring reboot
 
-### update
+### dist-upgrade
 - Performs full system update
 - Removes unused packages (`autoremove`)
 - Cleans the package cache (`autoclean`)
@@ -333,7 +338,7 @@ ansible all -i inventories/dev/hosts.yml -m ping
 
 # Run specific tags
 # Run check and security updates only
-ansible-playbook -i inventories/dev/hosts.yml site.yml -t check,security -b
+ansible-playbook -i inventories/dev/hosts.yml site.yml -t check,security-upgrade -b
 
 # Run full playbook
 ansible-playbook -i inventories/dev/hosts.yml site.yml
