@@ -5,11 +5,11 @@
   gather_facts: true
 
   roles:
-    - role: check-updates
+    - role: check-update
       tags: check
-    - role: security-update
-      tags: security
-    - role: full-update
-      tags: update
+    - role: security-upgrade
+      tags: security-upgrade
+    - role: dist-upgarde
+      tags: dist-upgrade
     - role: reboot
       tags: reboot
