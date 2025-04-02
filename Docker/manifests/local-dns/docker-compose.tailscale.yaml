@@ -2,7 +2,7 @@ services:
   # https://tailscale.com/kb/1282/docker#code-examples
   adguardhome-tailscale:
     # https://hub.docker.com/r/tailscale/tailscale/tags
-    image: tailscale/tailscale:v1.80.3
+    image: tailscale/tailscale:v1.82.0
     container_name: adguardhome-tailscale
     # hostname: Docker-Tailscale
     environment:

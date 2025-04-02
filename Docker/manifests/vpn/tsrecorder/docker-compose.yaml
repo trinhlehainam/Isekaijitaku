@@ -3,7 +3,7 @@
 services:
   tsrecorder:
     # https://hub.docker.com/r/tailscale/tsrecorder/tags
-    image: 'tailscale/tsrecorder:v1.80.0'
+    image: 'tailscale/tsrecorder:v1.82.0'
     hostname: tsrecorder
     container_name: tsrecorder
     command: '/tsrecorder --dst=/data/recordings --statedir=/data/state --ui'
