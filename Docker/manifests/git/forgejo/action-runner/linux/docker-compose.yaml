@@ -29,7 +29,7 @@ services:
 
   forgejo-runner:
     # https://code.forgejo.org/forgejo/-/packages/container/runner/versions
-    image: 'code.forgejo.org/forgejo/runner:6.2.2'
+    image: 'code.forgejo.org/forgejo/runner:6.3.1'
     container_name: 'forgejo-runner'
     depends_on:
       forgejo-docker-dind:
