@@ -1,0 +1,23 @@
+# https://github.com/AnotiaWang/deep-research-web-ui
+
+services:
+  deep-research-web:
+    # https://hub.docker.com/r/anotia/deep-research-web/tags
+    image: anotia/deep-research-web:sha-651f44580361832edbbccadc2350c7498f1a68cf
+    container_name: deep-research-web
+    restart: unless-stopped
+    # ports:
+    #   - "3000:3000"
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.services.deep-research-web.loadbalancer.server.port=3000"
+      - "traefik.http.routers.deep-research-web-local.rule=Host(`deep-research.yourdomain.local`)"
+      - "traefik.http.routers.deep-research-web-local.entrypoints=websecure"
+      - "traefik.http.routers.deep-research-web-local.tls.certresolver=stepca"
+
+networks:
+  proxy:
+    external: true
