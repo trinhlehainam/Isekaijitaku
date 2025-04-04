@@ -39,7 +39,7 @@ services:
   # https://erdaltoprak.com/blog/setting-up-a-local-reverse-proxy-on-proxmox-with-traefik-and-cloudflare/
   traefik:
     # https://hub.docker.com/_/traefik/tags
-    image: "traefik:v3.3.4"
+    image: "traefik:v3.3.5"
     container_name: "traefik"
     depends_on:
       step-ca:
