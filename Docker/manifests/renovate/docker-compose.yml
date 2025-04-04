@@ -1,0 +1,74 @@
+# https://docs.renovatebot.com/examples/self-hosting/
+
+services:
+  renovate:
+    # https://hub.docker.com/r/renovate/renovate/tags
+    image: renovate/renovate:39.233.2
+    container_name: renovate
+    depends_on:
+      renovate-redis:
+        condition: service_healthy
+        restart: true
+    # https://docs.renovatebot.com/self-hosted-configuration/
+    environment:
+      # Gitea Configuration
+      - RENOVATE_PLATFORM=gitea
+      - RENOVATE_ENDPOINT=http://your-forgejo-instance:3000/api/v1
+      - RENOVATE_USERNAME=renovate
+      
+      # Renovate Configuration
+      # https://docs.renovatebot.com/config-overview/#logging-variables
+      - LOG_LEVEL=debug # Options: debug, info, warn, error
+      
+      # Optional caching settings
+      - RENOVATE_REPOSITORY_CACHE=enabled
+    # https://github.com/renovatebot/renovate/blob/main/tools/docker/Dockerfile
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        export RENOVATE_TOKEN=$$(cat /run/secrets/renovate_token)
+        export REDIS_PASSWORD=$$(cat /run/secrets/redis_password)
+        export RENOVATE_REDIS_URL=redis://default:$$REDIS_PASSWORD@renovate-redis:6379/0
+        /usr/local/sbin/renovate-entrypoint.sh
+    command: ["renovate"]
+    secrets:
+      - renovate_token
+      - redis_password
+    networks:
+      - renovate
+    restart: unless-stopped
+      
+  renovate-redis:
+    # https://hub.docker.com/_/redis/tags
+    image: redis:7.4.2-alpine3.21
+    container_name: renovate-redis
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        /usr/local/bin/redis-server \
+        --port 6379 \
+        --requirepass $(cat /run/secrets/redis_password)
+    volumes:
+      - ./redis:/data
+    secrets:
+      - redis_password
+    networks:
+      - renovate
+    restart: unless-stopped
+    healthcheck:
+      test: [ "CMD", "redis-cli", "ping" ]
+      interval: 10s
+      timeout: 30s
+      retries: 3
+      
+secrets:
+  renovate_token:
+    file: ./secrets/renovate_token
+  redis_password:
+    file: ./secrets/redis_password
+
+networks:
+  renovate:
+    driver: bridge
