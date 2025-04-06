@@ -128,3 +128,4 @@ For detailed configuration and customization, refer to these official resources:
 - [Use Gitea and Renovate Bot to Automatically Monitor Software Packages](https://about.gitea.com/resources/tutorials/use-gitea-and-renovate-bot-to-automatically-monitor-software-packages)
 - [Configure Renovate on your Forgejo or Gitea self-hosted](https://vladiiancu.com/post/configure-renovate-on-your-forgejo-or-gitea-self-hosted/)
 - [Gitea Renovate Config](https://gitea.com/gitea/renovate-config/src/branch/main/README.md)
+- [SpotOnInc Renovate Config](https://github.com/SpotOnInc/renovate-config)
