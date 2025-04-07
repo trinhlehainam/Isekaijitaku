@@ -26,8 +26,10 @@ jobs:
           RENOVATE_CONFIG_FILE: "${{ github.workspace }}/config.js"
           RENOVATE_CONFIG_MIGRATION: "true"
           # Required credentials
+          # Forgejo Personal Access Token for Forgejo API access
           RENOVATE_TOKEN: ${{ secrets.RENOVATE_TOKEN }}
-          GITHUB_COM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # GitHub.com token for fetching changelogs and bypassing API rate limits
+          RENOVATE_GITHUB_COM_TOKEN: ${{ secrets.RENOVATE_GITHUB_COM_TOKEN || '' }}
           # Optional Docker Hub credentials
           HUB_DOCKER_COM_USER: ${{ secrets.HUB_DOCKER_COM_USER || '' }}
           HUB_DOCKER_COM_TOKEN: ${{ secrets.HUB_DOCKER_COM_TOKEN || '' }}

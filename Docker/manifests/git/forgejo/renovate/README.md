@@ -79,11 +79,11 @@ The repository requires these key configuration files with minimal customization
 Add these secrets to your Forgejo repository settings:
 
 1. **RENOVATE_TOKEN** (required): Forgejo Personal Access Token with repo and issue access
-2. **GITHUB_TOKEN** (required): GitHub token for fetching dependencies from GitHub repositories
+2. **RENOVATE_GITHUB_COM_TOKEN** (recommended): GitHub token for fetching changelogs and bypassing API rate limits
 3. **HUB_DOCKER_COM_USER** (optional): Docker Hub username if accessing private Docker images
 4. **HUB_DOCKER_COM_TOKEN** (optional): Docker Hub token or password
-3. **No separate infrastructure**: Leverage existing Forgejo runners
-4. **Better integration**: Credentials are stored as CI/CD secrets
+5. **No separate infrastructure**: Leverage existing Forgejo runners
+6. **Better integration**: Credentials are stored as CI/CD secrets
 
 #### Using Preset Configurations in Your Repositories
 
@@ -139,7 +139,7 @@ In your Forgejo repository settings:
 1. Go to Settings → Secrets
 2. Add the required secrets:
    - `RENOVATE_TOKEN`: Your Forgejo Personal Access Token created earlier
-   - `GITHUB_TOKEN`: GitHub token for fetching dependencies from GitHub repositories
+   - `RENOVATE_GITHUB_COM_TOKEN`: A GitHub token for fetching changelogs and metadata from GitHub repositories
 
 #### Customize the Workflow
 
@@ -183,7 +183,7 @@ See the [Renovate Configuration Options](https://docs.renovatebot.com/configurat
    - Click "Run workflow"
 
 2. Monitor the workflow run to ensure it's successful:
-   - Check the logs for connection to Forgejo and Redis
+   - Check the logs for connection to Forgejo
    - Verify that Renovate can authenticate with your Forgejo instance
 
 3. Renovate will create an "Onboarding PR" in each repository it has access to
