@@ -28,11 +28,11 @@ This guide explains how to set up a self-hosted Renovate instance that works wit
 2. Go to Settings → Applications → Generate New Token
 3. Name your token (e.g., "Renovate Bot PAT")
 4. Select the following permissions:
-   - `repo` (Read and Write)
    - `user` (Read)
    - `issue` (Read and Write)
    - `organization` (Read) (for Forgejo/Gitea ≥ 1.20.0)
-   - `read:packages` (if using Forgejo/Gitea packages)
+   - `package` (Read) (if using Forgejo/Gitea packages)
+   - `repository` (Read and Write)
 5. Generate and securely store the token - you won't be able to see it again
 
 #### Repository Configuration
@@ -132,13 +132,15 @@ The repository requires these key configuration files with minimal customization
          - Example: `["/my-org\/[a-z]+-service/"]` matches lowercase service repos
    - All other settings can remain at their defaults
 
-2. **default.json5** - Default configuration preset:
-   - No modifications needed - use the default configuration as provided
-   - This file contains recommended presets that work for most repositories
+2. **default.json** - Default configuration preset:
+   - **Important Note:** In Renovate 39.233.5, the main default preset file must be in .json format (not .json5)
+   - Use plain JSON format without comments for this specific file
+   - Contains recommended presets that work for most repositories
 
 3. **renovate.json5** - Example onboarding configuration:
    - This serves as an example of how to set up Renovate in individual repositories
    - Will be used as a template when onboarding new repositories
+   - Can use JSON5 format with comments for better readability
 
 4. **CI/CD Workflow (.forgejo/workflows/renovate.yml)**:
    - Controls the execution schedule and environment for Renovate
@@ -151,7 +153,11 @@ A key component of this setup is a centralized configuration repository (`renova
 
 1. **Create a dedicated repository** in your Forgejo instance named `renovate-config` under the `renovate_account` user
 
-2. **Define reusable presets** in this repository, typically in a `default.json5` file:
+2. **Define the main default preset** in this repository using a `default.json` file (must be .json, not .json5):
+   
+   **File Format Notes:**
+   - The primary `default.json` file must use plain JSON format (not JSON5)
+   - Other reusable presets (like `javascript.json5`, `python.json5`) can use JSON5 format
    ```json5
    {
      "$schema": "https://docs.renovatebot.com/renovate-schema.json",
