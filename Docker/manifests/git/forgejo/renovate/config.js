@@ -9,13 +9,6 @@ module.exports = {
     "forkProcessing": "disabled",
     "dryRun": null,
     "binarySource": "install",
-    "hostRules": [
-        {
-            "matchHost": "docker.io",
-            "username": process.env.HUB_DOCKER_COM_USER,
-            "password": process.env.HUB_DOCKER_COM_TOKEN
-        }
-    ],
     "allowedPostUpgradeCommands": [
         "install-tool node",
         "make readme"

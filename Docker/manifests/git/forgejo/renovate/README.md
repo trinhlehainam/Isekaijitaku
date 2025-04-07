@@ -249,8 +249,16 @@ Add these secrets to your Forgejo repository settings:
 
 1. **RENOVATE_TOKEN** (required): Forgejo Personal Access Token with repo and issue access
 2. **RENOVATE_GITHUB_COM_TOKEN** (recommended): GitHub token for fetching changelogs and bypassing API rate limits
-3. **HUB_DOCKER_COM_USER** (optional): Docker Hub username if accessing private Docker images
-4. **HUB_DOCKER_COM_TOKEN** (optional): Docker Hub token or password
+   - Create a GitHub.com fine-grained PAT with only these permissions:
+     - Repository access: Public repositories (read-only)
+   - This minimal permission is sufficient for Renovate to fetch changelogs from public GitHub repositories
+3. **DOCKER_USERNAME** (recommended): Docker Hub username for accessing repository metadata
+4. **DOCKER_PASSWORD** (recommended): Docker Hub token
+   - Create a Docker Hub PAT with these settings:
+     - Access permissions: "Read-only"
+     - Access scope: "Public Repo Read-only"
+   - Provides higher rate limits compared to unauthenticated requests
+   - Only needed for Docker image updates
 5. **No separate infrastructure**: Leverage existing Forgejo runners
 6. **Better integration**: Credentials are stored as CI/CD secrets
 
@@ -308,7 +316,9 @@ In your Forgejo repository settings:
 1. Go to Settings → Secrets
 2. Add the required secrets:
    - `RENOVATE_TOKEN`: Your Forgejo Personal Access Token created earlier
-   - `RENOVATE_GITHUB_COM_TOKEN`: A GitHub token for fetching changelogs and metadata from GitHub repositories
+   - `RENOVATE_GITHUB_COM_TOKEN`: A GitHub token for fetching changelogs and metadata from GitHub repositories (see PAT requirements above)
+   - `DOCKER_USERNAME`: Your Docker Hub username
+   - `DOCKER_PASSWORD`: Your Docker Hub token with read-only access
 
 #### Customize the Workflow
 
@@ -368,6 +378,7 @@ The workflow will continue to run on the scheduled interval you've configured.
 - **API errors**: Check that your Forgejo/Gitea version is compatible (minimum recommended: 1.14.0)
 - **Workflow failures**: Check the workflow logs for specific error messages
 - **Preset lookup errors**: Ensure your repository references use correct syntax (`local>account/repo` format)
+- **Missing changelogs**: If PRs don't include changelogs, check your `RENOVATE_GITHUB_COM_TOKEN` permissions
 
 ## Platform-Specific Notes
 

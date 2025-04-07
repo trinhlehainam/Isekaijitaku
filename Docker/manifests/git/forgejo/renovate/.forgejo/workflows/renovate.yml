@@ -31,6 +31,6 @@ jobs:
           RENOVATE_TOKEN: ${{ secrets.RENOVATE_TOKEN }}
           # GitHub.com token for fetching changelogs and bypassing API rate limits
           RENOVATE_GITHUB_COM_TOKEN: ${{ secrets.RENOVATE_GITHUB_COM_TOKEN || '' }}
-          # Optional Docker Hub credentials
-          HUB_DOCKER_COM_USER: ${{ secrets.HUB_DOCKER_COM_USER || '' }}
-          HUB_DOCKER_COM_TOKEN: ${{ secrets.HUB_DOCKER_COM_TOKEN || '' }}
+          # Docker Hub credentials for higher rate limits
+          DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME || '' }}
+          DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD || '' }}
