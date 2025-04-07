@@ -3,7 +3,8 @@
   $schema: "https://docs.renovatebot.com/renovate-schema.json",
   // Use local renovate-config as a base
   // Format: local>account/repo
-  extends: ["local>your_renovate_account/renovate-config"],
+  // https://docs.renovatebot.com/config-presets/#self-hosted-git
+  extends: ["local>renovate_account/renovate-config"],
   // Enable dependency dashboard for visibility
   dependencyDashboard: true,
   // Only enable specific managers

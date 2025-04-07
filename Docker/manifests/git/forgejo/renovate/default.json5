@@ -3,7 +3,6 @@
   $schema: "https://docs.renovatebot.com/renovate-schema.json",
   // Recommended defaults for most repositories
   // https://docs.renovatebot.com/config-presets/#how-to-use-preset-configs
-  // https://docs.renovatebot.com/config-presets/#self-hosted-git
   extends: ["config:recommended"],
   // Enables semantic commit messages (e.g., fix(deps): update dependency)
   semanticCommits: "enabled",

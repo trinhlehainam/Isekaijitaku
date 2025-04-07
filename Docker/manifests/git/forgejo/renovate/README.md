@@ -85,14 +85,61 @@ Add these secrets to your Forgejo repository settings:
 3. **No separate infrastructure**: Leverage existing Forgejo runners
 4. **Better integration**: Credentials are stored as CI/CD secrets
 
+#### Using Preset Configurations in Your Repositories
+
+After setting up the central `renovate-config` repository, you can leverage its configurations in your other repositories. This eliminates configuration duplication and ensures consistent behavior across your projects.
+
+1. **Basic Repository Configuration**
+
+   Create a `renovate.json` or `renovate.json5` file in the root of your repository with contents like:
+
+   ```json5
+   {
+     "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+     "extends": ["local>renovate_account/renovate-config"]
+   }
+   ```
+
+   This references the renovate-config repository under your dedicated Renovate bot account.
+
+2. **Using Specific Presets**
+
+   You can extend specific presets from your central config by using the colon syntax:
+
+   ```json5
+   {
+     "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+     "extends": [
+       "local>renovate_account/renovate-config",
+       "local>renovate_account/renovate-config:npm-deps"
+     ]
+   }
+   ```
+
+   This extends both the default preset and the npm-specific preset.
+
+3. **Customizing Repository-Specific Settings**
+
+   You can override specific settings from the centralized configuration:
+
+   ```json5
+   {
+     "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+     "extends": ["local>renovate_account/renovate-config"],
+     "schedule": ["after 10pm and before 5am"],
+     "labels": ["dependencies", "automated"],
+     "assignees": ["your-username"]
+   }
+   ```
+
 #### Configure CI/CD Secrets
 
 In your Forgejo repository settings:
 
 1. Go to Settings → Secrets
-2. Add the following secrets:
+2. Add the required secrets:
    - `RENOVATE_TOKEN`: Your Forgejo Personal Access Token created earlier
-   - `RENOVATE_ENDPOINT`: Your Forgejo API endpoint (e.g., `http://your-forgejo-instance:3000/api/v1`)
+   - `GITHUB_TOKEN`: GitHub token for fetching dependencies from GitHub repositories
 
 #### Customize the Workflow
 
@@ -101,7 +148,6 @@ The provided `.forgejo/workflows/renovate.yml` file includes:
 - Hourly scheduled runs with `cron: "0 * * * *"`
 - Manual trigger capability with `workflow_dispatch`
 - Container-based approach using the official Renovate image (`ghcr.io/renovatebot/renovate:39.233.5`)
-- Redis service container for caching
 - Environment variables for configuration
 
 You can customize the schedule, container version, and other parameters according to your needs.
@@ -152,8 +198,8 @@ The workflow will continue to run on the scheduled interval you've configured.
 - **Repository access issues**: Ensure the Renovate user has collaborator access to repositories
 - **API errors**: Check that your Forgejo/Gitea version is compatible (minimum recommended: 1.14.0)
 - **Workflow failures**: Check the workflow logs for specific error messages
-- **Redis errors**: Ensure Redis is running properly in the workflow
-- **Configuration issues**: Validate your renovate-config.json format using the Renovate config validator
+- **Preset lookup errors**: Ensure your repository references use correct syntax (`local>account/repo` format)
+- **Configuration issues**: Validate your config files with the [Renovate config validator](https://docs.renovatebot.com/validate-config/)
 
 ## Platform-Specific Notes
 
