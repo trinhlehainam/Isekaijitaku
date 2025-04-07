@@ -1,13 +1,12 @@
-# Self-Hosting Renovate with Forgejo/Gitea
+# Self-Hosting Renovate with Forgejo/Gitea CI/CD Runner
 
-This guide explains how to set up a self-hosted Renovate instance that works with Forgejo (or Gitea). The setup involves configuring a dedicated Forgejo user and deploying Renovate with Redis for enhanced performance using Docker Compose and secrets for secure credential management.
+This guide explains how to set up a self-hosted Renovate instance that works with Forgejo (or Gitea) using Forgejo's built-in CI/CD runner instead of Docker. This approach solves the scheduling limitation of Docker Compose and allows you to store Renovate configuration directly in your Forgejo repository.
 
 ## Prerequisites
 
-- A running Forgejo/Gitea instance
-- Docker and Docker Compose (version supporting secrets)
+- A running Forgejo/Gitea instance (v1.14.0 or later)
+- Forgejo/Gitea Runner configured and running
 - Administrative access to Forgejo/Gitea
-- Directory structure for secrets and Redis persistence
 
 ## Setup Process
 
@@ -44,79 +43,124 @@ For each repository you want to monitor with Renovate:
 2. Ensure Pull Requests are enabled
 3. Add the renovate user as a collaborator with write access
  
-### 2. Renovate Configuration
+### 2. Renovate Configuration with Forgejo CI/CD Runner
 
-#### Docker Compose Setup
+Instead of using Docker Compose, we'll configure Renovate to run through Forgejo's built-in CI/CD runner, which offers several advantages:
 
-1. Create the required directory structure:
-   ```bash
-   mkdir -p ./secrets ./redis
-   ```
+1. **Scheduling built-in**: Use Forgejo's cron scheduling capabilities
+2. **Configuration as code**: Store Renovate configuration in your repository
 
-2. Store your credentials as Docker secrets:
-   ```bash
-   # Save your Forgejo PAT token
-   echo "your-forgejo-access-token" > ./secrets/renovate_token
-   
-   # Generate and save a secure Redis password
-   openssl rand -base64 24 > ./secrets/redis_password
-   
-   # Set proper permissions
-   chmod 600 ./secrets/*
-   ```
+#### Configuration Files Setup
 
-3. Use the provided `docker-compose.yml` file in this directory and update the Forgejo endpoint:
-   ```yaml
-   # Forgejo/Gitea Configuration
-   - RENOVATE_PLATFORM=gitea
-   - RENOVATE_ENDPOINT=http://your-forgejo-instance:3000/api/v1
-   - RENOVATE_USERNAME=renovate
-   ```
+The repository requires these key configuration files with minimal customization:
 
-4. The Docker Compose file includes:
-   - Renovate service with a pinned version (39.233.2)
-   - Redis service for enhanced caching
-   - Docker secrets for secure credential management
-   - Custom entrypoint script to handle secrets
-   - Network configuration and healthcheck for Redis
+1. **config.js** - Main entry point for Renovate:
+   - **Required modifications:**
+     - `gitAuthor`: Update with your bot's email identity (e.g., "Renovate Bot <renovate-bot@example.com>")
+     - `endpoint`: Set to your Forgejo/Gitea API endpoint (e.g., "https://git.example.com/api/v1/")
+     - `autodiscoverFilter`: Adjust repository pattern to scan (e.g., "*/*" for all repositories)
+   - All other settings can remain at their defaults
 
-5. Configure Renovate using environment variables:
+2. **default.json5** - Default configuration preset:
+   - No modifications needed - use the default configuration as provided
+   - This file contains recommended presets that work for most repositories
 
-   Our setup uses environment variables for Renovate configuration rather than config.js files. The Renovate entrypoint script reads the secret token from a file and sets up Redis connectivity.
-   
-   For a complete list of configuration options, refer to the [Renovate Self-Hosted Configuration](https://docs.renovatebot.com/self-hosted-configuration/) documentation. Environment variable names follow the pattern: `RENOVATE_` + uppercased camelCase option name.
+3. **renovate.json5** - Example onboarding configuration:
+   - This serves as an example of how to set up Renovate in individual repositories
+   - Will be used as a template when onboarding new repositories
+
+4. **CI/CD Workflow (.forgejo/workflows/renovate.yml)**:
+   - Controls the execution schedule and environment for Renovate
+   - Uses the official Renovate container image
+   - Configures required environment variables and secrets
+
+#### Required Repository Secrets
+
+Add these secrets to your Forgejo repository settings:
+
+1. **RENOVATE_TOKEN** (required): Forgejo Personal Access Token with repo and issue access
+2. **GITHUB_TOKEN** (required): GitHub token for fetching dependencies from GitHub repositories
+3. **HUB_DOCKER_COM_USER** (optional): Docker Hub username if accessing private Docker images
+4. **HUB_DOCKER_COM_TOKEN** (optional): Docker Hub token or password
+3. **No separate infrastructure**: Leverage existing Forgejo runners
+4. **Better integration**: Credentials are stored as CI/CD secrets
+
+#### Configure CI/CD Secrets
+
+In your Forgejo repository settings:
+
+1. Go to Settings → Secrets
+2. Add the following secrets:
+   - `RENOVATE_TOKEN`: Your Forgejo Personal Access Token created earlier
+   - `RENOVATE_ENDPOINT`: Your Forgejo API endpoint (e.g., `http://your-forgejo-instance:3000/api/v1`)
+
+#### Customize the Workflow
+
+The provided `.forgejo/workflows/renovate.yml` file includes:
+
+- Hourly scheduled runs with `cron: "0 * * * *"`
+- Manual trigger capability with `workflow_dispatch`
+- Container-based approach using the official Renovate image (`ghcr.io/renovatebot/renovate:39.233.5`)
+- Redis service container for caching
+- Environment variables for configuration
+
+You can customize the schedule, container version, and other parameters according to your needs.
+
+#### Renovate Configuration
+
+This setup uses JSON5 format for configuration files, which offers several advantages over standard JSON:
+
+- Support for comments within configuration files
+- Allows trailing commas for easier maintenance
+- Unquoted keys for cleaner, more readable configuration
+
+The main configuration files are:
+
+- `default.json5` - Primary configuration including platform settings
+- `renovate.json5` - Used for onboarding new repositories
+- `security.json5` - Security-specific configuration for vulnerability detection
+- `config.js` - JavaScript configuration with environment variable support
+
+You can customize these files to control how Renovate behaves:
+
+- Set `repositories` to explicitly list repositories to monitor
+- Enable `autodiscover` to find repositories automatically
+- Configure dependency update rules and schedules
+- Set PR behavior and limits
+
+See the [Renovate Configuration Options](https://docs.renovatebot.com/configuration-options/) documentation for all available options.
 
 ### 3. First Run and Onboarding
 
-1. Start the Renovate stack:
-   ```bash
-   docker-compose up -d
-   ```
+1. Once the workflow is set up, trigger the workflow manually from your Forgejo repository:
+   - Navigate to Actions → Workflows → Renovate
+   - Click "Run workflow"
 
-2. Monitor the logs to ensure both Redis and Renovate are connecting properly:
-   ```bash
-   docker-compose logs -f
-   ```
+2. Monitor the workflow run to ensure it's successful:
+   - Check the logs for connection to Forgejo and Redis
+   - Verify that Renovate can authenticate with your Forgejo instance
 
-3. Verify Redis connectivity in the logs and ensure Renovate can authenticate with Forgejo
-4. Renovate will create an "Onboarding PR" in each repository it has access to
-5. Accept the Onboarding PR to confirm that you want Renovate to monitor the repository
-6. A `renovate.json` file will be added to your repository with basic configuration
+3. Renovate will create an "Onboarding PR" in each repository it has access to
+4. Accept the Onboarding PR to confirm that you want Renovate to monitor the repository
+5. A `renovate.json5` file will be added to your repository with basic configuration
+
+The workflow will continue to run on the scheduled interval you've configured.
 
 ## Troubleshooting
 
 - **Authentication issues**: Verify that your PAT has all required permissions and hasn't expired
 - **Repository access issues**: Ensure the Renovate user has collaborator access to repositories
 - **API errors**: Check that your Forgejo/Gitea version is compatible (minimum recommended: 1.14.0)
-- **Redis connectivity**: Check Redis logs with `docker-compose logs renovate-redis` if Renovate cannot connect
-- **Secret handling**: Ensure secret files have proper permissions (chmod 600) and contain valid credentials
-- **Log levels**: The configuration uses `LOG_LEVEL=debug` by default for detailed troubleshooting
+- **Workflow failures**: Check the workflow logs for specific error messages
+- **Redis errors**: Ensure Redis is running properly in the workflow
+- **Configuration issues**: Validate your renovate-config.json format using the Renovate config validator
 
 ## Platform-Specific Notes
 
 - Gitea versions older than v1.14.0 cannot add reviewers to PRs
 - Platform-native automerge requires Gitea v1.24.0+ or Forgejo v10.0.0+
 - If using Gitea older than v1.16.0, you must enable [clone filters](https://docs.gitea.io/en-us/clone-filters/)
+- Forgejo Workflows/Actions require Forgejo v3.4.0+ or Gitea v1.20.0+
 
 ## Further Documentation
 
@@ -129,3 +173,4 @@ For detailed configuration and customization, refer to these official resources:
 - [Configure Renovate on your Forgejo or Gitea self-hosted](https://vladiiancu.com/post/configure-renovate-on-your-forgejo-or-gitea-self-hosted/)
 - [Gitea Renovate Config](https://gitea.com/gitea/renovate-config/src/branch/main/README.md)
 - [SpotOnInc Renovate Config](https://github.com/SpotOnInc/renovate-config)
+- [GitLab Renovate Runner](https://gitlab.com/renovate-bot/renovate-runner)

@@ -1,0 +1,33 @@
+name: Renovate
+on:
+  # Schedule Renovate to run on a regular basis
+  schedule:
+    - cron: "0 * * * *"  # Run every hour
+  # Allow manual trigger
+  workflow_dispatch:
+  # Also run on changes to configuration files
+  push:
+    branches:
+      - main
+
+jobs:
+  renovate:
+    name: Renovate
+    runs-on: ubuntu-latest
+    # Use container-based execution like the official Gitea repo
+    container: ghcr.io/renovatebot/renovate:39.233.5
+    steps:
+      - uses: actions/checkout@v4
+        
+      - name: Run Renovate
+        run: renovate
+        env:
+          LOG_LEVEL: "debug"
+          RENOVATE_CONFIG_FILE: "${{ github.workspace }}/config.js"
+          RENOVATE_CONFIG_MIGRATION: "true"
+          # Required credentials
+          RENOVATE_TOKEN: ${{ secrets.RENOVATE_TOKEN }}
+          GITHUB_COM_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          # Optional Docker Hub credentials
+          HUB_DOCKER_COM_USER: ${{ secrets.HUB_DOCKER_COM_USER || '' }}
+          HUB_DOCKER_COM_TOKEN: ${{ secrets.HUB_DOCKER_COM_TOKEN || '' }}

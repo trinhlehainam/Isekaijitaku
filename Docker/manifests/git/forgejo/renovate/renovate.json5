@@ -1,0 +1,31 @@
+{
+  // JSON Schema for Renovate
+  $schema: "https://docs.renovatebot.com/renovate-schema.json",
+  // Use local renovate-config as a base
+  // Format: local>account/repo
+  extends: ["local>your_renovate_account/renovate-config"],
+  // Enable dependency dashboard for visibility
+  dependencyDashboard: true,
+  // Only enable specific managers
+  enabledManagers: [
+    "github-actions",
+  ],
+  // Enable automatic merging of PRs that pass tests
+  automerge: true,
+  // Skip tests for certain updates
+  ignoreTests: true,
+  // Package-specific rules
+  packageRules: [
+    {
+      description: "use fix scope for renovate updates",
+      matchPackageNames: ["renovatebot/renovate"],
+      semanticCommitType: "fix",
+    },
+    {
+      description: "Automerge renovate updates",
+      matchPackageNames: ["renovatebot/renovate"],
+      matchUpdateTypes: ["minor", "patch", "digest"],
+      automerge: true,
+    },
+  ],
+}
