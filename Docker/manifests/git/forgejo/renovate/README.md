@@ -31,8 +31,8 @@ This guide explains how to set up a self-hosted Renovate instance that works wit
    - `repo` (Read and Write)
    - `user` (Read)
    - `issue` (Read and Write)
-   - `organization` (Read) (for Gitea ≥ 1.20.0)
-   - `read:packages` (if using Gitea packages)
+   - `organization` (Read) (for Forgejo/Gitea ≥ 1.20.0)
+   - `read:packages` (if using Forgejo/Gitea packages)
 5. Generate and securely store the token - you won't be able to see it again
 
 #### Repository Configuration
@@ -52,13 +52,84 @@ Instead of using Docker Compose, we'll configure Renovate to run through Forgejo
 
 #### Configuration Files Setup
 
-The repository requires these key configuration files with minimal customization:
+The repository requires these key configuration files with minimal customization. This setup implements a centralized configuration pattern that reduces duplication and ensures consistency across repositories:
 
 1. **config.js** - Main entry point for Renovate:
    - **Required modifications:**
      - `gitAuthor`: Update with your bot's email identity (e.g., "Renovate Bot <renovate-bot@example.com>")
      - `endpoint`: Set to your Forgejo/Gitea API endpoint (e.g., "https://git.example.com/api/v1/")
-     - `autodiscoverFilter`: Adjust repository pattern to scan (e.g., "*/*" for all repositories)
+     - `autodiscoverFilter`: Configure which repositories to scan using glob or regex patterns:
+     
+       **Important Note:** Multiple patterns in autodiscoverFilter are combined using OR logic. A repository that matches ANY pattern will be included.
+
+       **Examples:**
+       - `["*/*"]` - All repositories in all organizations/users
+       - `["my-org/*"]` - All repositories in the my-org organization
+       - `["user1/*", "user2/*"]` - All repositories owned by user1 and user2 (OR logic)
+       - `["/project-.*/"]` - Regex to match any repository starting with "project-"
+       - `["my-org/important-*"]` - All repositories in my-org starting with "important-"
+       
+       **Multiple Pattern Examples (OR logic):**
+       - `["my-org/frontend-*", "my-org/backend-*"]` - Match repos starting with frontend- OR backend- in my-org
+       - `["dev-team/*", "/.*-api$/", "infra/*"]` - Match any dev-team repos OR API repos OR infra repos
+       
+       **Important: Using Negation Patterns Correctly**
+       
+       According to Renovate documentation, when using negated patterns (`!pattern`) in autodiscoverFilter:
+       
+       1. You should use ONLY a single negated pattern as the only item in autodiscoverFilter
+       2. Do NOT mix negated patterns with other positive filters - they won't work as expected
+       3. A negated pattern means "include ALL repositories EXCEPT those matching the pattern"
+       
+       **Correct usage of negation:**
+       ```js
+       module.exports = {
+         autodiscover: true,
+         autodiscoverFilter: [
+           "!/my-org/legacy-.*/"  // Include ALL repositories EXCEPT those matching this pattern
+         ]
+       };
+       ```
+       
+       **Incorrect usage of negation (will not work as expected):**
+       ```js
+       // DON'T DO THIS - won't work properly because of OR logic
+       module.exports = {
+         autodiscoverFilter: [
+           "my-org/*",            // Match all repos in my-org
+           "!my-org/legacy-*"     // Try to exclude legacy repos (won't work as expected)
+         ]
+       };
+       ```
+       
+       **Alternative approach for complex filtering:**
+       When you need more complex filtering, use only positive patterns and implement repository-level configuration to disable Renovate on specific repos.
+       
+       **Note:** Future Renovate versions may add better support for exclusions, but these are the current limitations.
+       
+       **Understanding Minimatch Pattern Syntax:**
+       
+       Renovate uses the minimatch library which supports these powerful pattern features:
+       
+       - **Standard Glob:** `*` matches any string within a path segment
+         - Example: `my-org/app-*` matches `my-org/app-frontend`, `my-org/app-api`
+       
+       - **Globstar:** `**` matches across multiple path segments
+         - Example: `my-org/**/api` matches `my-org/api`, `my-org/services/api`
+       
+       - **Character Classes:** `[abc]` matches any character in the brackets
+         - Example: `my-org/[abc]*` matches `my-org/api`, `my-org/backend`, `my-org/config`
+       
+       - **Brace Expansion:** `{a,b}` matches either pattern
+         - Example: `my-org/{api,web}-*` matches `my-org/api-gateway`, `my-org/web-frontend`
+       
+       - **Negation:** Pattern starting with `!` means "match everything EXCEPT this pattern"
+         - **Warning:** Must be used alone, not with other patterns
+         - **Correct example:** `["!/my-org/temp-.*/"]` matches everything EXCEPT temp repos in my-org
+         - Do not mix with positive patterns due to OR logic
+       
+       - **Regular Expressions:** Patterns enclosed in `/` are treated as regex
+         - Example: `["/my-org\/[a-z]+-service/"]` matches lowercase service repos
    - All other settings can remain at their defaults
 
 2. **default.json5** - Default configuration preset:
@@ -73,6 +144,98 @@ The repository requires these key configuration files with minimal customization
    - Controls the execution schedule and environment for Renovate
    - Uses the official Renovate container image
    - Configures required environment variables and secrets
+
+#### Centralized Configuration Repository
+
+A key component of this setup is a centralized configuration repository (`renovate_account/renovate-config`) that contains shared presets and package rules. With this approach:
+
+1. **Create a dedicated repository** in your Forgejo instance named `renovate-config` under the `renovate_account` user
+
+2. **Define reusable presets** in this repository, typically in a `default.json5` file:
+   ```json5
+   {
+     "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+     "extends": [
+       "config:base",
+       ":semanticCommits",
+       ":timezone(Asia/Tokyo)"
+     ],
+     "rangeStrategy": "pin",
+     "packageRules": [
+       {
+         "description": "Group all non-major dependencies",
+         "matchUpdateTypes": ["minor", "patch"],
+         "groupName": "all non-major dependencies", 
+         "groupSlug": "all-minor-patch"
+       }
+     ]
+   }
+   ```
+
+3. **Extend from this central preset** in each repository's `renovate.json5` file:
+   ```json5
+   {
+     "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+     "extends": [
+       "local>renovate_account/renovate-config"
+     ]
+   }
+   ```
+
+This approach allows organization-wide control over Renovate behavior while still letting individual repositories add their specific customizations when needed.
+
+#### Implementation Details
+
+1. **Configuration Repository Structure**
+   - The centralized repository can contain multiple preset files for different project types
+   - Example structure:
+     ```
+     renovate-config/
+     ├── default.json5     # Base configuration for all repositories
+     ├── javascript.json5  # JavaScript/Node.js specific settings
+     ├── python.json5      # Python specific settings
+     └── docker.json5      # Docker image update settings
+     ```
+
+2. **Extending Multiple Presets**
+   Repositories can extend multiple presets in their configuration:
+   ```json5
+   {
+     "extends": [
+       "local>renovate_account/renovate-config",
+       "local>renovate_account/renovate-config:javascript"
+     ]
+   }
+   ```
+
+3. **Workflow Scheduling**
+   Configure an appropriate schedule in your workflow file to balance timely updates with resource usage:
+   ```yaml
+   on:
+     schedule:
+       # Run every day at 2:00 AM
+       - cron: '0 2 * * *'
+     # Allow manual triggers for testing
+     workflow_dispatch:
+   ```
+
+4. **Monorepo Support**
+   For monorepos with multiple package managers:
+   ```json5
+   {
+     "extends": ["local>renovate_account/renovate-config"],
+     "packageRules": [
+       {
+         "matchPaths": ["frontend/**"],
+         "extends": ["local>renovate_account/renovate-config:javascript"]
+       },
+       {
+         "matchPaths": ["backend/**"],
+         "extends": ["local>renovate_account/renovate-config:python"]
+       }
+     ]
+   }
+   ```
 
 #### Required Repository Secrets
 
@@ -199,7 +362,6 @@ The workflow will continue to run on the scheduled interval you've configured.
 - **API errors**: Check that your Forgejo/Gitea version is compatible (minimum recommended: 1.14.0)
 - **Workflow failures**: Check the workflow logs for specific error messages
 - **Preset lookup errors**: Ensure your repository references use correct syntax (`local>account/repo` format)
-- **Configuration issues**: Validate your config files with the [Renovate config validator](https://docs.renovatebot.com/validate-config/)
 
 ## Platform-Specific Notes
 
