@@ -380,21 +380,21 @@ The workflow will continue to run on the scheduled interval you've configured.
 
 ### GitHub Actions Compatibility
 
-Forgejo/Gitea CI has limitations with GitHub Actions artifact handling:
+Forgejo CI environments require specific handling for artifact actions:
 
 1. **Official GitHub Actions limitations**
-   - The `default.json` preset restricts `actions/upload-artifact` and `actions/download-artifact` to v3.x
-   - Version 4+ of these actions are not currently supported in Forgejo/GHES environments
-   - If you're using official GitHub Actions, you must use v3.x for compatibility
+   - GitHub's `actions/upload-artifact` and `actions/download-artifact` v4+ use APIs unavailable in Forgejo
+   - The default.json preset constrains these actions to v3.x for compatibility
+   - This limitation applies to all Forgejo/GHES environments until GitHub adds native support
 
-2. **Forgejo-specific alternative**
-   - As an alternative, you can use Forgejo's forks: `forgejo/upload-artifact@v4`
-   - These forks support v4 functionality while being compatible with Forgejo CI
-   - The workflow in this repository demonstrates using the Forgejo fork
+2. **Forgejo-specific forks**
+   - Alternative implementation: `forgejo/upload-artifact@v4` and `forgejo/download-artifact@v4`
+   - These forks implement container-native access patterns compatible with Forgejo CI
+   - The workflow in this repository demonstrates using these Forgejo-specific forks
 
 3. **Concurrency limitations**
-   - Forgejo/Gitea CI doesn't fully support the concurrency features of GitHub Actions
-   - The workflow is configured to avoid relying on these features to prevent race conditions
+   - Forgejo/Gitea CI doesn't fully support GitHub Actions concurrency features
+   - The workflow is configured to avoid these features to prevent race conditions
 
 ### Common Issues
 

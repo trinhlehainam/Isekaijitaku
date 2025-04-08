@@ -6,26 +6,14 @@
   "platformAutomerge": false,
   "packageRules": [
     {
-      "description": "Block upgrade of upload-artifact to v4+ (not supported in Forgejo/GHES)",
+      "description": "Use Forgejo-patched upload-artifact for best compatibility",
       "matchPackageNames": ["actions/upload-artifact"],
-      "allowedVersions": "<4.0.0"
-    },
-    {
-      "description": "Block upgrade of download-artifact to v4+ (not supported in Forgejo/GHES)",
-      "matchPackageNames": ["actions/download-artifact"],
-      "allowedVersions": "<4.0.0"
-    },
-    {
-      "description": "Alternative: Use Forgejo-specific actions if preferred",
-      "matchPackageNames": ["actions/upload-artifact"],
-      "enabled": false,
       "replacementName": "forgejo/upload-artifact",
       "replacementVersion": "v4"
     },
     {
-      "description": "Alternative: Use Forgejo-specific actions if preferred",
+      "description": "Use Forgejo-patched download-artifact for best compatibility",
       "matchPackageNames": ["actions/download-artifact"],
-      "enabled": false,
       "replacementName": "forgejo/download-artifact",
       "replacementVersion": "v4"
     }
