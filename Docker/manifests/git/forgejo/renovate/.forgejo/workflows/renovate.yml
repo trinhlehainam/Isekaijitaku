@@ -20,7 +20,7 @@ jobs:
     runs-on: ubuntu-latest
     # Use container-based execution like the official Gitea repo
     # https://github.com/renovatebot/renovate/pkgs/container/renovate
-    container: ghcr.io/renovatebot/renovate:39.233.5
+    container: ghcr.io/renovatebot/renovate:39.235.2
     # Concurrency not fully supported in Forgejo/Gitea yet
     # concurrency:
     #   group: ${{ github.workflow }}-${{ github.ref }}

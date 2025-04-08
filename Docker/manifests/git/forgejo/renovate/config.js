@@ -9,7 +9,7 @@ module.exports = {
     "forkProcessing": "disabled",
     "dryRun": null,
     "binarySource": "install",
-    "allowedPostUpgradeCommands": [
+    "allowedCommands": [
         "install-tool node",
         "make readme"
     ]
