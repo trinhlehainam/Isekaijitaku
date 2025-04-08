@@ -57,7 +57,7 @@ jobs:
           DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD || '' }}
       
       - name: Upload Renovate logs
-        uses: actions/upload-artifact@ff15f0306b3f739f7b6fd43fb5d26cd321bd4de5 # v3.2.1
+        uses: forgejo/upload-artifact@v4
         env:
           # When custom certificates are installed to the system store,
           # Node.js used by actions doesn't automatically detect them,

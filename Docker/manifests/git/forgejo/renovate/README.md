@@ -54,7 +54,12 @@ Instead of using Docker Compose, we'll configure Renovate to run through Forgejo
 
 The repository requires these key configuration files with minimal customization. This setup implements a centralized configuration pattern that reduces duplication and ensures consistency across repositories:
 
-1. **config.js** - Main entry point for Renovate:
+1. **default.json** - Shared preset configuration that can be extended by repositories:
+   - Contains platform-specific compatibility settings
+   - Includes GitHub Actions version constraints for Forgejo/Gitea compatibility
+   - Provides common configuration defaults that work well with Forgejo/Gitea
+
+2. **config.js** - Main entry point for Renovate:
    - **Required modifications:**
      - `gitAuthor`: Update with your bot's email identity (e.g., "Renovate Bot <renovate-bot@example.com>")
      - `endpoint`: Set to your Forgejo/Gitea API endpoint (e.g., "https://git.example.com/api/v1/")
@@ -373,7 +378,27 @@ The workflow will continue to run on the scheduled interval you've configured.
 
 ## Troubleshooting
 
-- **Authentication issues**: Verify that your PAT has all required permissions and hasn't expired
+### GitHub Actions Compatibility
+
+Forgejo/Gitea CI has limitations with GitHub Actions artifact handling:
+
+1. **Official GitHub Actions limitations**
+   - The `default.json` preset restricts `actions/upload-artifact` and `actions/download-artifact` to v3.x
+   - Version 4+ of these actions are not currently supported in Forgejo/GHES environments
+   - If you're using official GitHub Actions, you must use v3.x for compatibility
+
+2. **Forgejo-specific alternative**
+   - As an alternative, you can use Forgejo's forks: `forgejo/upload-artifact@v4`
+   - These forks support v4 functionality while being compatible with Forgejo CI
+   - The workflow in this repository demonstrates using the Forgejo fork
+
+3. **Concurrency limitations**
+   - Forgejo/Gitea CI doesn't fully support the concurrency features of GitHub Actions
+   - The workflow is configured to avoid relying on these features to prevent race conditions
+
+### Common Issues
+
+1. **API Rate Limits**: Verify that your PAT has all required permissions and hasn't expired
 - **Repository access issues**: Ensure the Renovate user has collaborator access to repositories
 - **API errors**: Check that your Forgejo/Gitea version is compatible (minimum recommended: 1.14.0)
 - **Workflow failures**: Check the workflow logs for specific error messages
