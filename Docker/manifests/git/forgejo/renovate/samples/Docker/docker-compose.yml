@@ -1,0 +1,69 @@
+version: '3.9'
+
+services:
+  # Web application with specific version
+  webapp:
+    build: .
+    image: example/webapp:1.0.0
+    container_name: renovate-test-webapp
+    restart: unless-stopped
+    ports:
+      - "8080:80"
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost/"]
+      interval: 30s
+      timeout: 5s
+      retries: 3
+      
+  # Database with major.minor.patch version
+  database:
+    image: postgres:15.5-alpine3.21
+    container_name: renovate-test-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+      POSTGRES_DB: testdb
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      
+  # Cache with major.minor version only
+  redis:
+    image: redis:7.2-alpine
+    container_name: renovate-test-redis
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+      
+  # Proxy with digest pin
+  proxy:
+    image: traefik:v2.10.5@sha256:39f269113231bd0b41dd6497b8963cfd786cffc9c2c7e5e7ed9f9fd23d46015a
+    container_name: renovate-test-proxy
+    command:
+      - "--api.insecure=true"
+      - "--providers.docker=true"
+    ports:
+      - "80:80"
+      - "8000:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      
+  # Latest tag example
+  monitoring:
+    image: prom/prometheus:latest
+    container_name: renovate-test-monitoring
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./prometheus.yml:/etc/prometheus/prometheus.yml
+      
+volumes:
+  db-data:

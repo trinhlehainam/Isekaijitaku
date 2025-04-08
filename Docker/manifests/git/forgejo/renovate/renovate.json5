@@ -10,13 +10,44 @@
   // Only enable specific managers
   enabledManagers: [
     "github-actions",
+    "dockerfile",
+    "docker-compose",
   ],
   // Enable automatic merging of PRs that pass tests
   automerge: true,
   // Skip tests for certain updates
   ignoreTests: true,
+  // Docker-related manager configurations
+  "docker-compose": {
+    enabled: true,
+    fileMatch: [
+      "samples/Docker/docker-compose.ya?ml$",
+    ],
+  },
+  
+  dockerfile: {
+    enabled: true,
+    fileMatch: [
+      "samples/Docker/Dockerfile",
+    ],
+  },
+  
   // Package-specific rules
   packageRules: [
+    // Docker image rules
+    {
+      description: "Pin exact versions for database images",
+      matchDatasources: ["docker"],
+      matchPackageNames: ["postgres"],
+      pinDigests: true,
+    },
+    {
+      description: "Group Docker base image updates",
+      matchDatasources: ["docker"],
+      matchPackageNames: ["node", "nginx", "alpine"],
+      groupName: "Docker base images",
+      groupSlug: "docker-base",
+    },
     {
       description: "use fix scope for renovate updates",
       matchPackageNames: ["renovatebot/renovate"],
