@@ -9,13 +9,13 @@
       "description": "Use Forgejo-patched upload-artifact for best compatibility",
       "matchPackageNames": ["actions/upload-artifact"],
       "replacementName": "https://code.forgejo.org/forgejo/upload-artifact",
-      "replacementVersion": "v4"
+      "replacementVersion": "16871d9e8cfcf27ff31822cac382bbb5450f1e1e"
     },
     {
       "description": "Use Forgejo-patched download-artifact for best compatibility",
       "matchPackageNames": ["actions/download-artifact"],
       "replacementName": "https://code.forgejo.org/forgejo/download-artifact",
-      "replacementVersion": "v4"
+      "replacementVersion": "d8d0a99033603453ad2255e58720b460a0555e1e"
     }
   ]
 }
