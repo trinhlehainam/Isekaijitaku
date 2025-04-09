@@ -6,18 +6,28 @@
   "platformAutomerge": false,
   "packageRules": [
     {
+      "description": "Use tag/v4 branch for Forgejo's upload-artifact action",
+      "matchPackageNames": ["forgejo/upload-artifact"],
+      "matchBaseBranches": ["tag/v4"],
+      "sourceUrl": "https://code.forgejo.org/forgejo/upload-artifact"
+    },
+    {
+      "description": "Use tag/v4 branch for Forgejo's download-artifact action",
+      "matchPackageNames": ["forgejo/download-artifact"],
+      "matchBaseBranches": ["tag/v4"],
+      "sourceUrl": "https://code.forgejo.org/forgejo/download-artifact"
+    },
+    {
       "description": "Use Forgejo-patched upload-artifact for best compatibility",
       "matchPackageNames": ["actions/upload-artifact"],
-      "replacementName": "https://code.forgejo.org/forgejo/upload-artifact",
-      "replacementVersion": "16871d9e8cfcf27ff31822cac382bbb5450f1e1e",
-      "matchDatasources": ["github-actions"]
+      "replacementName": "forgejo/upload-artifact",
+      "replacementVersion": "16871d9e8cfcf27ff31822cac382bbb5450f1e1e"
     },
     {
       "description": "Use Forgejo-patched download-artifact for best compatibility",
       "matchPackageNames": ["actions/download-artifact"],
-      "replacementName": "https://code.forgejo.org/forgejo/download-artifact",
-      "replacementVersion": "d8d0a99033603453ad2255e58720b460a0555e1e",
-      "matchDatasources": ["github-actions"]
+      "replacementName": "forgejo/download-artifact",
+      "replacementVersion": "d8d0a99033603453ad2255e58720b460a0555e1e"
     }
   ]
 }

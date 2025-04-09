@@ -39,6 +39,17 @@
   
   // Package-specific rules
   packageRules: [
+    {
+      description: "use fix scope for renovate updates",
+      matchPackageNames: ["renovatebot/renovate"],
+      semanticCommitType: "fix",
+    },
+    {
+      description: "Automerge renovate updates",
+      matchPackageNames: ["renovatebot/renovate"],
+      matchUpdateTypes: ["minor", "patch", "digest"],
+      automerge: true,
+    },
     // Docker image rules
     {
       description: "Pin exact versions for database images",
@@ -52,17 +63,6 @@
       matchPackageNames: ["node", "nginx", "alpine"],
       groupName: "Docker base images",
       groupSlug: "docker-base",
-    },
-    {
-      description: "use fix scope for renovate updates",
-      matchPackageNames: ["renovatebot/renovate"],
-      semanticCommitType: "fix",
-    },
-    {
-      description: "Automerge renovate updates",
-      matchPackageNames: ["renovatebot/renovate"],
-      matchUpdateTypes: ["minor", "patch", "digest"],
-      automerge: true,
     },
   ],
 }
