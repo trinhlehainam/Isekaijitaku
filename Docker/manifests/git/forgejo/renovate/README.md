@@ -384,10 +384,16 @@ Renovate detects and updates Docker images in Ansible Jinja2 templates using a c
 
 ```json5
 {
+  // Enable custom manager for Ansible templates
+  enabledManagers: [
+    ...,
+    "custom.regex"
+  ],
+  
   customManagers: [
     {
       description: "Detects and updates Docker images in Ansible Jinja2 templates",
-      customType: "regex",
+      customType: "regex", // explicitly set for clarity vs. jsonata
       datasourceTemplate: "docker",
       fileMatch: [
         // Standard Docker Compose pattern with Jinja2 extension

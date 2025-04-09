@@ -12,6 +12,7 @@
     "github-actions",
     "dockerfile",
     "docker-compose",
+    "custom.regex",
   ],
   // Enable automatic merging of PRs that pass tests
   automerge: true,
@@ -22,7 +23,7 @@
   customManagers: [
     {
       description: "Detects and updates Docker images in Ansible Jinja2 templates",
-      customType: "regex",
+      customType: "regex", // explicitly set for clarity vs. jsonata
       datasourceTemplate: "docker",
       fileMatch: [
         // Standard Docker Compose patterns with Jinja2 extension
