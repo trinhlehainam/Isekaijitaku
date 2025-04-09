@@ -149,7 +149,8 @@ The repository requires these key configuration files with minimal customization
 
 4. **CI/CD Workflow (.forgejo/workflows/renovate.yml)**:
    - Controls the execution schedule and environment for Renovate
-   - Uses the official Renovate container image
+   - Uses the official Renovate container image from GitHub Container Registry (ghcr.io)
+   - Provides GitHub credentials to avoid image pull rate limits
    - Configures required environment variables and secrets
 
 #### Centralized Configuration Repository
@@ -320,10 +321,14 @@ In your Forgejo repository settings:
 
 1. Go to Settings → Secrets
 2. Add the required secrets:
-   - `RENOVATE_TOKEN`: Your Forgejo Personal Access Token created earlier
-   - `RENOVATE_GITHUB_COM_TOKEN`: A GitHub token for fetching changelogs and metadata from GitHub repositories (see PAT requirements above)
-   - `DOCKER_USERNAME`: Your Docker Hub username
-   - `DOCKER_PASSWORD`: Your Docker Hub token with read-only access
+   - `RENOVATE_TOKEN`: Your Forgejo Personal Access Token created earlier for API access (required)
+   - `RENOVATE_GITHUB_COM_USERNAME`: Your GitHub username for Container Registry authentication (note: Forgejo/Gitea CI doesn't allow secrets with `GITHUB_` or `GITEA_` prefixes)
+   - `RENOVATE_GITHUB_COM_TOKEN`: GitHub Personal Access Token for:
+     - Authenticating with GitHub Container Registry to pull the Renovate image
+     - Fetching changelogs and metadata from GitHub repositories
+     - Bypassing GitHub API rate limits
+   - `DOCKER_USERNAME`: Your Docker Hub username (optional, for higher rate limits)
+   - `DOCKER_PASSWORD`: Your Docker Hub token with read-only access (optional)
 
 #### Customize the Workflow
 
@@ -331,8 +336,20 @@ The provided `.forgejo/workflows/renovate.yml` file includes:
 
 - Hourly scheduled runs with `cron: "0 * * * *"`
 - Manual trigger capability with `workflow_dispatch`
-- Container-based approach using the official Renovate image (`ghcr.io/renovatebot/renovate:39.233.5`)
+- Container-based approach using the official Renovate image from GitHub Container Registry
+- GitHub credentials to avoid rate limiting when pulling the container image
 - Environment variables for configuration
+
+```yaml
+container:
+  # https://github.com/renovatebot/renovate/pkgs/container/renovate
+  image: ghcr.io/renovatebot/renovate:39.236.2
+  credentials:
+    username: ${{ secrets.RENOVATE_GITHUB_COM_USERNAME }}
+    password: ${{ secrets.RENOVATE_GITHUB_COM_TOKEN }}
+```
+
+This configuration prevents the `Error response from daemon: Head "https://ghcr.io/v2/renovatebot/renovate/manifests/[version]": denied: denied` error that commonly occurs due to GitHub Container Registry rate limits.
 
 You can customize the schedule, container version, and other parameters according to your needs.
 

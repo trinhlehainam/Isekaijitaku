@@ -1,5 +1,6 @@
 module.exports = {
-    "endpoint": "https://your-forgejo-domain/api/v1", // Update with your actual Forgejo endpoint
+    "endpoint": "http://forgejo:3000/api/v1", // Update with your actual Forgejo endpoint
+    // "endpoint": "https://your-forgejo-domain/api/v1", // Update with your actual Forgejo endpoint
     "gitAuthor": "Renovate Bot <renovate-bot@example.com>", // Update with your preferred email
     "platform": "gitea",
     "onboardingConfigFileName": "renovate.json5",

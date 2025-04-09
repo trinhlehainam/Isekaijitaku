@@ -18,9 +18,12 @@ jobs:
   renovate:
     name: Renovate
     runs-on: ubuntu-latest
-    # Use container-based execution like the official Gitea repo
-    # https://github.com/renovatebot/renovate/pkgs/container/renovate
-    container: ghcr.io/renovatebot/renovate:39.235.2
+    container:
+      # https://github.com/renovatebot/renovate/pkgs/container/renovate
+      image: ghcr.io/renovatebot/renovate:39.236.2
+      credentials:
+        username: ${{ secrets.RENOVATE_GITHUB_COM_USERNAME }}
+        password: ${{ secrets.RENOVATE_GITHUB_COM_TOKEN }}
     # Concurrency not fully supported in Forgejo/Gitea yet
     # concurrency:
     #   group: ${{ github.workflow }}-${{ github.ref }}
