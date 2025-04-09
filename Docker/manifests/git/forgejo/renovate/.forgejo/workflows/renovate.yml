@@ -7,6 +7,8 @@ on:
   workflow_dispatch:
   # Disabled push trigger to prevent workflow cancellation with auto-merges
   # Forgejo/Gitea Actions don't fully support concurrency
+  # https://github.com/go-gitea/gitea/issues/32662
+  # https://codeberg.org/forgejo/forgejo/issues/5431
   # push:
   #   branches:
   #     - main
