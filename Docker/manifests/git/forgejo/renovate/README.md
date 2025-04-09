@@ -376,6 +376,38 @@ See the [Renovate Configuration Options](https://docs.renovatebot.com/configurat
 
 The workflow will continue to run on the scheduled interval you've configured.
 
+## Supported File Formats
+
+### Docker in Ansible Templates
+
+Renovate detects and updates Docker images in Ansible Jinja2 templates using a custom regex manager:
+
+```json5
+{
+  customManagers: [
+    {
+      description: "Detects and updates Docker images in Ansible Jinja2 templates",
+      customType: "regex",
+      datasourceTemplate: "docker",
+      fileMatch: [
+        // Standard Docker Compose pattern with Jinja2 extension
+        "(^|/)(?:docker-)?compose[^/]*\.ya?ml\.j2$"
+      ],
+      matchStrings: [
+        // https://github.com/renovatebot/renovate/issues/10993#issuecomment-2367518146
+        "image:\\s*\"?(?<depName>[^\\s:@\"]+)(?::(?<currentValue>[-a-zA-Z0-9.]+))?(?:@(?<currentDigest>sha256:[a-zA-Z0-9]+))?\"?"
+      ]
+    }
+  ]
+}
+```
+
+The custom manager handles both direct version references and templated versions in Ansible files. Direct versions like `image: nginx:1.21.3` use standard syntax detection. For Jinja2 template variables, the system captures variable names through pattern matching. Adding a comment with `# renovate: depName=package-name` provides the necessary context for proper dependency tracking.
+
+The implementation uses simplified regex patterns that remain compatible with JSON5 while accurately detecting image references in template contexts. The `extractVersionTemplate` handles templated versions by returning a placeholder version that triggers proper dependency detection without modifying Ansible variables.
+
+The sample `docker-compose.yml.j2` file demonstrates these patterns with a complete Traefik integration implementation.
+
 ## Troubleshooting
 
 ### GitHub Actions Compatibility

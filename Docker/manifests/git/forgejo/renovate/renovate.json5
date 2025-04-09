@@ -17,20 +17,24 @@
   automerge: true,
   // Skip tests for certain updates
   ignoreTests: true,
-  // Docker-related manager configurations
-  "docker-compose": {
-    enabled: true,
-    fileMatch: [
-      "samples/Docker/docker-compose.ya?ml$",
-    ],
-  },
   
-  dockerfile: {
-    enabled: true,
-    fileMatch: [
-      "samples/Docker/Dockerfile",
-    ],
-  },
+  // Custom manager for Ansible Jinja2 templates with Docker images
+  customManagers: [
+    {
+      description: "Detects and updates Docker images in Ansible Jinja2 templates",
+      customType: "regex",
+      datasourceTemplate: "docker",
+      fileMatch: [
+        // Standard Docker Compose patterns with Jinja2 extension
+        // https://docs.renovatebot.com/modules/manager/docker-compose/#default-config
+        "(^|/)(?:docker-)?compose[^/]*\\.ya?ml\\.j2$",
+      ],
+      matchStrings: [
+        // https://github.com/renovatebot/renovate/issues/10993#issuecomment-2367518146
+        "image:\\s*\"?(?<depName>[^\\s:@\"]+)(?::(?<currentValue>[-a-zA-Z0-9.]+))?(?:@(?<currentDigest>sha256:[a-zA-Z0-9]+))?\"?",
+      ],
+    }
+  ],
   
   // Package-specific rules
   packageRules: [
