@@ -108,19 +108,20 @@ This section describes how to set up webhook integration between Forgejo and Sem
    - Select **Github Webhooks** as the authentication method
    - Under the Vault Password option, choose the Forgejo Webhook Secret you created in the previous step
    - Provide a name for the integration
+   - Toggle on **Use project alias** to enable the Integration Matcher feature
    - Save the integration
 
 3. **Add a New Alias**:
-   - After creating the integration, go to its settings
-   - Click the **Add Alias** button
-   - Semaphore will automatically generate an API URL for this integration
-   - Note this generated API URL as you'll need it when setting up the Forgejo webhook
+   - After saving the integration, return to the main **Integrations** page
+   - Click **Add Alias** directly from this page
+   - Semaphore will immediately generate a complete webhook URL automatically
+   - Copy this generated URL - it's what you'll use as the Target URL in Forgejo
 
 4. **Configure Forgejo Repository Webhook**:
    - Navigate to your Forgejo repository
    - Go to **Settings > Webhooks**
    - Click **Add Webhook**
-   - In the **Target URL** field, paste the API URL that was generated when you added the alias in Semaphore
+   - In the **Target URL** field, paste the exact URL that Semaphore generated for your Project Alias
    - In the **Secret** field, enter the same webhook secret you created in step 1
    - Select the events that should trigger the webhook (typically push events)
    - Save the webhook configuration
@@ -133,6 +134,58 @@ When code changes are pushed to your Forgejo repository:
 2. Semaphore validates the webhook signature using the shared secret
 3. If validation succeeds, Semaphore identifies the repository and matches it to configured projects
 4. Semaphore triggers the appropriate task templates based on the repository and event type
+
+### Configuring Integration Matchers
+
+After setting up the basic webhook integration, you'll need to configure matchers to connect incoming webhook payloads to specific Semaphore projects:
+
+1. In your integration settings, click **New Matcher**
+2. Select the Semaphore project you want to connect
+3. Configure the matcher with the following options:
+   - **Body Data Format**: Choose the type of data to match (JSON, String)
+   - **Key**: The key in the webhook payload to match against
+   - **Comparison Method**: Choose how to compare the values (==, !=, Contains)
+   - **Value**: The value to match
+
+**Working with Nested JSON Keys**:
+
+Forgejo webhook payloads often contain nested JSON objects. To match values in nested objects:
+
+- Use dot notation to define the path to the nested key
+- For example, to match `{ key1: { key2: { key3: "value" } } }`, enter `key1.key2.key3` in the Key field
+- The matcher will navigate through the JSON structure to find and compare the nested value
+
+**Example: Matching Renovate Bot Commits**
+
+Here's a practical example of triggering Semaphore tasks when receiving webhook payloads from Renovate Bot updates:
+
+When Renovate Bot pushes a commit, Forgejo sends a webhook payload that includes commit information like this:
+
+```json
+{
+  "ref": "refs/heads/main",
+  "head_commit": {
+    "message": "chore(deps): update node.js to v22\n",
+    // other fields...
+  },
+  // other fields...
+}
+```
+
+To trigger a Node.js update task only when Renovate updates Node.js:
+
+1. Configure your matcher with these settings:
+   - **Body Data Format**: JSON
+   - **Key**: `head_commit.message`
+   - **Comparison Method**: Contains
+   - **Value**: `chore(deps): update node.js`
+
+2. The matcher will:
+   - Extract the commit message from the nested JSON structure
+   - Check if it contains the string "chore(deps): update node.js"
+   - Only trigger the task if the condition is met
+
+This allows you to create specific task templates for different types of updates (Node.js, Python, Docker, etc.) and have them triggered automatically based on the commit message content.
 
 This integration allows automated CI/CD pipelines to run in Semaphore directly from your Forgejo repositories without manual intervention.
 
