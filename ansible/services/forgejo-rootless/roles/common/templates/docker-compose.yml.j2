@@ -64,6 +64,12 @@ services:
         FORGEJO__mailer__SMTP_PORT: {{ forgejo_mailer_smtp_port }}
         FORGEJO__mailer__USER: {{ forgejo_mailer_user }}
 {% endif %}
+
+{% if private_apex_domain|default(false) or public_apex_domain|default(false) %}
+        # https://forgejo.org/docs/latest/admin/config-cheat-sheet/#webhook-webhook
+        # TODO:
+        FORGEJO__webhook__ALLOWED_HOST_LIST: ""
+{% endif %}
     volumes:
       - /etc/timezone:/etc/timezone:ro
       - /etc/localtime:/etc/localtime:ro

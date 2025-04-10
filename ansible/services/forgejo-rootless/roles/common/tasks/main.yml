@@ -20,13 +20,13 @@
 
 - name: Set default operation mode if not defined
   ansible.builtin.set_fact:
-    operation_mode: "{{ operation_mode | default('deploy') }}"
+    operation_mode: "{{ operation_mode | default('check') }}"
 
 - name: Include check tasks
   ansible.builtin.include_tasks: check.yml
   when: operation_mode == 'check'
 
-- name: Include deploy tasks (default)
+- name: Include deploy tasks
   ansible.builtin.include_tasks: deploy.yml
   when: operation_mode == 'deploy'
 
