@@ -1,0 +1,36 @@
+- name: Create directory for docker-compose files
+  ansible.builtin.file:
+    path: "{{ service_project_src }}"
+    state: directory
+    mode: '0755'
+
+- name: Copy docker-compose file
+  ansible.builtin.template:
+    src: "docker-compose{{ '-agent' if inventory_hostname in groups['agents'] }}.yml.j2"
+    dest: "{{ service_project_src }}/docker-compose.yml"
+    mode: '0644'
+  
+- name: Start Dozzle containers
+  community.docker.docker_compose_v2:
+    project_src: "{{ service_project_src }}"
+    state: present
+  register: output
+
+- name: Display Dozzle manager connection info
+  vars:
+    msg: |
+      ===== DOZZLE MANAGER ACCESS INFORMATION =====
+      Manager: {{ inventory_hostname }} ({{ ansible_host }})
+      {% if use_traefik | default(false) %}
+      Access via Traefik:
+      {% if traefik_router_public | default(false) and public_apex_domain | default(false) %}- Public: https://{{ service_name|default('dozzle') }}.{{ public_apex_domain }}{% endif %}
+      {% if traefik_router_private | default(false) and private_apex_domain | default(false) %}- Private: https://{{ service_name|default('dozzle') }}.{{ private_apex_domain }}{% endif %}
+      {% else %}
+      Direct access: http://{{ ansible_host }}:8080
+      {% endif %}
+      =============================================
+  ansible.builtin.debug:
+    msg: "{{ msg.split('\n') }}"
+  when: 
+    - inventory_hostname in groups['managers']
+    - inventory_dir is search('dev')

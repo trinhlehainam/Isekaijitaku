@@ -1,18 +1,17 @@
 ---
-- name: Create directory for docker-compose files
-  ansible.builtin.file:
-    path: "{{ ansible_user_dir }}/Docker/dozzle{{ '_agent' if inventory_hostname in groups['agents'] }}"
-    state: directory
-    mode: '0755'
+- name: Set up Dozzle project source path
+  ansible.builtin.set_fact:
+    project_name: "dozzle{{ '_agent' if inventory_hostname in groups['agents'] }}"
+    service_project_src: "{{ service_project_src|default(ansible_user_dir + '/Docker/' + project_name) }}"
+    
+- name: Set default operation mode if not defined
+  ansible.builtin.set_fact:
+    operation_mode: "{{ operation_mode | default('check') }}"
 
-- name: Copy docker-compose file
-  ansible.builtin.template:
-    src: "docker-compose{{ '-agent' if inventory_hostname in groups['agents'] }}.yml.j2"
-    dest: "{{ ansible_user_dir }}/Docker/dozzle{{ '_agent' if inventory_hostname in groups['agents'] }}/docker-compose.yml"
-    mode: '0644'
-  
-- name: Start Dozzle containers
-  community.docker.docker_compose_v2:
-    project_src: "{{ ansible_user_dir }}/Docker/dozzle{{ '_agent' if inventory_hostname in groups['agents'] }}"
-    state: present
-  register: output
+- name: Include check tasks
+  ansible.builtin.include_tasks: check.yml
+  when: operation_mode == 'check'
+
+- name: Include deploy tasks
+  ansible.builtin.include_tasks: deploy.yml
+  when: operation_mode == 'deploy'
