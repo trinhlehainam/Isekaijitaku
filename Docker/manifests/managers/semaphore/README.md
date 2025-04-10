@@ -89,6 +89,53 @@ This setup is necessary because:
 - The config folder is mounted at `/etc/semaphore` in the container
 - Proper ownership ensures Semaphore can read and write configuration files
 
+## Forgejo Webhook Integration
+
+This section describes how to set up webhook integration between Forgejo and Semaphore to automatically trigger Semaphore tasks when code changes are pushed to Forgejo repositories.
+
+### Configuration Steps
+
+1. **Create Forgejo Webhook Secret in Semaphore UI**:
+   - Navigate to Semaphore UI and go to **Administration > Key Store**
+   - Click **New Key** and select **Password (Webhook Secret)** as the type
+   - Enter a meaningful name (e.g., `forgejo_webhook_secret`)
+   - Generate or input a secure secret string
+   - Save the new key
+
+2. **Add a New Integration**:
+   - Go to **Administration > Integrations**
+   - Click **New Integration**
+   - Select **Github Webhooks** as the authentication method
+   - Under the Vault Password option, choose the Forgejo Webhook Secret you created in the previous step
+   - Provide a name for the integration
+   - Save the integration
+
+3. **Add a New Alias**:
+   - After creating the integration, go to its settings
+   - Click the **Add Alias** button
+   - Semaphore will automatically generate an API URL for this integration
+   - Note this generated API URL as you'll need it when setting up the Forgejo webhook
+
+4. **Configure Forgejo Repository Webhook**:
+   - Navigate to your Forgejo repository
+   - Go to **Settings > Webhooks**
+   - Click **Add Webhook**
+   - In the **Target URL** field, paste the API URL that was generated when you added the alias in Semaphore
+   - In the **Secret** field, enter the same webhook secret you created in step 1
+   - Select the events that should trigger the webhook (typically push events)
+   - Save the webhook configuration
+
+### How It Works
+
+When code changes are pushed to your Forgejo repository:
+
+1. Forgejo sends a webhook payload to the specified Semaphore endpoint
+2. Semaphore validates the webhook signature using the shared secret
+3. If validation succeeds, Semaphore identifies the repository and matches it to configured projects
+4. Semaphore triggers the appropriate task templates based on the repository and event type
+
+This integration allows automated CI/CD pipelines to run in Semaphore directly from your Forgejo repositories without manual intervention.
+
 ## Tailscale Integration
 
 This section explains how to integrate Semaphore with Tailscale for secure networking.
