@@ -1,30 +1,56 @@
+##############################################################################
+# Service Status Verification
+##############################################################################
+
+- name: Check for existing Dozzle services
+  ansible.builtin.include_tasks: check.yml
+
+- name: Set service existence flag
+  ansible.builtin.set_fact:
+    dozzle_service_exists: "{{ check_result is defined and check_result.services is defined and check_result.services | length > 0 }}"
+
+- name: Display service status
+  ansible.builtin.debug:
+    msg: "{{ 'Dozzle service already running - skipping deployment' if dozzle_service_exists else 'No Dozzle services found - proceeding with deployment' }}"
+
+##############################################################################
+# Service Deployment
+##############################################################################
+
 - name: Create directory for docker-compose files
   ansible.builtin.file:
     path: "{{ service_project_src }}"
     state: directory
     mode: '0755'
+  when: not dozzle_service_exists
 
 - name: Build agent connection string for manager
   ansible.builtin.set_fact:
     dozzle_agents_connection_string: "{{ groups['agents'] | map('extract', hostvars, ['ansible_host']) | map('regex_replace', '^(.*)$', '\\1:7007') | join(',') }}"
-  when: inventory_hostname in groups['managers']
+  when: 
+    - inventory_hostname in groups['managers']
+    - not dozzle_service_exists
 
 - name: Display agent connection string (debug)
   ansible.builtin.debug:
     msg: "Agent connection string: {{ dozzle_agents_connection_string }}"
-  when: inventory_hostname in groups['managers']
+  when: 
+    - inventory_hostname in groups['managers']
+    - not dozzle_service_exists
 
 - name: Copy docker-compose file
   ansible.builtin.template:
     src: "docker-compose{{ '-agent' if inventory_hostname in groups['agents'] }}.yml.j2"
     dest: "{{ service_project_src }}/docker-compose.yml"
     mode: '0644'
+  when: not dozzle_service_exists
   
 - name: Start Dozzle containers
   community.docker.docker_compose_v2:
     project_src: "{{ service_project_src }}"
     state: present
   register: output
+  when: not dozzle_service_exists
 
 - name: Display Dozzle manager connection info
   vars:
@@ -44,3 +70,4 @@
   when: 
     - inventory_hostname in groups['managers']
     - inventory_dir is search('dev')
+    - not dozzle_service_exists or output is changed

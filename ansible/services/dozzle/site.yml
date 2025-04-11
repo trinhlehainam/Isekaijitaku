@@ -27,3 +27,12 @@
     - role: common
       vars:
         operation_mode: check
+
+- name: Destroy Dozzle services
+  hosts: all
+  gather_facts: true
+  tags: [never, destroy]
+  roles:
+    - role: common
+      vars:
+        operation_mode: destroy
