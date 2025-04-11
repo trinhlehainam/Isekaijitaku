@@ -4,6 +4,16 @@
     state: directory
     mode: '0755'
 
+- name: Build agent connection string for manager
+  ansible.builtin.set_fact:
+    dozzle_agents_connection_string: "{{ groups['agents'] | map('extract', hostvars, ['ansible_host']) | map('regex_replace', '^(.*)$', '\\1:7007') | join(',') }}"
+  when: inventory_hostname in groups['managers']
+
+- name: Display agent connection string (debug)
+  ansible.builtin.debug:
+    msg: "Agent connection string: {{ dozzle_agents_connection_string }}"
+  when: inventory_hostname in groups['managers']
+
 - name: Copy docker-compose file
   ansible.builtin.template:
     src: "docker-compose{{ '-agent' if inventory_hostname in groups['agents'] }}.yml.j2"

@@ -1,15 +1,16 @@
-# Dozzle Docker Monitoring with Ansible
+# Dozzle Docker Log Monitoring System
 
-This Ansible project sets up a Dozzle monitoring system with a manager-agent architecture using Docker containers. Dozzle provides a real-time web interface to view and search Docker container logs across multiple hosts from a single dashboard.
+This implementation deploys a distributed Dozzle log monitoring system using Ansible automation. The architecture enables centralized access to container logs from multiple Docker hosts through a single web interface with real-time log streaming, filtering, and search capabilities.
 
 ## System Architecture
 
-The setup implements a manager-agent architecture where:
+The implementation uses a two-tier architecture consisting of:
 
-- **Manager Node**: Central server that collects and displays logs from all Docker containers (local and remote)
-- **Agent Nodes**: Servers that expose their Docker container logs to the manager
+- **Manager Node**: Functions as the central aggregation point and web interface, connecting to the Docker daemon on both its host system and remote agent nodes. Runs the primary Dozzle container with full UI capabilities.
 
-This architecture enables centralized log monitoring across your entire Docker infrastructure, eliminating the need to access each server individually.
+- **Agent Nodes**: Run lightweight Dozzle instances in agent mode to expose their local Docker logs via TCP port 7007 without a web interface. Each agent provides the manager with access to its container logs through a secure socket connection.
+
+This distributed model maintains a minimal resource footprint on agent nodes while providing comprehensive log aggregation at the manager level. Network traffic consists of compressed log streams transferred on-demand when viewed through the interface.
 
 ## Project Structure
 
@@ -48,7 +49,7 @@ These VMs provide an isolated environment to test the Dozzle manager-agent setup
 
 - **Docker**: Installed via geerlingguy.docker role (v7.4.5)
 - **Docker Compose**: Used via the community.docker collection (v4.4.0)
-- **Dozzle**: v8.11.7 (amir20/dozzle image)
+- **Dozzle**: v8.12.4 (amir20/dozzle image)
 - **Traefik** (Optional): For routing and TLS termination
 
 ## Prerequisites
