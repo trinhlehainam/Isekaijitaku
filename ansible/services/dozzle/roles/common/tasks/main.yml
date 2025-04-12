@@ -22,3 +22,7 @@
 - name: Include destroy tasks
   ansible.builtin.include_tasks: destroy.yml
   when: operation_mode == 'destroy'
+
+- name: Include upgrade tasks
+  ansible.builtin.include_tasks: upgrade.yml
+  when: operation_mode == 'upgrade'

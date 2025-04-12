@@ -36,3 +36,12 @@
     - role: common
       vars:
         operation_mode: destroy
+
+- name: Upgrade Dozzle services
+  hosts: all
+  gather_facts: true
+  tags: [never, upgrade]
+  roles:
+    - role: common
+      vars:
+        operation_mode: upgrade
