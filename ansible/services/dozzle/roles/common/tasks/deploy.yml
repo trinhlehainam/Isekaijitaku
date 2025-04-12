@@ -24,13 +24,6 @@
     mode: '0755'
   when: not dozzle_service_exists
 
-- name: Build agent connection string for manager
-  ansible.builtin.set_fact:
-    dozzle_agents_connection_string: "{{ groups['agents'] | map('extract', hostvars, ['ansible_host']) | map('regex_replace', '^(.*)$', '\\1:7007') | join(',') }}"
-  when: 
-    - inventory_hostname in groups['managers']
-    - not dozzle_service_exists
-
 - name: Display agent connection string (debug)
   ansible.builtin.debug:
     msg: "Agent connection string: {{ dozzle_agents_connection_string }}"

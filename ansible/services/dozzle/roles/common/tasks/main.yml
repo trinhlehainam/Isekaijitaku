@@ -6,6 +6,11 @@
 - name: Set up Dozzle project source path
   ansible.builtin.set_fact:
     service_project_src: "{{ service_project_src|default(ansible_user_dir + '/Docker/' + project_name) }}"
+
+- name: Build agents connection string for manager
+  ansible.builtin.set_fact:
+    dozzle_agents_connection_string: "{{ groups['agents'] | map('extract', hostvars, ['ansible_host']) | map('regex_replace', '^(.*)$', '\\1:7007') | join(',') }}"
+  when: inventory_hostname in groups['managers']
     
 - name: Set default operation mode if not defined
   ansible.builtin.set_fact:

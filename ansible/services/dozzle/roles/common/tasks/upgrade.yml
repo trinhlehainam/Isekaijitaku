@@ -2,6 +2,10 @@
 # Initialization
 ##############################################################################
 
+- name: Define service_name based on host group
+  ansible.builtin.set_fact:
+    service_name: "{{ 'dozzle' if inventory_hostname in groups['managers'] else 'dozzle-agent' }}"
+
 - name: Set upgrade start time
   ansible.builtin.set_fact:
     upgrade_start_time: "{{ ansible_date_time.iso8601_basic_short }}"
@@ -23,8 +27,8 @@
 
 - name: Extract current running dozzle image information
   ansible.builtin.set_fact:
-    current_service: "{{ check_result.services | selectattr('service', 'equalto', 'dozzle') | first }}"
-  when: check_result.services | selectattr('service', 'equalto', 'dozzle') | list | length > 0
+    current_service: "{{ check_result.services | selectattr('service', 'equalto', service_name) | first }}"
+  when: check_result.services | selectattr('service', 'equalto', service_name) | length > 0
 
 - name: Verify dozzle service information is available
   ansible.builtin.assert:
@@ -35,18 +39,18 @@
 
 - name: Extract current dozzle version using regex
   ansible.builtin.set_fact:
-    current_image_match: "{{ current_service.image | regex_search('^\"?(?P<depName>[^\\s:@\"]+)(?::(?P<currentValue>[-a-zA-Z0-9.]+))?(?:@(?P<currentDigest>sha256:[a-zA-Z0-9]+))?\"?$') }}"
+    current_image_match: "{{ current_service.image | regex_search('^\"?(?P<depName>[^\\s:@\"]+)(?::(?P<currentValue>[-a-zA-Z0-9.]+))?(?:@(?P<currentDigest>sha256:[a-zA-Z0-9]+))?\"?$', '\\1', '\\2', '\\3') }}"
     current_image_tag: omit # Explicitly omit first
   when: current_service.image is defined
 
 - name: Set image tag from regex match if found
   ansible.builtin.set_fact:
-    current_image_name: "{{ current_image_match.depName }}"
-    current_image_tag: "{{ current_image_match.currentValue }}"
+    current_image_name: "{{ current_image_match[0] }}"
+    current_image_tag: "{{ current_image_match[1] }}"
   when:
     - current_image_match is defined
-    - current_image_match.depName is defined
-    - current_image_match.currentValue is defined and current_image_match.currentValue != 'latest'
+    - current_image_match[0] is defined
+    - current_image_match[1] is defined and current_image_match[1] != 'latest'
 
 - name: Check if current image tag is missing and fail
   when: current_image_tag == omit
@@ -86,7 +90,7 @@
 
 - name: Set target image details
   ansible.builtin.set_fact:
-    target_image: "{{ (lookup('file', service_project_src + '/docker-compose.yml') | from_yaml | selectattr('service', 'equalto', service_name) | first).image  }}"
+    target_image: "{{ (lookup('file', service_project_src + '/docker-compose.yml') | from_yaml | selectattr('service', 'equalto', service_name) | first).image }}"
 
 ##############################################################################
 # Compare Versions and Determine if Upgrade is Needed
@@ -94,18 +98,18 @@
 
 - name: Initialize version comparison flags
   ansible.builtin.set_fact:
-    target_image_match: "{{ target_image | regex_search('^\"?(?P<depName>[^\\s:@\"]+)(?::(?P<currentValue>[-a-zA-Z0-9.]+))?(?:@(?P<currentDigest>sha256:[a-zA-Z0-9]+))?\"?$') }}"
+    target_image_match: "{{ target_image | regex_search('^\"?(?P<depName>[^\\s:@\"]+)(?::(?P<currentValue>[-a-zA-Z0-9.]+))?(?:@(?P<currentDigest>sha256:[a-zA-Z0-9]+))?\"?$', '\\1', '\\2', '\\3')}}"
     upgrade_needed: false
     target_image_tag: omit
 
 - name: Set image tag from regex match if found
   ansible.builtin.set_fact:
-    target_image_name: "{{ target_image_match.depName }}"
-    target_image_tag: "{{ target_image_match.currentValue }}"
+    target_image_name: "{{ target_image_match[0] }}"
+    target_image_tag: "{{ target_image_match[1] }}"
   when:
     - target_image_match is defined
-    - target_image_match.depName is defined
-    - target_image_match.currentValue is defined and target_image_match.currentValue != 'latest'
+    - target_image_match[0] is defined
+    - target_image_match[1] is defined and target_image_match[1] != 'latest'
 
 - name: Handle invalid target image tag (restore and fail)
   when: target_image_tag == omit
