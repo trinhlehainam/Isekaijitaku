@@ -221,13 +221,19 @@
         - container_info is defined and container_info.results is defined and container_info.results | length > 0
         - item.Config.Labels['com.docker.compose.service'] == service_name
         
-    - name: Fail playbook due to failed upgrade
-      ansible.builtin.fail:
+    - name: Report failed upgrade
+      vars:
         msg: |
           ERROR: Failed to upgrade {{ service_name }} to version {{ target_image_tag }}.
           Attempted to restore original compose file from {{ compose_backup_path }}:
           {{ 'Success' if target_container is defined and target_container.State.Running and target_container.State.Health.Status == 'healthy' else ('Backup restore failed' if restore_target_backup_stat.stat.exists else 'Backup not found') }}.
           Upgrade aborted.
+      ansible.builtin.debug:
+        msg: "{{ msg.split('\n') }}"
+        
+    - name: Fail playbook due to failed upgrade
+      ansible.builtin.fail:
+        msg: "Failed to upgrade {{ service_name }} to version {{ target_image_tag }}."
 
 ##############################################################################
 # Final Report
@@ -236,7 +242,6 @@
 - name: Final Upgrade Status Report
   ansible.builtin.debug:
     msg:
-      - "Host: {{ inventory_hostname }}"
       - "Initial Version: {{ current_image_name }}:{{ current_image_tag }}"
       - "Target Version: {{ target_image_name }}:{{ target_image_tag }}"
       - "Upgrade Attempted: {{ 'Yes' if upgrade_needed else 'No (Not Required)' }}"
