@@ -49,7 +49,9 @@ These VMs provide an isolated environment to test the Dozzle manager-agent setup
 
 - **Docker**: Installed via geerlingguy.docker role (v7.4.5)
 - **Docker Compose**: Used via the community.docker collection (v4.4.0)
-- **Dozzle**: v8.12.4 (amir20/dozzle image)
+- **Ansible Core**: 2.14+
+- **Python**: 3.9+
+- **Dozzle**: v8.12.7 (amir20/dozzle image)
 - **Traefik** (Optional): For routing and TLS termination
 
 ## Prerequisites
@@ -77,8 +79,20 @@ This creates the three Ubuntu VMs described above in the test infrastructure sec
 
 ### 3. Deploy Dozzle
 
+The main playbook `site.yml` uses tags to control operations:
+
 ```bash
-ansible-playbook -i inventories/dev/hosts.yml site.yml
+# Check current status
+ansible-playbook -i inventories/dev/hosts.yml site.yml --tags check
+
+# Deploy Dozzle (will be skipped if already running)
+ansible-playbook -i inventories/dev/hosts.yml site.yml --tags deploy
+
+# Upgrade Dozzle to the version in templates (includes backup/rollback)
+ansible-playbook -i inventories/dev/hosts.yml site.yml --tags upgrade
+
+# Destroy Dozzle (remove containers and config)
+ansible-playbook -i inventories/dev/hosts.yml site.yml --tags destroy
 ```
 
 ### 4. Access the Dashboard
@@ -96,24 +110,32 @@ https://dozzle.yourdomain.local  # Internal access
 https://dozzle.yourdomain    # Public access
 ```
 
-## Deployment Workflow
+## Playbook Operations
 
-The deployment process follows these steps:
+The playbook supports several operations managed via tags:
 
-1. **Docker Installation**:
-   - Docker is installed on all nodes using the geerlingguy.docker role
-   - The ansible user is added to the docker group for non-root access
+1. **`check`**: Reports the status of Dozzle containers on target hosts without making changes.
 
-2. **Agent Deployment**:
-   - Dozzle agents are deployed on designated agent nodes
-   - Docker Compose files are created in the user's home directory under Docker/dozzle_agent/
-   - Agents expose port 7007 for manager connection
+2. **`deploy`**: 
+   - Ensures Docker is installed and running.
+   - Deploys the Dozzle manager or agent based on inventory groups.
+   - **Skips deployment** if the target service is already running on the host.
+   - Creates configuration files (e.g., `docker-compose.yml`) in `/opt/docker/{{ service_name }}/`.
+   - Starts the containers.
 
-3. **Manager Deployment**:
-   - Agent information is collected and formatted as a connection string
-   - Dozzle manager is deployed with the agent connection string
-   - Docker Compose files are created in the user's home directory under Docker/dozzle/
-   - Manager either exposes port 8080 for direct web access or integrates with Traefik
+3. **`upgrade`**:
+   - Checks if the running version matches the target version in the templates (`docker-compose*.yml.j2`).
+   - If an upgrade is needed:
+     - Backs up the current `docker-compose.yml` file.
+     - Copies the new template.
+     - Pulls the target image using `community.docker.docker_compose_v2_pull`.
+     - Restarts the service with the new configuration.
+     - Waits for the container to become healthy and verifies the new image is running.
+     - **Rollback**: If any step fails, it attempts to restore the backup compose file and restart the original service.
+
+4. **`destroy`**:
+   - Stops and removes the Dozzle containers.
+   - Removes the configuration directory (`/opt/docker/{{ service_name }}/`).
 
 ## Configuration Templates
 
@@ -135,14 +157,14 @@ These templates are processed by Ansible and deployed to each node based on its 
 
 The setup supports integration with Traefik as a reverse proxy with the following configuration options:
 
-| Variable | Description | Default Value |
-|----------|-------------|---------------|
-| `use_traefik` | Enable Traefik integration | `false` |
-| `service_name` | Service name (used as subdomain) | `dozzle` |
-| `traefik_router_public` | Enable public-facing router | `false` |
-| `traefik_router_private` | Enable private/internal router | `false` |
-| `public_apex_domain` | Root domain for public access (without subdomain) | - |
-| `private_apex_domain` | Root domain for private access (without subdomain) | - |
+| Variable                    | Description                                       | Default Value |
+|---------------------------|---------------------------------------------------|---------------|
+| `use_traefik`             | Enable Traefik integration                        | `false`       |
+| `service_name`            | Service name (used as subdomain)                  | `dozzle`      |
+| `traefik_router_public`   | Enable public-facing router                       | `false`       |
+| `traefik_router_private`  | Enable private/internal router                    | `false`       |
+| `public_apex_domain`      | Root domain for public access (without subdomain) | -             |
+| `private_apex_domain`     | Root domain for private access (without subdomain)| -             |
 
 Example inventory configuration (in `group_vars/all/main.yml`):
 
