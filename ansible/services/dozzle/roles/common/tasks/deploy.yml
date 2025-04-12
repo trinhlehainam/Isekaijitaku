@@ -12,6 +12,15 @@
 - name: Display service status
   ansible.builtin.debug:
     msg: "{{ 'Dozzle service already running - skipping deployment' if dozzle_service_exists else 'No Dozzle services found - proceeding with deployment' }}"
+    
+- name: Log dozzle service already running
+  ansible.builtin.debug:
+    msg: "Dozzle service already running - skipping deployment"
+  when: dozzle_service_exists
+  
+- name: End play if dozzle service already exists and running
+  meta: end_host
+  when: dozzle_service_exists
 
 ##############################################################################
 # Service Deployment
@@ -22,28 +31,24 @@
     path: "{{ service_project_src }}"
     state: directory
     mode: '0755'
-  when: not dozzle_service_exists
 
 - name: Display agent connection string (debug)
   ansible.builtin.debug:
     msg: "Agent connection string: {{ dozzle_agents_connection_string }}"
   when: 
     - inventory_hostname in groups['managers']
-    - not dozzle_service_exists
 
 - name: Copy docker-compose file
   ansible.builtin.template:
     src: "{{ docker_compose_template_src }}"
     dest: "{{ service_project_src }}/docker-compose.yml"
     mode: '0644'
-  when: not dozzle_service_exists
   
 - name: Start Dozzle containers
   community.docker.docker_compose_v2:
     project_src: "{{ service_project_src }}"
     state: present
   register: output
-  when: not dozzle_service_exists
 
 - name: Display Dozzle manager connection info
   vars:
@@ -63,4 +68,3 @@
   when: 
     - inventory_hostname in groups['managers']
     - inventory_dir is search('dev')
-    - not dozzle_service_exists or output is changed
