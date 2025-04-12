@@ -130,9 +130,8 @@
         mode: '0644'
 
     - name: Pull updated images
-      community.docker.docker_compose_v2:
+      community.docker.docker_compose_v2_pull:
         project_src: "{{ service_project_src }}"
-        pull: "always"
       register: pull_result
       
     - name: Start services with new docker-compose configuration
@@ -140,10 +139,10 @@
         project_src: "{{ service_project_src }}"
         state: present
       register: services_facts
-      when: pull_result is defined and pull_result.changed
+      when: pull_result is success
       
     - name: Wait for services to be running and healthy
-      when: services_facts is defined
+      when: services_facts is defined and services_facts.containers is defined
       community.docker.docker_container_info:
         name: "{{ item.ID }}"
       loop: "{{ services_facts.containers }}"
@@ -154,17 +153,27 @@
       until: container_info.container.State.Running and container_info.container.State.Health.Status == 'healthy'
       delay: 5
       retries: 5
-    
+
+    - name: Filter dozzle container info
+      ansible.builtin.set_fact:
+        target_container: "{{ item }}"
+      loop: "{{ container_info.results | map(attribute='container') }}"
+      loop_control:
+        label: "{{ item.Name }}"
+      when:
+        - container_info is defined and container_info.results is defined and container_info.results | length > 0
+        - item.Config.Labels['com.docker.compose.service'] == service_name
+        
     - name: Verify container health state
       ansible.builtin.assert:
         that:
-          - container_info.container.State.Health.Status == 'healthy'
-          - container_info.container.State.Running
-          - container_info.container.Image is search(new_image_tag)
+          - target_container.State.Health.Status == 'healthy'
+          - target_container.State.Running
+          - target_container.Config.Image is search(target_image_tag)
         fail_msg: |
           Services failed to reach healthy state after upgrade or new version was not applied correctly.
-          Dozzle health: {{ container_info.container.State.Health.Status }}
-          Image verification: {{ 'OK' if container_info.container.Image is search(new_image_tag) else 'FAILED' }}
+          Dozzle health: {{ target_container.State.Health.Status }}
+          Image verification: {{ 'OK' if target_container.Config.Image is search(target_image_tag) else 'FAILED' }}
           
     - name: Set upgrade success flag
       ansible.builtin.set_fact:
@@ -180,7 +189,6 @@
       ansible.builtin.command:
         cmd: "mv {{ compose_backup_path }} {{ compose_file_path }}"
       when: restore_target_backup_stat.stat.exists
-      changed_when: true
       register: restore_target_backup_result
       
     - name: Start services with original docker-compose configuration
@@ -188,10 +196,10 @@
         project_src: "{{ service_project_src }}"
         state: present
       register: services_facts
-      when: restore_target_backup_result is defined and restore_target_backup_result is succeeded
+      when: restore_target_backup_result is defined and restore_target_backup_result.rc == 0
       
     - name: Wait for services to be running and healthy
-      when: services_facts is defined
+      when: services_facts is defined and services_facts.containers is defined
       community.docker.docker_container_info:
         name: "{{ item.ID }}"
       loop: "{{ services_facts.containers }}"
@@ -203,15 +211,23 @@
       delay: 5
       retries: 5
       
+    - name: Filter dozzle container info
+      ansible.builtin.set_fact:
+        target_container: "{{ item }}"
+      loop: "{{ container_info.results | map(attribute='container') }}"
+      loop_control:
+        label: "{{ item.Name }}"
+      when:
+        - container_info is defined and container_info.results is defined and container_info.results | length > 0
+        - item.Config.Labels['com.docker.compose.service'] == service_name
+        
     - name: Fail playbook due to failed upgrade
-      vars:
+      ansible.builtin.fail:
         msg: |
           ERROR: Failed to upgrade {{ service_name }} to version {{ target_image_tag }}.
           Attempted to restore original compose file from {{ compose_backup_path }}:
-          {{ 'Success' if container_info is defined and container_info.container.State.Running and container_info.container.State.Health.Status == 'healthy' else ('Backup restore failed' if restore_target_backup_stat.stat.exists else 'Backup not found') }}.
+          {{ 'Success' if target_container is defined and target_container.State.Running and target_container.State.Health.Status == 'healthy' else ('Backup restore failed' if restore_target_backup_stat.stat.exists else 'Backup not found') }}.
           Upgrade aborted.
-      ansible.builtin.fail:
-        msg: "{{ msg.split('\n') }}"
 
 ##############################################################################
 # Final Report
