@@ -58,43 +58,12 @@
     msg: "ERROR: Cannot determine the current image tag for '{{ current_service.image }}'. Please ensure the running service uses an explicit, non-latest version tag (e.g., 'amir20/dozzle:v8.12.4') before attempting an upgrade. Upgrade aborted for this host."
 
 ##############################################################################
-# Backup and Prepare for Upgrade
+# Compare Versions and Determine if Upgrade is Needed
 ##############################################################################
-
-- name: Define docker-compose paths
-  ansible.builtin.set_fact:
-    compose_file_path: "{{ service_project_src }}/docker-compose.yml"
-    compose_backup_path: "{{ service_project_src }}/{{ upgrade_start_time }}_docker-compose.yml"
-
-- name: Check if current docker-compose file exists
-  ansible.builtin.stat:
-    path: "{{ compose_file_path }}"
-  register: compose_file_stat
-
-- name: Backup current docker-compose file
-  ansible.builtin.command:
-    cmd: "mv {{ compose_file_path }} {{ compose_backup_path }}"
-  when: compose_file_stat.stat.exists
-  changed_when: true
-  register: backup_result
-
-##############################################################################
-# Configuration Preservation and Template Management
-##############################################################################
-
-- name: Copy updated docker-compose template
-  ansible.builtin.template:
-    src: "docker-compose{{ '-agent' if inventory_hostname in groups['agents'] else '' }}.yml.j2"
-    dest: "{{ service_project_src }}/docker-compose.yml"
-    mode: '0644'
 
 - name: Set target image details
   ansible.builtin.set_fact:
-    target_image: "{{ (lookup('file', service_project_src + '/docker-compose.yml') | from_yaml | selectattr('service', 'equalto', service_name) | first).image }}"
-
-##############################################################################
-# Compare Versions and Determine if Upgrade is Needed
-##############################################################################
+    target_image: "{{ (lookup('template', docker_compose_template_src) | from_yaml).services[service_name].image }}"
 
 - name: Initialize version comparison flags
   ansible.builtin.set_fact:
@@ -111,32 +80,6 @@
     - target_image_match[0] is defined
     - target_image_match[1] is defined and target_image_match[1] != 'latest'
 
-- name: Handle invalid target image tag (restore and fail)
-  when: target_image_tag == omit
-  block:
-    - name: Check if backup exists before restoring
-      ansible.builtin.stat:
-        path: "{{ compose_backup_path }}"
-      register: restore_target_fail_backup_stat
-
-    - name: Restore docker-compose from backup before failing
-      ansible.builtin.command:
-        cmd: "mv {{ compose_backup_path }} {{ compose_file_path }}"
-      when: restore_target_fail_backup_stat.stat.exists
-      changed_when: true
-      register: restore_target_fail_result
-
-    - name: Fail playbook due to invalid target tag
-      vars:
-        msg: |
-          ERROR: Cannot determine a valid, non-latest target image tag from the generated docker-compose.yml.
-          Image specified: '{{ target_image | default('Not Found') }}'.
-          Attempted to restore original compose file from {{ compose_backup_path }}:
-          {{ 'Success' if restore_target_fail_result is defined and restore_target_fail_result.changed else ('Backup not found or restore failed' if restore_target_fail_backup_stat.stat.exists else 'Backup not found') }}.
-          Upgrade aborted.
-      ansible.builtin.fail:
-        msg: "{{ msg.split('\n') }}"
-
 - name: Clean current version string for comparison
   ansible.builtin.set_fact:
     current_version_clean: "{{ current_image_tag | regex_replace('^v?((?:\\d+\\.){0,2}\\d+).*$', '\\1') }}"
@@ -150,12 +93,42 @@
     upgrade_needed: "{{ target_version_clean is version(current_version_clean, '>') }}"
 
 ##############################################################################
+# Backup and Prepare for Upgrade
+##############################################################################
+
+- name: Backup and Prepare for Upgrade
+  when: upgrade_needed
+  block:
+    - name: Define docker-compose paths
+      ansible.builtin.set_fact:
+        compose_file_path: "{{ service_project_src }}/docker-compose.yml"
+        compose_backup_path: "{{ service_project_src }}/{{ upgrade_start_time }}_docker-compose.yml"
+
+    - name: Check if current docker-compose file exists
+      ansible.builtin.stat:
+        path: "{{ compose_file_path }}"
+      register: compose_file_stat
+
+    - name: Backup current docker-compose file
+      ansible.builtin.command:
+        cmd: "mv {{ compose_file_path }} {{ compose_backup_path }}"
+      when: compose_file_stat.stat.exists
+      changed_when: true
+      register: backup_result
+
+##############################################################################
 # Upgrade Process
 ##############################################################################
 
 - name: Perform Upgrade and Verification Steps
   when: upgrade_needed
   block:
+    - name: Copy updated docker-compose template
+      ansible.builtin.template:
+        src: "{{ docker_compose_template_src }}"
+        dest: "{{ service_project_src }}/docker-compose.yml"
+        mode: '0644'
+
     - name: Pull updated images
       community.docker.docker_compose_v2:
         project_src: "{{ service_project_src }}"
