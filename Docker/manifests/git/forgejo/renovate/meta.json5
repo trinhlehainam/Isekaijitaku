@@ -1,0 +1,48 @@
+{
+  "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+  "description": "Override metadata for Forgejo actions",
+  "packageRules": [
+    {
+      "description": "override forgejo/act",
+      "matchPackageNames": [
+        "code.forgejo.org/forgejo/act"
+      ],
+      "sourceUrl": "https://code.forgejo.org/forgejo/act"
+    },
+    {
+      "description": "override upload-artifact action",
+      "matchPackageNames": [
+        "actions/upload-artifact"
+      ],
+      "replacementName": "forgejo/upload-artifact"
+    },
+    {
+      "description": "override download-artifact action",
+      "matchPackageNames": [
+        "actions/download-artifact"
+      ],
+      "replacementName": "forgejo/download-artifact"
+    },
+    {
+      "description": "override registry url and datasource for forgejo actions",
+      "matchPackageNames": [
+        "actions/cascading-pr",
+        "actions/forgejo-release",
+        "actions/setup-forgejo",
+        "forgejo/upload-artifact",
+        "forgejo/download-artifact"
+      ],
+      "overrideDatasource": "gitea-tags",
+      "registryUrls": [
+        "https://code.forgejo.org"
+      ]
+    },
+  ],
+  "hostRules": [
+    {
+      "description": "Make renovate know this is a gitea compatible host",
+      "matchHost": "code.forgejo.org",
+      "hostType": "gitea"
+    }
+  ]
+}

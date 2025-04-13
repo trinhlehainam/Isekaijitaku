@@ -4,7 +4,9 @@
   // Use local renovate-config as a base
   // Format: local>account/repo
   // https://docs.renovatebot.com/config-presets/#self-hosted-git
-  extends: ["local>renovate_account/renovate-config"],
+  extends: [
+    "local>renovate_account/renovate-config"
+  ],
   // Enable dependency dashboard for visibility
   dependencyDashboard: true,
   // Only enable specific managers
@@ -18,7 +20,6 @@
   automerge: true,
   // Skip tests for certain updates
   ignoreTests: true,
-  
   // Custom manager for Ansible Jinja2 templates with Docker images
   customManagers: [
     {
@@ -36,31 +37,48 @@
       ],
     }
   ],
-  
   // Package-specific rules
   packageRules: [
     {
       description: "use fix scope for renovate updates",
-      matchPackageNames: ["renovatebot/renovate"],
+      matchPackageNames: [
+        "renovatebot/renovate"
+      ],
       semanticCommitType: "fix",
     },
     {
       description: "Automerge renovate updates",
-      matchPackageNames: ["renovatebot/renovate"],
-      matchUpdateTypes: ["minor", "patch", "digest"],
+      matchPackageNames: [
+        "renovatebot/renovate"
+      ],
+      matchUpdateTypes: [
+        "minor",
+        "patch",
+        "digest"
+      ],
       automerge: true,
     },
     // Docker image rules
     {
       description: "Pin exact versions for database images",
-      matchDatasources: ["docker"],
-      matchPackageNames: ["postgres"],
+      matchDatasources: [
+        "docker"
+      ],
+      matchPackageNames: [
+        "postgres"
+      ],
       pinDigests: true,
     },
     {
       description: "Group Docker base image updates",
-      matchDatasources: ["docker"],
-      matchPackageNames: ["node", "nginx", "alpine"],
+      matchDatasources: [
+        "docker"
+      ],
+      matchPackageNames: [
+        "node",
+        "nginx",
+        "alpine"
+      ],
       groupName: "Docker base images",
       groupSlug: "docker-base",
     },
