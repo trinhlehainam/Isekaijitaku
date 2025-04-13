@@ -32,12 +32,6 @@
     state: directory
     mode: '0755'
 
-- name: Display agent connection string (debug)
-  ansible.builtin.debug:
-    msg: "Agent connection string: {{ dozzle_agents_connection_string }}"
-  when: 
-    - inventory_hostname in groups['managers']
-
 - name: Copy docker-compose file
   ansible.builtin.template:
     src: "{{ docker_compose_template_src }}"
@@ -66,5 +60,5 @@
   ansible.builtin.debug:
     msg: "{{ msg.split('\n') }}"
   when: 
-    - inventory_hostname in groups['managers']
+    - groups['managers'] is defined and inventory_hostname in groups['managers']
     - inventory_dir is search('dev')
