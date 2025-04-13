@@ -54,13 +54,20 @@ Instead of using Docker Compose, we'll configure Renovate to run through Forgejo
 
 The repository requires these key configuration files with minimal customization. This setup implements a centralized configuration pattern that reduces duplication and ensures consistency across repositories:
 
-1. **default.json** - Shared preset configuration that can be extended by repositories:
-   - Contains platform-specific compatibility settings
-   - Includes GitHub Actions version constraints for Forgejo/Gitea compatibility
-   - Provides common configuration defaults that work well with Forgejo/Gitea
+1. **`default.json`** - (In Monitored Repo/Example Setup) Acts as a lookup file. It uses `extends` to point to the actual shared preset configuration files (`default.json5`, `meta.json5`) located within the central `renovate_account/renovate-config` repository. **Note:** This file must be in plain JSON format (not JSON5).
+   ```json
+   // Example content for default.json in a monitored repository
+   {
+     "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+     "extends": [
+       "local>renovate_account/renovate-config:default.json5",
+       "local>renovate_account/renovate-config:meta.json5"
+     ]
+   }
+   ```
 
-2. **config.js** - Main entry point for Renovate:
-   - **Required modifications:**
+2. **`config.js`** - Main entry point for Renovate when run directly (less relevant for CI/CD setup using environment variables for platform config):
+   - **Required modifications if used directly:**
      - `gitAuthor`: Update with your bot's email identity (e.g., "Renovate Bot <renovate-bot@example.com>")
      - `endpoint`: Set to your Forgejo/Gitea API endpoint (e.g., "https://git.example.com/api/v1/")
      - `autodiscoverFilter`: Configure which repositories to scan using glob or regex patterns:
@@ -137,7 +144,7 @@ The repository requires these key configuration files with minimal customization
          - Example: `["/my-org\/[a-z]+-service/"]` matches lowercase service repos
    - All other settings can remain at their defaults
 
-2. **default.json** - Default configuration preset:
+2. **default.json5** - Default configuration preset:
    - **Important Note:** In Renovate 39.233.5, the main default preset file must be in .json format (not .json5)
    - Use plain JSON format without comments for this specific file
    - Contains recommended presets that work for most repositories
@@ -159,277 +166,194 @@ A key component of this setup is a centralized configuration repository (`renova
 
 1. **Create a dedicated repository** in your Forgejo instance named `renovate-config` under the `renovate_account` user
 
-2. **Define the main default preset** in this repository using a `default.json` file (must be .json, not .json5):
-   
-   **File Format Notes:**
-   - The primary `default.json` file must use plain JSON format (not JSON5)
-   - Other reusable presets (like `javascript.json5`, `python.json5`) can use JSON5 format
-   ```json5
-   {
-     "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-     "extends": [
-       "config:base",
-       ":semanticCommits",
-       ":timezone(Asia/Tokyo)"
-     ],
-     "rangeStrategy": "pin",
-     "packageRules": [
-       {
-         "description": "Group all non-major dependencies",
-         "matchUpdateTypes": ["minor", "patch"],
-         "groupName": "all non-major dependencies", 
-         "groupSlug": "all-minor-patch"
-       }
-     ]
-   }
-   ```
-
-3. **Extend from this central preset** in each repository's `renovate.json5` file:
-   ```json5
-   {
-     "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-     "extends": [
-       "local>renovate_account/renovate-config"
-     ]
-   }
-   ```
-
-This approach allows organization-wide control over Renovate behavior while still letting individual repositories add their specific customizations when needed.
-
-#### Implementation Details
-
-1. **Configuration Repository Structure**
-   - The centralized repository can contain multiple preset files for different project types
-   - Example structure:
+2. **Define the Core Presets** within this repository:
+   - **`default.json5`**: This file should contain your primary, shared Renovate configurations applicable to most repositories. JSON5 format is recommended for readability (allows comments).
+     ```json5
+     // renovate-config/default.json5 - Example Content
+     {
+       "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+       "extends": [
+         "config:base", // Recommended base configuration from Renovate
+         ":dependencyDashboard",
+         ":enableVulnerabilityAlertsWithLabel('security')",
+         ":ignoreModulesAndTests",
+         ":label(renovate)",
+         ":prConcurrentLimit20",
+         ":prHourlyLimit2",
+         ":rebaseStalePrs",
+         ":timezone(Asia/Tokyo)" // Set your desired timezone
+       ],
+       "rangeStrategy": "pin", // Or "update-lockfile", "bump"
+       "packageRules": [
+         {
+           "description": "Group all non-major dependencies",
+           "matchUpdateTypes": ["minor", "patch"],
+           "groupName": "all non-major dependencies", 
+           "groupSlug": "all-minor-patch"
+         }
+         // Add other organization-wide rules here
+       ]
+     }
      ```
-     renovate-config/
-     ├── default.json5     # Base configuration for all repositories
-     ├── javascript.json5  # JavaScript/Node.js specific settings
-     ├── python.json5      # Python specific settings
-     └── docker.json5      # Docker image update settings
+   - **`meta.json5`**: This file is intended for platform-specific configurations, overrides, or metadata relevant to the Forgejo/Gitea environment. Separating this keeps the `default.json5` focused on general dependency rules.
+     ```json5
+     // renovate-config/meta.json5 - Example Content
+     {
+       "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+       // Add Forgejo/Gitea specific settings if needed
+       // e.g., hostRules, specific package manager versions, etc.
+       "platformCommit": true // Example: Force platform commit support if needed
+     }
+     ```
+   - **Optional Presets**: You can add other `.json5` files for specific project types (e.g., `javascript.json5`, `python.json5`, `docker.json5`) containing relevant rules, which can be extended by repositories as needed.
+   - **Advanced Preset Example: Docker in Ansible Templates**
+     Renovate can detect and update Docker images in Ansible Jinja2 templates using a custom regex manager defined within a preset (e.g., in your central `renovate-config` repository or a specific `docker.json5` preset):
+     ```json5
+     // Example definition within a .json5 preset file
+     {
+       // Ensure the regex manager is enabled globally or within this preset
+       "enabledManagers": ["custom.regex"], // ... potentially others
+       "customManagers": [
+         {
+           "description": "Detects/updates Docker images in Ansible Jinja2 templates",
+           "customType": "regex",
+           "datasourceTemplate": "docker",
+           "fileMatch": [
+             // Matches docker-compose.yaml.j2, compose.yml.j2 etc.
+             "(^|/)(?:docker-)?compose[^/]*\\.ya?ml\\.j2$"
+           ],
+           "matchStrings": [
+             // Regex to find image lines, capturing depName and currentValue/Digest
+             // Ref: https://github.com/renovatebot/renovate/issues/10993#issuecomment-2367518146
+             "image:\\s*\"?(?<depName>[^\\s:@\"]+)(?::(?<currentValue>[-a-zA-Z0-9.]+))?(?:@(?<currentDigest>sha256:[a-zA-Z0-9]+))?\"?"
+           ]
+         }
+       ]
+     }
+     ```
+     This allows Renovate to track Docker image dependencies even when defined within Ansible's Jinja2 templating structure.
+
+3. **Extend from the Central Presets** in each monitored repository:
+   - **Recommended Method (using `default.json` lookup):** Create a `default.json` file (must be plain JSON, no comments) in the monitored repository's configuration directory (e.g., `.github/renovate/`, `.forgejo/renovate/`). This file explicitly tells Renovate which presets to load from the central repository.
+     ```json
+     // .github/renovate/default.json - In Monitored Repo
+     {
+       "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+       "extends": [
+         "local>renovate_account/renovate-config:default.json5",
+         "local>renovate_account/renovate-config:meta.json5"
+       ]
+     }
+     ```
+   - **Alternative Method (using `renovate.json5`):** If you don't use the `default.json` lookup, you can create a `renovate.json5` file in the monitored repository and extend the central configuration implicitly or explicitly.
+     ```json5
+     // .github/renovate/renovate.json5 - In Monitored Repo
+     {
+       "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+       "extends": [
+         "local>renovate_account/renovate-config" // Implicitly uses default.json/default.json5 from central repo
+         // Or explicitly extend specific files:
+         // "local>renovate_account/renovate-config:default.json5",
+         // "local>renovate_account/renovate-config:meta.json5"
+       ]
+       // Add repository-specific overrides here if necessary
+     }
      ```
 
-2. **Extending Multiple Presets**
-   Repositories can extend multiple presets in their configuration:
-   ```json5
-   {
-     "extends": [
-       "local>renovate_account/renovate-config",
-       "local>renovate_account/renovate-config:javascript"
-     ]
-   }
-   ```
+This centralized approach provides consistency while allowing repository-specific adjustments.
 
-3. **Workflow Scheduling**
-   Configure an appropriate schedule in your workflow file to balance timely updates with resource usage:
-   ```yaml
-   on:
-     schedule:
-       # Run every day at 2:00 AM
-       - cron: '0 2 * * *'
-     # Allow manual triggers for testing
-     workflow_dispatch:
-   ```
+## CI/CD Workflow Integration (Forgejo Actions)
 
-4. **Monorepo Support**
-   For monorepos with multiple package managers:
-   ```json5
-   {
-     "extends": ["local>renovate_account/renovate-config"],
-     "packageRules": [
-       {
-         "matchPaths": ["frontend/**"],
-         "extends": ["local>renovate_account/renovate-config:javascript"]
-       },
-       {
-         "matchPaths": ["backend/**"],
-         "extends": ["local>renovate_account/renovate-config:python"]
-       }
-     ]
-   }
-   ```
+Renovate integrates well with Forgejo Actions (or Gitea Actions) for automated dependency updates using a workflow file (e.g., `.forgejo/workflows/renovate.yml`).
 
-#### Required Repository Secrets
+### Workflow File Overview
 
-Add these secrets to your Forgejo repository settings:
+A workflow file orchestrates the Renovate runs. Key components typically include:
 
-1. **RENOVATE_TOKEN** (required): Forgejo Personal Access Token with repo and issue access
-2. **RENOVATE_GITHUB_COM_TOKEN** (recommended): GitHub token for fetching changelogs and bypassing API rate limits
-   - Create a GitHub.com fine-grained PAT with only these permissions:
-     - Repository access: Public repositories (read-only)
-   - This minimal permission is sufficient for Renovate to fetch changelogs from public GitHub repositories
-3. **DOCKER_USERNAME** (recommended): Docker Hub username for accessing repository metadata
-4. **DOCKER_PASSWORD** (recommended): Docker Hub token
-   - Create a Docker Hub PAT with these settings:
-     - Access permissions: "Read-only"
-     - Access scope: "Public Repo Read-only"
-   - Provides higher rate limits compared to unauthenticated requests
-   - Only needed for Docker image updates
-5. **No separate infrastructure**: Leverage existing Forgejo runners
-6. **Better integration**: Credentials are stored as CI/CD secrets
+- **Triggers**: Defines when the workflow runs (e.g., scheduled `cron` runs, manual `workflow_dispatch`).
+- **Job Setup**: Configures the runner environment.
+- **Container Execution**: Runs Renovate within its official Docker container, pulling the image from GitHub Container Registry (`ghcr.io`).
+- **Credentials**: Provides necessary credentials (via secrets) for pulling the container image and interacting with APIs.
+- **Environment Variables**: Configures Renovate's runtime behavior.
 
-#### Using Preset Configurations in Your Repositories
+### Required Secrets
 
-After setting up the central `renovate-config` repository, you can leverage its configurations in your other repositories. This eliminates configuration duplication and ensures consistent behavior across your projects.
+Add the following secrets to your Forgejo repository settings (usually under `Settings -> Secrets`) to provide sensitive credentials to the workflow:
 
-1. **Basic Repository Configuration**
+1.  **`RENOVATE_TOKEN`**: Forgejo Personal Access Token with `write:repository` scope for API access (required).
+2.  **`RENOVATE_GITHUB_COM_USERNAME`**: Your GitHub username. Used for authenticating with `ghcr.io` to pull the Renovate container image.
+3.  **`RENOVATE_GITHUB_COM_TOKEN`**: GitHub Personal Access Token (classic or fine-grained with `read:packages` scope). Needed for:
+    - Authenticating with `ghcr.io` (along with the username) to prevent rate limits.
+    - Fetching changelogs and release notes from GitHub.com repositories.
+4.  **`DOCKER_USERNAME`** (Optional): Your Docker Hub username if you need higher rate limits for Docker Hub images.
+5.  **`DOCKER_PASSWORD`** (Optional): Your Docker Hub access token (not password) with read-only access.
 
-   Create a `renovate.json` or `renovate.json5` file in the root of your repository with contents like:
+*Note on Naming:* Forgejo/Gitea CI often disallows secrets prefixed with `GITHUB_` or `GITEA_`, hence the `RENOVATE_` prefix is recommended for the GitHub credentials used here.
 
-   ```json5
-   {
-     "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-     "extends": ["local>renovate_account/renovate-config"]
-   }
-   ```
+### Runtime Environment Variables
 
-   This references the renovate-config repository under your dedicated Renovate bot account.
+These environment variables are typically set within the workflow's `env:` block (often using the secrets defined above) to configure how Renovate operates:
 
-2. **Using Specific Presets**
+-   `RENOVATE_TOKEN`: Set using `${{ secrets.RENOVATE_TOKEN }}`. Provides the Forgejo API token to Renovate.
+-   `LOG_LEVEL`: Controls the verbosity of Renovate's logs (e.g., `info`, `debug`).
+-   `DOCKER_USERNAME`, `DOCKER_PASSWORD`: Set using secrets if needed for Docker Hub authentication.
 
-   You can extend specific presets from your central config by using the colon syntax:
+*Note:* In this setup, core configurations like the platform endpoint and autodiscovery settings are typically defined within the `config.js` file, not directly as environment variables in the workflow.
 
-   ```json5
-   {
-     "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-     "extends": [
-       "local>renovate_account/renovate-config",
-       "local>renovate_account/renovate-config:npm-deps"
-     ]
-   }
-   ```
-
-   This extends both the default preset and the npm-specific preset.
-
-3. **Customizing Repository-Specific Settings**
-
-   You can override specific settings from the centralized configuration:
-
-   ```json5
-   {
-     "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-     "extends": ["local>renovate_account/renovate-config"],
-     "schedule": ["after 10pm and before 5am"],
-     "labels": ["dependencies", "automated"],
-     "assignees": ["your-username"]
-   }
-   ```
-
-#### Configure CI/CD Secrets
-
-In your Forgejo repository settings:
-
-1. Go to Settings → Secrets
-2. Add the required secrets:
-   - `RENOVATE_TOKEN`: Your Forgejo Personal Access Token created earlier for API access (required)
-   - `RENOVATE_GITHUB_COM_USERNAME`: Your GitHub username for Container Registry authentication (note: Forgejo/Gitea CI doesn't allow secrets with `GITHUB_` or `GITEA_` prefixes)
-   - `RENOVATE_GITHUB_COM_TOKEN`: GitHub Personal Access Token for:
-     - Authenticating with GitHub Container Registry to pull the Renovate image
-     - Fetching changelogs and metadata from GitHub repositories
-     - Bypassing GitHub API rate limits
-   - `DOCKER_USERNAME`: Your Docker Hub username (optional, for higher rate limits)
-   - `DOCKER_PASSWORD`: Your Docker Hub token with read-only access (optional)
-
-#### Customize the Workflow
-
-The provided `.forgejo/workflows/renovate.yml` file includes:
-
-- Hourly scheduled runs with `cron: "0 * * * *"`
-- Manual trigger capability with `workflow_dispatch`
-- Container-based approach using the official Renovate image from GitHub Container Registry
-- GitHub credentials to avoid rate limiting when pulling the container image
-- Environment variables for configuration
+### Example Workflow (`.forgejo/workflows/renovate.yml`)
 
 ```yaml
-container:
-  # https://github.com/renovatebot/renovate/pkgs/container/renovate
-  image: ghcr.io/renovatebot/renovate:39.236.2
-  credentials:
-    username: ${{ secrets.RENOVATE_GITHUB_COM_USERNAME }}
-    password: ${{ secrets.RENOVATE_GITHUB_COM_TOKEN }}
+name: Renovate Dependencies
+
+on:
+  schedule:
+    - cron: '0 18 * * *' # Adjust schedule (UTC)
+  workflow_dispatch: # Allows manual runs
+
+jobs:
+  renovate:
+    runs-on: ubuntu-latest # Or your preferred runner
+    container:
+      # Official Renovate image from GitHub Container Registry
+      # Pin to a specific stable version is recommended
+      image: ghcr.io/renovatebot/renovate:39.236.2
+      credentials:
+        # Use secrets for ghcr.io authentication
+        username: ${{ secrets.RENOVATE_GITHUB_COM_USERNAME }}
+        password: ${{ secrets.RENOVATE_GITHUB_COM_TOKEN }}
+      env:
+        # --- Core Runtime Configuration ---
+        RENOVATE_TOKEN: ${{ secrets.RENOVATE_TOKEN }}
+        # --- Logging ---
+        LOG_LEVEL: info
+        # --- Optional Docker Hub Auth ---
+        # DOCKER_USERNAME: ${{ secrets.DOCKER_USERNAME }}
+        # DOCKER_PASSWORD: ${{ secrets.DOCKER_PASSWORD }}
 ```
 
-This configuration prevents the `Error response from daemon: Head "https://ghcr.io/v2/renovatebot/renovate/manifests/[version]": denied: denied` error that commonly occurs due to GitHub Container Registry rate limits.
+### Explanation of Workflow Configuration
 
-You can customize the schedule, container version, and other parameters according to your needs.
+*   **Container Credentials**: `RENOVATE_GITHUB_COM_USERNAME` and `RENOVATE_GITHUB_COM_TOKEN` secrets authenticate with `ghcr.io` to pull the Renovate Docker image securely and avoid rate limits.
+*   **Environment Variables (`env:`)**: These configure Renovate's operation:
+    *   `RENOVATE_TOKEN`: Provides the necessary Forgejo API key (from the secret).
+    *   `LOG_LEVEL`: Adjusts logging detail.
+    *   Optional Docker Hub credentials can be passed if needed by your dependencies.
+    *   (Other settings like endpoint, platform, and discovery are handled by `config.js`)
 
-#### Renovate Configuration
+This integrated setup ensures Renovate runs with the correct authentication and configuration within your CI/CD pipeline.
 
-This setup uses JSON5 format for configuration files, which offers several advantages over standard JSON:
+## Onboarding New Repositories
 
-- Support for comments within configuration files
-- Allows trailing commas for easier maintenance
-- Unquoted keys for cleaner, more readable configuration
+After setting up the central configuration repository and the CI/CD workflow, follow these steps to enable Renovate for a new repository:
 
-The main configuration files are:
-
-- `default.json5` - Primary configuration including platform settings
-- `renovate.json5` - Used for onboarding new repositories
-- `security.json5` - Security-specific configuration for vulnerability detection
-- `config.js` - JavaScript configuration with environment variable support
-
-You can customize these files to control how Renovate behaves:
-
-- Set `repositories` to explicitly list repositories to monitor
-- Enable `autodiscover` to find repositories automatically
-- Configure dependency update rules and schedules
-- Set PR behavior and limits
-
-See the [Renovate Configuration Options](https://docs.renovatebot.com/configuration-options/) documentation for all available options.
-
-### 3. First Run and Onboarding
-
-1. Once the workflow is set up, trigger the workflow manually from your Forgejo repository:
-   - Navigate to Actions → Workflows → Renovate
-   - Click "Run workflow"
-
-2. Monitor the workflow run to ensure it's successful:
-   - Check the logs for connection to Forgejo
-   - Verify that Renovate can authenticate with your Forgejo instance
-
-3. Renovate will create an "Onboarding PR" in each repository it has access to
-4. Accept the Onboarding PR to confirm that you want Renovate to monitor the repository
-5. A `renovate.json5` file will be added to your repository with basic configuration
-
-The workflow will continue to run on the scheduled interval you've configured.
-
-## Supported File Formats
-
-### Docker in Ansible Templates
-
-Renovate detects and updates Docker images in Ansible Jinja2 templates using a custom regex manager:
-
-```json5
-{
-  // Enable custom manager for Ansible templates
-  enabledManagers: [
-    ...,
-    "custom.regex"
-  ],
-  
-  customManagers: [
-    {
-      description: "Detects and updates Docker images in Ansible Jinja2 templates",
-      customType: "regex", // explicitly set for clarity vs. jsonata
-      datasourceTemplate: "docker",
-      fileMatch: [
-        // Standard Docker Compose pattern with Jinja2 extension
-        "(^|/)(?:docker-)?compose[^/]*\.ya?ml\.j2$"
-      ],
-      matchStrings: [
-        // https://github.com/renovatebot/renovate/issues/10993#issuecomment-2367518146
-        "image:\\s*\"?(?<depName>[^\\s:@\"]+)(?::(?<currentValue>[-a-zA-Z0-9.]+))?(?:@(?<currentDigest>sha256:[a-zA-Z0-9]+))?\"?"
-      ]
-    }
-  ]
-}
-```
-
-The custom manager handles both direct version references and templated versions in Ansible files. Direct versions like `image: nginx:1.21.3` use standard syntax detection. For Jinja2 template variables, the system captures variable names through pattern matching. Adding a comment with `# renovate: depName=package-name` provides the necessary context for proper dependency tracking.
-
-The implementation uses simplified regex patterns that remain compatible with JSON5 while accurately detecting image references in template contexts. The `extractVersionTemplate` handles templated versions by returning a placeholder version that triggers proper dependency detection without modifying Ansible variables.
-
-The sample `docker-compose.yml.j2` file demonstrates these patterns with a complete Traefik integration implementation.
+1. **Ensure Access**: Confirm the `renovate_account` user (or the user associated with `RENOVATE_TOKEN`) has at least `Write` access to the repository.
+2. **Update Filter (if needed)**: If your `RENOVATE_AUTODISCOVER_FILTER` doesn't already include the new repository, update the filter pattern in your workflow file's environment variables.
+3. **Create Config Files**: Add the necessary configuration file(s) to the repository (usually in `.github/renovate/` or `.forgejo/renovate/`):
+   *   If using the **Recommended Method**, add `default.json` pointing to the central presets (see step 3 in Centralized Configuration Setup).
+   *   If using the **Alternative Method**, add `renovate.json5` extending the central presets.
+   *   _Initially, you might let Renovate create the onboarding PR first, which will add a basic `renovate.json5`, and then you can modify or replace it with your preferred setup (`default.json` or a more specific `renovate.json5`)._
+4. **Trigger Renovate**: Wait for the next scheduled run or trigger the workflow manually.
+5. **Merge the Onboarding PR**: Renovate should create an initial onboarding pull request. Review and merge this PR to complete the setup.
 
 ## Troubleshooting
 
