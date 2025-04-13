@@ -334,5 +334,6 @@ For detailed configuration and customization, refer to these official resources:
 - [Self-hosted Renovate Configuration Options](https://docs.renovatebot.com/self-hosted-configuration/)
 - [Renovate Self-Hosting Examples](https://docs.renovatebot.com/examples/self-hosting/)
 - [Gitea Renovate Config](https://gitea.com/gitea/renovate-config/src/branch/main/README.md)
+- [Forgejo Renovate Config](https://code.forgejo.org/forgejo/renovate-config)
 - [SpotOnInc Renovate Config](https://github.com/SpotOnInc/renovate-config)
 - [GitLab Renovate Runner](https://gitlab.com/renovate-bot/renovate-runner)

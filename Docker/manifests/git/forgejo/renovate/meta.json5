@@ -10,18 +10,28 @@
       "sourceUrl": "https://code.forgejo.org/forgejo/act"
     },
     {
-      "description": "override upload-artifact action",
+      "description": "temporary override upload-artifact action until v4 supports GHES",
       "matchPackageNames": [
         "actions/upload-artifact"
       ],
-      "replacementName": "forgejo/upload-artifact"
+      "replacementName": "forgejo/upload-artifact",
+      "replacementVersion": "v4"
     },
     {
-      "description": "override download-artifact action",
+      "description": "temporary override download-artifact action until v4 supports GHES",
       "matchPackageNames": [
         "actions/download-artifact"
       ],
-      "replacementName": "forgejo/download-artifact"
+      "replacementName": "forgejo/download-artifact",
+      "replacementVersion": "v4"
+    },
+    {
+      "description": "temporary disable upload-artifact and download-artifact actions until v4 supports GHES",
+      "matchPackageNames": [
+        "forgejo/upload-artifact",
+        "forgejo/download-artifact"
+      ],
+      "enabled": false
     },
     {
       "description": "override registry url and datasource for forgejo actions",
