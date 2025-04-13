@@ -151,6 +151,11 @@ The repository requires these key configuration files with minimal customization
    *See the actual `default.json5` file in the `renovate_account/renovate-config` repository for the full configuration.*
 
 3. **meta.json5** - Example onboarding configuration:
+   - This file is intended for platform-specific configurations, overrides, or metadata relevant to the Forgejo/Gitea environment. Separating this keeps `default.json5` focused on general dependency rules.
+   - Key configurations include:
+     - `hostRules` to identify `code.forgejo.org` as a `gitea` type host.
+     - `packageRules` to override datasources and registry URLs for specific Forgejo actions.
+     - **Temporary workarounds** for GitHub Actions `upload-artifact` and `download-artifact` (v4+), which currently have compatibility issues with Forgejo/GHES. These rules attempt replacements and then disable them pending full compatibility.
    - This serves as an example of how to set up Renovate in individual repositories
    - Will be used as a template when onboarding new repositories
    - Can use JSON5 format with comments for better readability
@@ -277,38 +282,18 @@ These environment variables are typically set within the workflow's `env:` block
 
 This integrated setup ensures Renovate runs with the correct authentication and configuration within your CI/CD pipeline.
 
-## Onboarding New Repositories
-
-After setting up the central configuration repository and the CI/CD workflow, follow these steps to enable Renovate for a new repository:
-
-1. **Ensure Access**: Confirm the `renovate_account` user (or the user associated with `RENOVATE_TOKEN`) has at least `Write` access to the repository.
-2. **Update Filter (if needed)**: If your `RENOVATE_AUTODISCOVER_FILTER` doesn't already include the new repository, update the filter pattern in your workflow file's environment variables.
-3. **Create Config Files**: Add the necessary configuration file(s) to the repository (usually in `.github/renovate/` or `.forgejo/renovate/`):
-   *   If using the **Recommended Method**, add `default.json` pointing to the central presets (see step 3 in Centralized Configuration Setup).
-   *   If using the **Alternative Method**, add `renovate.json5` extending the central presets.
-   *   _Initially, you might let Renovate create the onboarding PR first, which will add a basic `renovate.json5`, and then you can modify or replace it with your preferred setup (`default.json` or a more specific `renovate.json5`)._
-4. **Trigger Renovate**: Wait for the next scheduled run or trigger the workflow manually.
-5. **Merge the Onboarding PR**: Renovate should create an initial onboarding pull request. Review and merge this PR to complete the setup.
-
 ## Troubleshooting
 
 ### GitHub Actions Compatibility
 
-Forgejo CI environments require specific handling for artifact actions:
+Forgejo CI environments currently have limitations with newer GitHub Actions versions:
 
 1. **Official GitHub Actions limitations**
-   - GitHub's `actions/upload-artifact` and `actions/download-artifact` v4+ use APIs unavailable in Forgejo
-   - The default.json preset constrains these actions to v3.x for compatibility
-   - This limitation applies to all Forgejo/GHES environments until GitHub adds native support
-
-2. **Forgejo-specific forks**
-   - Alternative implementation: `forgejo/upload-artifact@v4` and `forgejo/download-artifact@v4`
-   - These forks implement container-native access patterns compatible with Forgejo CI
-   - The workflow in this repository demonstrates using these Forgejo-specific forks
-
-3. **Concurrency limitations**
-   - Forgejo/Gitea CI doesn't fully support GitHub Actions concurrency features
-   - The workflow is configured to avoid these features to prevent race conditions
+   - GitHub's `actions/upload-artifact` and `actions/download-artifact` v4+ use APIs unavailable in current Forgejo/GHES versions.
+   - The central `meta.json5` preset includes temporary rules attempting to replace these with Forgejo equivalents and then disables them as a workaround. Monitor Forgejo releases for full v4 compatibility.
+2. **Forgejo-specific Actions**
+   - Use actions from `code.forgejo.org` where possible (e.g., `forgejo/setup-forgejo`).
+   - The `meta.json5` preset includes rules to correctly identify and source these actions.
 
 ### Common Issues
 
