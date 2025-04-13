@@ -9,6 +9,7 @@
 - name: Set upgrade start time
   ansible.builtin.set_fact:
     upgrade_start_time: "{{ ansible_date_time.iso8601_basic_short }}"
+    backup_timestamp: "{{ lookup('pipe', 'date +%Y-%m-%d_%H-%M') }}"
 
 ##############################################################################
 # Current Version Analysis
@@ -102,7 +103,7 @@
     - name: Define docker-compose paths
       ansible.builtin.set_fact:
         compose_file_path: "{{ service_project_src }}/docker-compose.yml"
-        compose_backup_path: "{{ service_project_src }}/{{ upgrade_start_time }}_docker-compose.yml"
+        compose_backup_path: "{{ service_project_src }}/{{ backup_timestamp }}.docker-compose.yml"
 
     - name: Check if current docker-compose file exists
       ansible.builtin.stat:

@@ -11,10 +11,6 @@
 
 - name: Display service status
   ansible.builtin.debug:
-    msg: "{{ 'Dozzle service already running - skipping deployment' if dozzle_service_exists else 'No Dozzle services found - proceeding with deployment' }}"
-    
-- name: Log dozzle service already running
-  ansible.builtin.debug:
     msg: "Dozzle service already running - skipping deployment"
   when: dozzle_service_exists
   

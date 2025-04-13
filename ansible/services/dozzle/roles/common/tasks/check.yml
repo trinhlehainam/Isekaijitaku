@@ -12,7 +12,7 @@
 # File and Directory Existence Checks
 #################################################
 
-- name: Gather docker-compose and bind mount files statistics
+- name: Gather docker-compose file statistics if found
   ansible.builtin.stat:
     path: "{{ item.path }}"
   loop:
@@ -88,7 +88,7 @@
 - name: Create file check results
   ansible.builtin.set_fact:
     file_check_stats: "{{ dict(file_check_stats_keys | zip(file_check_stats)) }}"
-    
+
 - name: Create check result summary
   ansible.builtin.set_fact:
     check_result_summary: |
