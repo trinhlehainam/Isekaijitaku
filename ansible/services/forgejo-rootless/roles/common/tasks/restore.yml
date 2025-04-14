@@ -15,9 +15,11 @@
 # Initialization and Setup
 #################################################
 
-- name: Set up backup directory variable
-  ansible.builtin.set_fact:
-    forgejo_backup_dir: "{{ forgejo_backup_dir|default(service_project_src + '/backups') }}"
+- name: Verify Forgejo backup directory is defined
+  ansible.builtin.assert:
+    that:
+      - forgejo_backup_dir is defined
+    fail_msg: "Required variable forgejo_backup_dir is not defined. Please specify the path to the backup directory."
 
 - name: Gather backup directory information
   ansible.builtin.stat:
