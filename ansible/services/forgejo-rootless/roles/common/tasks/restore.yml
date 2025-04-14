@@ -210,6 +210,7 @@
       when: forgejo_backup_file.stat.exists
 
     - name: Ensure Forgejo configuration directory exists and has proper ownership
+      become: true
       ansible.builtin.file:
         path: "{{ forgejo_conf_dir }}"
         state: directory
@@ -281,9 +282,23 @@
         success_msg: "All required items for Forgejo restoration are available"
 
     - name: Move Forgejo restore items
+      become: true
       ansible.builtin.command: mv "{{ item.src }}" "{{ item.dest }}"
       loop: "{{ forgejo_restore_items }}"
       when: item.exists
+
+    - name: Set correct ownership for Forgejo restore items
+      become: true
+      ansible.builtin.file:
+        path: "{{ item.dest }}"
+        owner: "{{ forgejo_user_id }}"
+        group: "{{ forgejo_group_id }}"
+      loop: "{{ forgejo_restore_items }}"
+      loop_control:
+        label: "{{ item.dest }}"
+      when: item.exists
+
+      # TODO: Set success moved flag for each item for reporting
 
     - name: Mark Forgejo restoration as successful
       ansible.builtin.set_fact:
@@ -386,6 +401,7 @@
       | PostgreSQL | {{ 'SUCCESS ✅' if postgres_restore_succeeded else 'FAILED ❌' }} | {{ postgres_restore_error | default('') if not postgres_restore_succeeded else '' }} |
       | Forgejo | {{ 'SUCCESS ✅' if forgejo_restore_succeeded else 'FAILED ❌' }} | {{ forgejo_restore_error | default('') if not forgejo_restore_succeeded else '' }} |
 
+      {% if forgejo_restore_items is defined %}
       ## Restored Files Information
 
       | Component | Source Path | Destination Path | Status |
@@ -393,6 +409,7 @@
       {% for item in forgejo_restore_items %}
       | {{ item.src | basename }} | {{ item.src }} | {{ item.dest }} | {{ 'RESTORED ✅' if item.exists else 'MISSING ❌' }} |
       {% endfor %}
+      {% endif %}
 
       ## Summary
 
