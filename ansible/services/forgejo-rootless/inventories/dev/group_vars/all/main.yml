@@ -2,6 +2,11 @@ ansible_user: vagrant
 ansible_ssh_private_key_file: ~/.vagrant.d/insecure_private_key
 ansible_python_interpreter: /usr/bin/python3
 
+# Forgejo data and configuration directories
+forgejo_data_dir: "./data"
+forgejo_conf_dir: "./conf"
+postgres_data_dir: "./postgres"
+
 forgejo_admin_username: forgejo_admin
 forgejo_admin_email: forgejo@example.com
 forgejo_admin_password: !vault |
