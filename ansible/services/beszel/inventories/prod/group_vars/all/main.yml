@@ -6,11 +6,11 @@ use_docker: true
 use_traefik: true
 
 # Router configuration
-traefik_router_public: true
-traefik_router_private: true
+use_traefik_router_private: true
+use_traefik_router_public: true
 
 # Service name (will be used as subdomain)
-service_name: "dozzle"
+service_name: "beszel"
 
 public_apex_domain: "yourdomain"
 private_apex_domain: "yourdomain.local"

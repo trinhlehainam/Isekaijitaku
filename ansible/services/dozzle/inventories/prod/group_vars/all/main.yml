@@ -4,8 +4,8 @@ ansible_python_interpreter: /usr/bin/python3
 use_traefik: true
 
 # Router configuration
-traefik_router_public: true
-traefik_router_private: true
+use_traefik_router_public: true
+use_traefik_router_private: true
 
 # Service name (will be used as subdomain)
 service_name: "dozzle"
