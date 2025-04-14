@@ -7,13 +7,13 @@
   block:
     - name: Create directory for docker-compose files
       ansible.builtin.file:
-        path: "{{ forgejo_project_src }}"
+        path: "{{ service_project_src }}"
         state: directory
         mode: '0755'
 
     - name: Create secrets directory for storing sensitive information
       ansible.builtin.file:
-        path: "{{ forgejo_project_src }}/secrets"
+        path: "{{ service_project_src }}/secrets"
         state: directory
         mode: '0700'
 
@@ -25,9 +25,9 @@
           {% if forgejo_data_dir.startswith('/') %}
           {{ forgejo_data_dir }}
           {% elif forgejo_data_dir.startswith('./') %}
-          {{ forgejo_project_src }}/{{ forgejo_data_dir|regex_replace('^\.\/', '') }}
+          {{ service_project_src }}/{{ forgejo_data_dir|regex_replace('^\.\/', '') }}
           {% else %}
-          {{ forgejo_project_src }}/data
+          {{ service_project_src }}/data
           {% endif %}
 
     - name: Set resolved conf directory path
@@ -36,9 +36,9 @@
           {% if forgejo_conf_dir.startswith('/') %}
           {{ forgejo_conf_dir }}
           {% elif forgejo_conf_dir.startswith('./') %}
-          {{ forgejo_project_src }}/{{ forgejo_conf_dir|regex_replace('^\.\/', '') }}
+          {{ service_project_src }}/{{ forgejo_conf_dir|regex_replace('^\.\/', '') }}
           {% else %}
-          {{ forgejo_project_src }}/conf
+          {{ service_project_src }}/conf
           {% endif %}
           
     - name: Trim resolved directory variables
@@ -80,7 +80,7 @@
     - name: Create PostgreSQL database password file
       ansible.builtin.copy:
         content: "{{ db_password }}"
-        dest: "{{ forgejo_project_src }}/secrets/db_password"
+        dest: "{{ service_project_src }}/secrets/db_password"
         mode: '0600'
 
 - name: Configure optional services
@@ -97,7 +97,7 @@
     - name: Create mailer password file if mailer is configured
       ansible.builtin.copy:
         content: "{{ forgejo_mailer_password }}"
-        dest: "{{ forgejo_project_src }}/secrets/mailer_password"
+        dest: "{{ service_project_src }}/secrets/mailer_password"
         mode: '0600'
       when: use_forgejo_mailer|bool and forgejo_mailer_password is defined
       
@@ -118,7 +118,7 @@
     - name: Copy docker-compose file
       ansible.builtin.template:
         src: "docker-compose.yml.j2"
-        dest: "{{ forgejo_project_src }}/docker-compose.yml"
+        dest: "{{ service_project_src }}/docker-compose.yml"
         mode: '0644'
 
     - name: Start and wait for services to be running and healthy
@@ -133,7 +133,7 @@
   block:
     - name: Check Forgejo admin user creation
       community.docker.docker_compose_v2_exec:
-        project_src: "{{ forgejo_project_src }}"
+        project_src: "{{ service_project_src }}"
         service: forgejo
         # https://forgejo.org/docs/latest/admin/command-line/#admin-user-list
         command: forgejo admin user list --admin
@@ -143,7 +143,7 @@
     - name: Create Forgejo admin user
       when: not admin_user_info.stdout is search(forgejo_admin_username)
       community.docker.docker_compose_v2_exec:
-        project_src: "{{ forgejo_project_src }}"
+        project_src: "{{ service_project_src }}"
         service: forgejo
         # https://forgejo.org/docs/latest/admin/command-line/#admin-user-create
         command: forgejo admin user create --admin --username {{ forgejo_admin_username }} --email {{ forgejo_admin_email }} --password {{ forgejo_admin_password }}

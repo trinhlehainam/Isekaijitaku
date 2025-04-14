@@ -5,11 +5,11 @@
   
 - name: Rollback services
   community.docker.docker_compose_v2:
-    project_src: "{{ forgejo_project_src }}"
+    project_src: "{{ service_project_src }}"
     services: "{{ item.service }}"
     remove_orphans: true
     state: "{{ 'present' if item.state == 'running' else 'stopped' }}"
-  when: forgejo_project_src is defined and check_result is defined and check_result.services is defined
+  when: service_project_src is defined and check_result is defined and check_result.services is defined
   loop: "{{ check_result.services }}"
   loop_control:
     label: "{{ item.service }}"

@@ -18,7 +18,7 @@
 - name: Verify forgejo project source path and bind mount paths are defined
   ansible.builtin.assert:
     that:
-      - forgejo_project_src is defined
+      - service_project_src is defined
       - forgejo_data_dir is defined
       - forgejo_conf_dir is defined
       - postgres_data_dir is defined
@@ -32,8 +32,8 @@
   ansible.builtin.stat:
     path: "{{ item.path }}"
   loop:
-    - { id: "docker_compose",   path: "{{ forgejo_project_src }}/docker-compose.yml",   name: "Docker Compose File" }
-    - { id: "project_secrets",  path: "{{ forgejo_project_src }}/secrets",              name: "Project Secrets Directory" }
+    - { id: "docker_compose",   path: "{{ service_project_src }}/docker-compose.yml",   name: "Docker Compose File" }
+    - { id: "project_secrets",  path: "{{ service_project_src }}/secrets",              name: "Project Secrets Directory" }
     - { id: "forgejo_data",     path: "{{ forgejo_data_dir|trim }}",                    name: "Forgejo Data Directory" }
     - { id: "forgejo_config",   path: "{{ forgejo_conf_dir|trim }}",                    name: "Forgejo Configuration Directory" }
     - { id: "postgres_data",    path: "{{ postgres_data_dir|trim }}",                   name: "PostgreSQL Data Directory" }
@@ -50,7 +50,7 @@
     containers_filters:
       label:
         - com.docker.compose.project={{ project_name }}
-        - com.docker.compose.project.working_dir={{ forgejo_project_src }}
+        - com.docker.compose.project.working_dir={{ service_project_src }}
   register: docker_containers_info
 
 #################################################
@@ -117,7 +117,7 @@
       ## Summary
       - **Total Services**: {{ services_facts | length }}
       - **Project Name**: {{ project_name }}
-      - **Project Directory**: {{ forgejo_project_src }}
+      - **Project Directory**: {{ service_project_src }}
 
       ## File System Checks
       {% for key in file_check_stats.keys() %}
@@ -158,7 +158,7 @@
   ansible.builtin.set_fact:
     check_result:
       timestamp: "{{ ansible_date_time.iso8601 }}"
-      project_src: "{{ forgejo_project_src }}"
+      project_src: "{{ service_project_src }}"
       file_check_stats: "{{ file_check_stats }}"
       container_count: "{{ services_facts | length }}"
       services: "{{ services_facts }}"

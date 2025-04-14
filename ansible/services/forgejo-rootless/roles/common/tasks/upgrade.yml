@@ -77,12 +77,12 @@
 - name: Copy updated docker-compose template
   ansible.builtin.template:
     src: "docker-compose.yml.j2"
-    dest: "{{ forgejo_project_src }}/docker-compose.yml"
+    dest: "{{ service_project_src }}/docker-compose.yml"
     mode: '0644'
 
 - name: Get updated forgejo image from Ansible docker compose template
   ansible.builtin.set_fact:
-    forgejo_new_image_full: "{{ (lookup('file', forgejo_project_src + '/docker-compose.yml') | from_yaml | selectattr('service', 'equalto', 'forgejo') | first).image }}"
+    forgejo_new_image_full: "{{ (lookup('file', service_project_src + '/docker-compose.yml') | from_yaml | selectattr('service', 'equalto', 'forgejo') | first).image }}"
 
 - name: Get new forgejo version from updated docker-compose template
   when: forgejo_new_image_full is defined
@@ -147,7 +147,7 @@
         #----- Container Management -----#
     - name: Pull updated images
       community.docker.docker_compose_v2:
-        project_src: "{{ forgejo_project_src }}"
+        project_src: "{{ service_project_src }}"
         pull: "always"
       register: pull_result
       
@@ -158,7 +158,7 @@
         
     - name: Stop existing services before starting with new configuration
       community.docker.docker_compose_v2:
-        project_src: "{{ forgejo_project_src }}"
+        project_src: "{{ service_project_src }}"
         state: absent
       register: stop_result
       
@@ -169,7 +169,7 @@
       
     - name: Start services with new docker-compose configuration
       community.docker.docker_compose_v2:
-        project_src: "{{ forgejo_project_src }}"
+        project_src: "{{ service_project_src }}"
         state: present
       register: restart_result
       
@@ -245,7 +245,7 @@
           - **PostgreSQL:** {{ 'HEALTHY ✅' if db_container.health == 'healthy' else 'RUNNING ⚠️' }}
           
           ## Configuration
-          - **Source Path:** {{ forgejo_project_src }}
+          - **Source Path:** {{ service_project_src }}
           - **Backup Created:** {{ 'Yes' if docker_compose_backup is defined and docker_compose_backup.changed else 'No (not needed)' }}
           - **Backup Cleanup:** {{ 'Yes' if backup_cleanup is defined and backup_cleanup.changed else 'No' }}
           
@@ -257,7 +257,7 @@
         
     - name: Create upgrade report file
       ansible.builtin.copy:
-        dest: "{{ forgejo_project_src }}/UPGRADE_REPORT.md"
+        dest: "{{ service_project_src }}/UPGRADE_REPORT.md"
         content: "{{ upgrade_report }}"
         mode: '0644'
   rescue:
@@ -269,7 +269,7 @@
       
     - name: Restore original docker-compose file from backup
       ansible.builtin.command: 
-        cmd: "cp {{ docker_compose_backup_path }} {{ forgejo_project_src }}/docker-compose.yml"
+        cmd: "cp {{ docker_compose_backup_path }} {{ service_project_src }}/docker-compose.yml"
       when: docker_compose_backup_path is defined
       register: restore_result
       ignore_errors: true
@@ -298,7 +298,7 @@
           - **Error Message:** {{ ansible_failed_result.msg|default('No detailed error message available') }}
           
           ## Environment
-          - **Project Directory:** {{ forgejo_project_src }}
+          - **Project Directory:** {{ service_project_src }}
           - **Backup Created:** {{ docker_compose_backup is defined and docker_compose_backup.changed | ternary('Yes', 'No') }}
           
           Please check the logs for more details about the failure.
@@ -309,7 +309,7 @@
         
     - name: Create upgrade failure report file
       ansible.builtin.copy:
-        dest: "{{ forgejo_project_src }}/UPGRADE_FAILURE_REPORT.md"
+        dest: "{{ service_project_src }}/UPGRADE_FAILURE_REPORT.md"
         content: "{{ upgrade_failure_report }}"
         mode: '0644'
         
@@ -317,5 +317,5 @@
       ansible.builtin.fail:
         msg: |
           Forgejo upgrade failed. 
-          Please see {{ forgejo_project_src }}/UPGRADE_FAILURE_REPORT.md for details.
+          Please see {{ service_project_src }}/UPGRADE_FAILURE_REPORT.md for details.
           Failed task: {{ ansible_failed_task.name|default('Unknown task') }}

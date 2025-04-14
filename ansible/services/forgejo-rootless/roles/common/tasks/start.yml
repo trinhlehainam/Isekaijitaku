@@ -1,9 +1,9 @@
 - name: Start services
   community.docker.docker_compose_v2:
-    project_src: "{{ forgejo_project_src }}"
+    project_src: "{{ service_project_src }}"
     state: present
   register: services_facts
-  when: forgejo_project_src is defined
+  when: service_project_src is defined
 
 - name: Wait for services to be running and healthy
   when: services_facts is defined

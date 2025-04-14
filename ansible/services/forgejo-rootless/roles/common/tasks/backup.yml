@@ -15,12 +15,18 @@
 # Service Control - Stop Services
 #################################################
 
+- name: Verify Forgejo backup directory is defined
+  ansible.builtin.assert:
+    that:
+      - forgejo_backup_dir is defined
+    fail_msg: "Required variable forgejo_backup_dir is not defined. Please specify the path to the backup directory."
+
 - name: Check services status
   ansible.builtin.include_tasks: check.yml
 
 - name: Make sure services are stopped before backup
   community.docker.docker_compose_v2:
-    project_src: "{{ forgejo_project_src }}"
+    project_src: "{{ service_project_src }}"
     services: "{{ item.service }}"
     state: stopped
   loop: "{{ check_result.services }}"
@@ -45,10 +51,6 @@
   ansible.builtin.set_fact:
     forgejo_image: "{{ check_result.services| selectattr('service', 'equalto', 'forgejo') | map(attribute='image') | first | default('unknown') }}"
     postgres_image: "{{ check_result.services | selectattr('service', 'equalto', 'forgejo-db') | map(attribute='image') | first | default('unknown') }}"
-
-- name: Check if backup directory is defined in inventory
-  ansible.builtin.set_fact:
-    forgejo_backup_dir: "{{ forgejo_backup_dir|default(forgejo_project_src + '/backups') }}"
 
 - name: Set current backup directory path
   ansible.builtin.set_fact:
@@ -88,7 +90,7 @@
 
         - name: Copy docker-compose.yml to backup location
           ansible.builtin.copy:
-            src: "{{ forgejo_project_src }}/docker-compose.yml"
+            src: "{{ service_project_src }}/docker-compose.yml"
             dest: "{{ current_backup_dir }}/setup/docker-compose.yml"
             mode: '0644'
             remote_src: true
@@ -97,12 +99,12 @@
 
         - name: Check if secrets directory exists
           ansible.builtin.stat:
-            path: "{{ forgejo_project_src }}/secrets"
+            path: "{{ service_project_src }}/secrets"
           register: secrets_dir
 
         - name: Copy secrets files to backup location
           ansible.builtin.copy:
-            src: "{{ forgejo_project_src }}/secrets"
+            src: "{{ service_project_src }}/secrets"
             dest: "{{ current_backup_dir }}/setup"
             remote_src: true
           when: secrets_dir.stat.exists
@@ -127,7 +129,7 @@
 
         - name: Launch Forgejo backup container with sleep command
           community.docker.docker_compose_v2_run:
-            project_src: "{{ forgejo_project_src }}"
+            project_src: "{{ service_project_src }}"
             service: forgejo
             command: dummy sh -c "sleep infinity" # Keep container alive indefinitely during backup process
             detach: true
@@ -168,7 +170,7 @@
       always:
         - name: Clean up temporary Forgejo backup file in container
           community.docker.docker_compose_v2_exec:
-            project_src: "{{ forgejo_project_src }}"
+            project_src: "{{ service_project_src }}"
             service: forgejo
             command: rm -f {{ forgejo_container_backup_filepath }}
           when: forgejo_dump_result is defined and forgejo_dump_result is success
@@ -196,7 +198,7 @@
 
         - name: Backup PostgreSQL database using docker compose exec
           community.docker.docker_compose_v2_exec:
-            project_src: "{{ forgejo_project_src }}"
+            project_src: "{{ service_project_src }}"
             service: forgejo-db
             command: pg_dump -Fc -U {{ db_user }} {{ db_name }} -f {{ postgres_container_backup_filepath }}
           register: pg_dump_result
@@ -204,7 +206,7 @@
         - name: Copy PostgreSQL backup from container to host
           ansible.builtin.command:
             cmd: docker compose cp forgejo-db:{{ postgres_container_backup_filepath }} {{ current_backup_dir }}/{{ postgres_backup_filename }}
-            chdir: "{{ forgejo_project_src }}"
+            chdir: "{{ service_project_src }}"
           register: pg_copy_result
           when: pg_dump_result is success
 
@@ -224,7 +226,7 @@
       always:
         - name: Clean up temporary PostgreSQL backup file in container
           community.docker.docker_compose_v2_exec:
-            project_src: "{{ forgejo_project_src }}"
+            project_src: "{{ service_project_src }}"
             service: forgejo-db
             command: rm -f {{ postgres_container_backup_filepath }}
           when: pg_dump_result is defined and pg_dump_result is success
