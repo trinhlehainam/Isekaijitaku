@@ -7,8 +7,6 @@
   extends: [
     "local>renovate_account/renovate-config"
   ],
-  // Enable dependency dashboard for visibility
-  dependencyDashboard: true,
   // Only enable specific managers
   enabledManagers: [
     "github-actions",
@@ -35,6 +33,7 @@
         // https://github.com/renovatebot/renovate/issues/10993#issuecomment-2367518146
         "image:\\s*\"?(?<depName>[^\\s:@\"]+)(?::(?<currentValue>[-a-zA-Z0-9.]+))?(?:@(?<currentDigest>sha256:[a-zA-Z0-9]+))?\"?",
       ],
+      autoReplaceStringTemplate: "image: \"{{{depName}}}:{{{newValue}}}@{{{newDigest}}}\"",
     }
   ],
   // Package-specific rules

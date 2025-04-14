@@ -197,12 +197,16 @@ A key component of this setup is a centralized configuration repository (`renova
              // Regex to find image lines, capturing depName and currentValue/Digest
              // Ref: https://github.com/renovatebot/renovate/issues/10993#issuecomment-2367518146
              "image:\\s*\"?(?<depName>[^\\s:@\"]+)(?::(?<currentValue>[-a-zA-Z0-9.]+))?(?:@(?<currentDigest>sha256:[a-zA-Z0-9]+))?\"?"
-           ]
+           ],
+           // CRITICAL: When using docker:pinDigests, you MUST define how replacements should be formatted
+           "autoReplaceStringTemplate": "image: \"{{{depName}}}:{{{newValue}}}@{{{newDigest}}}\""
          }
        ]
      }
      ```
-     This allows Renovate to track Docker image dependencies even when defined within Ansible's Jinja2 templating structure.
+      This allows Renovate to track Docker image dependencies even when defined within Ansible's Jinja2 templating structure.
+
+      > **Important**: When using `docker:pinDigests` with custom regex managers (especially for template files), you **must** explicitly define an `autoReplaceStringTemplate` that specifies how replacement strings should be formatted. Without this parameter, Renovate will not know how to properly replace the existing content with both the new version and digest. The example above shows the correct format for typical Docker image references.
 
 3. **Extend from the Central Presets** in each monitored repository:
    - **Recommended Method (using `default.json` lookup):** Create a `default.json` file (must be plain JSON, no comments) in the monitored repository's configuration directory (e.g., `.github/renovate/`, `.forgejo/renovate/`). This file explicitly tells Renovate which presets to load from the central repository.
