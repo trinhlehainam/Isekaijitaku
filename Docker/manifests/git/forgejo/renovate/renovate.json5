@@ -14,10 +14,6 @@
     "docker-compose",
     "custom.regex",
   ],
-  // Enable automatic merging of PRs that pass tests
-  automerge: true,
-  // Skip tests for certain updates
-  ignoreTests: true,
   // Custom manager for Ansible Jinja2 templates with Docker images
   customManagers: [
     {
