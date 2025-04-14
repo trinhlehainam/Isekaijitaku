@@ -95,7 +95,7 @@ services:
       - /bin/sh
       - -c
       - |
-        /usr/local/bin/redis-server \
+        exec /usr/local/bin/redis-server \
         --port 6379 \
         --requirepass $(cat /run/secrets/redis_password)
     volumes:

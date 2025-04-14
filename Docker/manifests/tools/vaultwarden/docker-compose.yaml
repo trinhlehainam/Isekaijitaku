@@ -22,7 +22,7 @@ services:
         export POSTGRES_PASSWORD=$$(cat /run/secrets/db_password)
         export DATABASE_URL=postgresql://${POSTGRES_USER}:$$POSTGRES_PASSWORD@vaultwarden-postgres:5432/${POSTGRES_DB}
         export STMP_PASSWORD=$$(cat /run/secrets/smtp_password)
-        /start.sh
+        exec /start.sh
     environment:
       # Enable SMTP
       # https://github.com/dani-garcia/vaultwarden/wiki/SMTP-Configuration

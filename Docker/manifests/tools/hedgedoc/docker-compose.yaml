@@ -15,7 +15,7 @@ services:
       - |
         export POSTGRES_PASSWORD=$$(cat /run/secrets/db_password);
         export CMD_DB_URL=postgres://hedgedoc:$$POSTGRES_PASSWORD@hedgedoc-postgres:5432/hedgedoc
-        /usr/local/bin/docker-entrypoint.sh node app.js
+        exec /usr/local/bin/docker-entrypoint.sh node app.js
     environment:
       - CMD_DOMAIN=hedgedoc.yourdomain.local
       - CMD_URL_ADDPORT=false

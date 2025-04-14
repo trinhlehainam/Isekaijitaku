@@ -70,7 +70,7 @@ services:
       - |
         export NEXTCLOUD_ADMIN_USER=$$(cat /run/secrets/nextcloud_admin_user)
         export NEXTCLOUD_ADMIN_PASSWORD=$$(cat /run/secrets/nextcloud_password)
-        /entrypoint.sh apache2-foreground
+        exec /entrypoint.sh apache2-foreground
     networks:
       - nextcloud
       - proxy
@@ -187,7 +187,7 @@ services:
       - |
         export username=$$(cat /run/secrets/collabora_username)
         export password=$$(cat /run/secrets/collabora_password)
-        /start-collabora-online.sh
+        exec /start-collabora-online.sh
     # ports:
     #   - "9980:9980"
     networks:
@@ -264,7 +264,7 @@ services:
       - /bin/sh
       - -c
       - |
-        /usr/local/bin/redis-server \
+        exec /usr/local/bin/redis-server \
         --port 6379 \
         --requirepass $(cat /run/secrets/redis_password)
     volumes:

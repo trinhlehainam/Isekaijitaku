@@ -39,7 +39,7 @@ services:
       - |
         export DIUN_NOTIF_GOTIFY_TOKEN=$$(cat /run/secrets/gotify_token)
         update-ca-certificates
-        diun serve
+        exec diun serve
     dns:
       # NOTE: need to access local dns server to resolve Gotify and Healthchecks servers local domain
       - 192.168.x.y

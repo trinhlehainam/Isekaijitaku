@@ -22,7 +22,7 @@ services:
         export UI_PASSWORD=$$(cat /run/secrets/ui_password)
         export POSTGRES_PASSWORD=$$(cat /run/secrets/db_password)
         export DATABASE_URL=postgresql://${POSTGRES_USER}:$$POSTGRES_PASSWORD@litellm-postgres:5432/${POSTGRES_DB}
-        docker/prod_entrypoint.sh --port 4000 --config /app/config.yaml
+        exec docker/prod_entrypoint.sh --port 4000 --config /app/config.yaml
     environment:
       # https://docs.litellm.ai/docs/proxy/ui#4-change-default-username--password
       UI_USERNAME: admin
@@ -82,7 +82,7 @@ services:
       - /bin/sh
       - -c
       - |
-        /usr/local/bin/redis-server \
+        exec /usr/local/bin/redis-server \
         --port 6379 \
         --requirepass $(cat /run/secrets/redis_password)
     volumes:

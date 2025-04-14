@@ -19,7 +19,7 @@ services:
       - |
         export FORGEJO__database__PASSWD=$$(cat /run/secrets/db_password)
         export FORGEJO__mailer__PASSWD=$$(cat /run/secrets/mailer_password)
-        /usr/bin/dumb-init -- /usr/local/bin/docker-entrypoint.sh
+        exec /usr/bin/dumb-init -- /usr/local/bin/docker-entrypoint.sh
     # Configuration Variables
     # https://forgejo.org/docs/next/admin/config-cheat-sheet/
     # https://codeberg.org/forgejo/forgejo/src/branch/forgejo/contrib/environment-to-ini
