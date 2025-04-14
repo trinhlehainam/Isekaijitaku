@@ -7,6 +7,8 @@
 # https://help.nextcloud.com/t/docker-compose-for-nextcloud-collabora-traefik/127733/6
 ### Dark Mode
 # https://help.nextcloud.com/t/collabora-with-dark-theme-barely-readable/100192/6
+### Backup
+# https://github.com/nextcloud/backup
 
 # TODO: Nextcloud Office empty Global templates cause below error on Collabora
 # ERR  Failed to get the realpath of [/opt/cool/child-roots/1-f41af7e4/tmp/sharedpresets/template]

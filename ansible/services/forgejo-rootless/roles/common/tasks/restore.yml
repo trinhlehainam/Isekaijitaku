@@ -293,10 +293,11 @@
         path: "{{ item.dest }}"
         owner: "{{ forgejo_user_id }}"
         group: "{{ forgejo_group_id }}"
+        recurse: "{{ item.dest == forgejo_data_dir }}"
       loop: "{{ forgejo_restore_items }}"
       loop_control:
         label: "{{ item.dest }}"
-      when: item.exists
+      when: item.exists and (item.dest is search('app.ini') or item.dest == forgejo_data_dir)
 
       # TODO: Set success moved flag for each item for reporting
 
