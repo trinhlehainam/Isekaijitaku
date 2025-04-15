@@ -317,6 +317,30 @@
   changed_when: true
   notify: Rollback services
   
+- name: Keep only 3 most recent backup directories
+  when: backup_succeeded|bool
+  block:
+    - name: Find most recent backup directory
+      become: true
+      ansible.builtin.find:
+        paths: "{{ forgejo_backup_dir }}"
+        file_type: directory
+        patterns: "*-*-*_*-*"
+      register: timestamp_dirs
+
+    - name: Sort timestamp directories by modification time
+      ansible.builtin.set_fact:
+        sorted_backup_dirs: "{{ timestamp_dirs.files | sort(attribute='mtime', reverse=true) }}"
+        
+    - name: Keep only 3 latest backup directories
+      ansible.builtin.file:
+        path: "{{ item.path }}"
+        state: absent
+      loop: "{{ sorted_backup_dirs[3:] }}"
+      loop_control:
+        label: "{{ item.path }}"
+      when: sorted_backup_dirs|length > 3
+
 - name: Show final backup status
   vars:
     msg: |

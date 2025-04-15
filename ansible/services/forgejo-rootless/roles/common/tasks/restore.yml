@@ -471,35 +471,45 @@
 # Post-restore Service Management
 #################################################
 
-- name: Start and wait for services to be running and healthy
-  ansible.builtin.include_tasks: start.yml
+- name: Post successful restore service management
   when: restore_succeeded
+  block:
+    - name: Start and wait for services to be running and healthy
+      ansible.builtin.include_tasks: start.yml
 
-- name: Display success message
-  vars:
-    msg: |
-      Forgejo has been successfully restored from backup.
-      Restoration report saved to {{ restore_report_path }}
-  ansible.builtin.debug:
-    msg: "{{ msg.split('\n') }}"
-  when: restore_succeeded
+    - name: Display success message
+      vars:
+        msg: |
+          Forgejo has been successfully restored from backup.
+          Restoration report saved to {{ restore_report_path }}
+      ansible.builtin.debug:
+        msg: "{{ msg.split('\n') }}"
 
-- name: Clean up temporary restore folders
-  become: true
-  ansible.builtin.file:
-    path: "{{ current_backup_dir }}/restore/temp"
-    state: absent
-  when: restore_succeeded
+    - name: Clean up temporary restore folders
+      become: true
+      ansible.builtin.file:
+        path: "{{ current_backup_dir }}/restore/temp"
+        state: absent
 
-- name: Build full error message
-  ansible.builtin.set_fact:
-    error_msg: |
-      Forgejo restoration failed!
-      Restoration report saved to {{ restore_report_path }}
-      Error: {{ restore_failure_reason|default('Unknown error') }}
+    - name: Find most recent backup directory
+      become: true
+      ansible.builtin.find:
+        paths: "{{ forgejo_backup_dir }}"
+        file_type: directory
+        patterns: "*-*-*_*-*"
+      register: timestamp_dirs
+
+- name: Post failed restore service management
   when: not restore_succeeded
+  block:
+    - name: Build full error message
+      ansible.builtin.set_fact:
+        error_msg: |
+          Forgejo restoration failed!
+          Restoration report saved to {{ restore_report_path }}
+          Error: {{ restore_failure_reason|default('Unknown error') }}
 
-- name: Fail when restoration is unsuccessful
-  ansible.builtin.fail:
-    msg: "{{ error_msg }}"
-  when: error_msg is defined
+    - name: Fail when restoration is unsuccessful
+      ansible.builtin.fail:
+        msg: "{{ error_msg }}"
+      when: error_msg is defined
