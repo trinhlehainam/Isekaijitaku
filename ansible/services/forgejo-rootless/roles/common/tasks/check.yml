@@ -29,6 +29,7 @@
 #################################################
 
 - name: Gather docker-compose and bind mount files statistics
+  become: true
   ansible.builtin.stat:
     path: "{{ item.path }}"
   loop:

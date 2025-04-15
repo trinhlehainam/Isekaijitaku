@@ -44,7 +44,6 @@
   vars:
     msg: |
       ===== DOZZLE MANAGER ACCESS INFORMATION =====
-      Manager: {{ inventory_hostname }} ({{ ansible_host }})
       {% if use_traefik | default(false) %}
       Access via Traefik:
       {% if traefik_router_public | default(false) and public_apex_domain | default(false) %}- Public: https://{{ service_name|default('dozzle') }}.{{ public_apex_domain }}{% endif %}
