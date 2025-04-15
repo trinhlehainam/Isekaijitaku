@@ -345,8 +345,6 @@
         label: "{{ item.dest }}"
       when: item.exists and (item.dest is search('app.ini') or item.dest == forgejo_data_dir)
 
-      # TODO: Set success moved flag for each item for reporting
-
     - name: Mark Forgejo restoration as successful
       ansible.builtin.set_fact:
         forgejo_restore_succeeded: true
@@ -451,17 +449,17 @@
 
       | Component | Status | Details |
       |-----------|--------|---------|
-      | PostgreSQL | {{ 'SUCCESS ✅' if postgres_restore_succeeded else 'FAILED ❌' }} | {{ postgres_restore_error | default('') if not postgres_restore_succeeded else '' }} |
-      | Forgejo | {{ 'SUCCESS ✅' if forgejo_restore_succeeded else 'FAILED ❌' }} | {{ forgejo_restore_error | default('') if not forgejo_restore_succeeded else '' }} |
+      | PostgreSQL | {{ 'SUCCESS ✅' if postgres_restore_succeeded else 'FAILED ❌' }} | {{ postgres_restore_error|default('') if not postgres_restore_succeeded else '' }} |
+      | Forgejo | {{ 'SUCCESS ✅' if forgejo_restore_succeeded else 'FAILED ❌' }} | {{ forgejo_restore_error|default('') if not forgejo_restore_succeeded else '' }} |
 
-      {% if forgejo_restore_items is defined %}
+      {% if forgejo_restore_succeeded and forgejo_restore_items is defined %}
       ## Restored Files Information
 
       | Component | Source Path | Destination Path | Status |
       |-----------|------------|-----------------|--------|
-      {% for item in forgejo_restore_items %}
+        {% for item in forgejo_restore_items %}
       | {{ item.src | basename }} | {{ item.src }} | {{ item.dest }} | {{ 'RESTORED ✅' if item.exists else 'MISSING ❌' }} |
-      {% endfor %}
+        {% endfor %}
       {% endif %}
 
       ## Summary
