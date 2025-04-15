@@ -46,6 +46,9 @@
       matchPackageNames: [
         "renovatebot/renovate"
       ],
+      // Allow immediate updates
+      minimumReleaseAge: null,
+      separateMinorPatch: false,
       matchUpdateTypes: [
         "minor",
         "patch",
