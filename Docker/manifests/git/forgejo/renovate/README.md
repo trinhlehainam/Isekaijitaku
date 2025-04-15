@@ -307,6 +307,28 @@ Forgejo CI environments currently have limitations with newer GitHub Actions ver
 4. **Workflow failures**: Check the workflow logs for specific error messages
 5. **Preset lookup errors**: Ensure your repository references use correct syntax (`local>account/repo` format)
 6. **Missing changelogs**: If PRs don't include changelogs, check your `RENOVATE_GITHUB_COM_TOKEN` permissions
+7. **Automerge Failures (Unknown Status)**: If `minimumReleaseAge` is set globally, packages from datasources where Renovate cannot determine the release timestamp might get stuck with an "unknown" commit status check (`ccs`), preventing automerge.
+    - **If `platformAutomerge` is enabled**, Renovate will still wait for passing status checks even if `minimumReleaseAge` is disabled. To automerge these packages *without* requiring passing tests, you must combine both disabling the age check and ignoring tests within a `packageRule`.
+    ```json5
+    // Example packageRule in default.json5 or renovate.json5
+    {
+      "description": "Disable minimumReleaseAge for specific package to allow automerge",
+      "matchPackageNames": ["some-package-with-unknown-timestamp"],
+      "minimumReleaseAge": null,
+      "ignoreTests": true // Also bypass status checks
+    }
+    ```
+8. **Bypassing Tests for Automerge**: If you want Renovate to automerge updates for certain trusted packages without requiring passing CI/commit status checks, use `ignoreTests: true` within a `packageRule`. This is useful for dependencies like linters or formatters where a failed test is unlikely or handled differently.
+    ```json5
+    // Example packageRule in default.json5 or renovate.json5
+    {
+      "description": "Automerge linter updates without requiring passing tests",
+      "matchPackageNames": ["eslint", "prettier"],
+      "matchUpdateTypes": ["minor", "patch"],
+      "automerge": true,
+      "ignoreTests": true
+    }
+    ```
 
 ## Platform-Specific Notes
 

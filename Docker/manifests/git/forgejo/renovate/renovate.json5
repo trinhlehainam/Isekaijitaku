@@ -53,7 +53,10 @@
       ],
       "matchUpdateTypes": ["minor"],
       "semanticCommitType": "feat",
-      "automergeType": "pr"
+      "automergeType": "pr",
+      "automerge": true,
+      "minimumReleaseAge": null,
+      "ignoreTests": true
     },
     {
       "description": "Trigger fix release for patch updates",
@@ -63,7 +66,10 @@
       ],
       "matchUpdateTypes": ["patch", "digest"],
       "semanticCommitType": "fix",
-      "automergeType": "pr"
+      "automergeType": "pr",
+      "automerge": true,
+      "minimumReleaseAge": null,
+      "ignoreTests": true
     },
     // Docker image rules
     {
