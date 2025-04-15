@@ -314,18 +314,14 @@
         fail_msg: "Required items missing: {{ missing_required_items | map(attribute='src') | join(', ') }}"
         success_msg: "All required items for Forgejo restoration are available"
         
-    - name: Make sure forgejo data directory exists
+    - name: Make sure parent directory of forgejo data directory exists
       become: true
       ansible.builtin.file:
-        path: "{{ item.dest }}"
+        path: "{{ forgejo_data_dir|dirname }}"
         state: directory
         mode: '0755'
         owner: "{{ forgejo_user_id }}"
         group: "{{ forgejo_group_id }}"
-      loop: "{{ forgejo_restore_items }}"
-      loop_control:
-        label: "{{ item.dest }}"
-      when: item.exists and not item.dest is search('app.ini')
 
     - name: Move Forgejo restore items
       become: true
