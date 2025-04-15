@@ -34,27 +34,36 @@
   ],
   // Package-specific rules
   packageRules: [
+    // https://gitlab.com/renovate-bot/renovate-runner/-/blob/main/.gitlab/renovate.json?ref_type=heads   
     {
-      description: "use fix scope for renovate updates",
-      matchPackageNames: [
-        "renovatebot/renovate"
+      "description": "Trigger breaking release for major updates",
+      "matchPackageNames": [
+        "renovate/renovate",
+        "ghcr.io/renovatebot/renovate"
       ],
-      semanticCommitType: "fix",
+      "matchUpdateTypes": ["major"],
+      "commitMessagePrefix": "feat(deps)!:",
+      "automergeType": "pr"
     },
     {
-      description: "Automerge renovate updates",
-      matchPackageNames: [
-        "renovatebot/renovate"
+      "description": "Trigger feature release for minor updates",
+      "matchPackageNames": [
+        "renovate/renovate",
+        "ghcr.io/renovatebot/renovate"
       ],
-      // Allow immediate updates
-      minimumReleaseAge: null,
-      separateMinorPatch: false,
-      matchUpdateTypes: [
-        "minor",
-        "patch",
-        "digest"
+      "matchUpdateTypes": ["minor"],
+      "semanticCommitType": "feat",
+      "automergeType": "pr"
+    },
+    {
+      "description": "Trigger fix release for patch updates",
+      "matchPackageNames": [
+        "renovate/renovate",
+        "ghcr.io/renovatebot/renovate"
       ],
-      automerge: true,
+      "matchUpdateTypes": ["patch", "digest"],
+      "semanticCommitType": "fix",
+      "automergeType": "pr"
     },
     // Docker image rules
     {
