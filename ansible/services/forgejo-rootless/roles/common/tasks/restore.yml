@@ -123,12 +123,18 @@
         state: absent
       when: existing_compose_file.stat.exists
 
+    - name: Check for existing secrets directory
+      ansible.builtin.stat:
+        path: "{{ service_project_src }}/secrets"
+      register: existing_secrets_dir
+
     - name: Create project setup backup folder before restoration
       ansible.builtin.file:
         path: "{{ service_project_src }}/setup_before_restoration/{{ restore_timestamp }}"
         state: directory
         mode: '0755'
       register: setup_backup_result
+      when: existing_compose_file.stat.exists or existing_secrets_dir.stat.exists
 
     - name: Move existing docker-compose.yml file to setup backup
       ansible.builtin.command:
@@ -136,11 +142,6 @@
         cmd: mv docker-compose.yml setup_before_restoration/{{ restore_timestamp }}/docker-compose.yml
       when: existing_compose_file.stat.exists
       register: compose_backup_result
-
-    - name: Check for existing secrets directory
-      ansible.builtin.stat:
-        path: "{{ service_project_src }}/secrets"
-      register: existing_secrets_dir
 
     - name: Copy existing secrets directory to setup backup
       become: true
