@@ -17,3 +17,11 @@
   until: container_info.container.State.Running and container_info.container.State.Health.Status == 'healthy'
   delay: 10
   retries: 5
+  
+- name: Check services status
+  ansible.builtin.include_tasks: check.yml
+  
+- name: Fail if services are not running or unhealthy
+  ansible.builtin.fail:
+    msg: "Services are not running or unhealthy after start"
+  when: check_result.services is not defined or (check_result.services | selectattr('health', 'match', 'healthy') | length) < (check_result.services | length)

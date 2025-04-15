@@ -78,9 +78,12 @@
         state: present
 
     - name: Create PostgreSQL database password file
+      become: true
       ansible.builtin.copy:
         content: "{{ db_password }}"
         dest: "{{ service_project_src }}/secrets/db_password"
+        owner: "{{ forgejo_user_id }}"
+        group: "{{ forgejo_group_id }}"
         mode: '0600'
 
 - name: Configure optional services
@@ -95,9 +98,12 @@
           else False }}
 
     - name: Create mailer password file if mailer is configured
+      become: true
       ansible.builtin.copy:
         content: "{{ forgejo_mailer_password }}"
         dest: "{{ service_project_src }}/secrets/mailer_password"
+        owner: "{{ forgejo_user_id }}"
+        group: "{{ forgejo_group_id }}"
         mode: '0600'
       when: use_forgejo_mailer|bool and forgejo_mailer_password is defined
       
