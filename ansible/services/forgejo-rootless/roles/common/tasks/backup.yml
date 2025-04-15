@@ -333,6 +333,7 @@
         sorted_backup_dirs: "{{ timestamp_dirs.files | sort(attribute='mtime', reverse=true) }}"
         
     - name: Keep only 3 latest backup directories
+      become: true
       ansible.builtin.file:
         path: "{{ item.path }}"
         state: absent
