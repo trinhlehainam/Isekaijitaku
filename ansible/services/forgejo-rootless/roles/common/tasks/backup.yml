@@ -57,20 +57,17 @@
     current_backup_dir: "{{ forgejo_backup_dir }}/{{ backup_timestamp }}"
 
 - name: Create base backup directory if it doesn't exist
+  become: true
   ansible.builtin.file:
     path: "{{ forgejo_backup_dir }}"
     state: directory
     mode: '0755'
-
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    
 - name: Show backup mode
   ansible.builtin.debug:
     msg: "Running in BACKUP mode - services state will be ROLLED BACK after backup"
-    
-- name: Create timestamp-based backup directory
-  ansible.builtin.file:
-    path: "{{ current_backup_dir }}"
-    state: directory
-    mode: '0755'
 
 #################################################
 # Backup Execution
@@ -78,23 +75,47 @@
 
 - name: Execute backup processes
   block:
+    - name: Create backup directory and copy docker-compose backup file
+      block:
+        - name: Create timestamp-based backup directory
+          become: true
+          ansible.builtin.file:
+            path: "{{ current_backup_dir }}"
+            state: directory
+            mode: '0755'
+            owner: "{{ forgejo_user_id }}"
+            group: "{{ forgejo_group_id }}"
+
+        - name: Copy docker-compose backup file
+          ansible.builtin.template:
+            src: "docker-compose.backup.yml.j2"
+            dest: "{{ service_project_src }}/docker-compose.backup.yml"
+            mode: '0644'
+          register: copy_docker_compose_backup_result
+
     #----- Project Setup Backup - Docker Compose and Secrets -----#
     - name: Execute Project Setup backup process
       block:
         - name: Create project setup directories in backup location
+          become: true
           ansible.builtin.file:
             path: "{{ current_backup_dir }}/setup"
             state: directory
             mode: '0755'
+            owner: "{{ ansible_user }}"
+            group: "{{ ansible_user }}"
           register: setup_dir_created
 
         - name: Copy docker-compose.yml to backup location
+          become: true
           ansible.builtin.copy:
             src: "{{ service_project_src }}/docker-compose.yml"
             dest: "{{ current_backup_dir }}/setup/docker-compose.yml"
+            owner: "{{ ansible_user }}"
+            group: "{{ ansible_user }}"
             mode: '0644'
             remote_src: true
-          register: docker_compose_backup
+          register: docker_compose_backup_results
           when: setup_dir_created is success
 
         - name: Check if secrets directory exists
@@ -103,9 +124,13 @@
           register: secrets_dir
 
         - name: Copy secrets files to backup location
+          become: true
           ansible.builtin.copy:
             src: "{{ service_project_src }}/secrets"
             dest: "{{ current_backup_dir }}/setup"
+            owner: "{{ ansible_user }}"
+            group: "{{ ansible_user }}"
+            mode: '0644'
             remote_src: true
           when: secrets_dir.stat.exists
           register: secrets_backup
@@ -113,7 +138,7 @@
         - name: Mark project setup backup as successful
           ansible.builtin.set_fact:
             config_backup_succeeded: true
-          when: docker_compose_backup is success and secrets_backup is success
+          when: docker_compose_backup_results is success and secrets_backup is success
       rescue:
         - name: Record project setup backup failure
           ansible.builtin.set_fact:
@@ -123,17 +148,20 @@
     #----- Application Backup - Forgejo -----#
     - name: Execute Forgejo backup process
       block:
-        - name: Setup Forgejo backup variables
+        - name: Setup Forgejo container backup filepath
           ansible.builtin.set_fact:
-            forgejo_container_backup_filepath: "/var/lib/gitea/{{ forgejo_backup_filename }}"
+            forgejo_container_backup_filepath: "/tmp/backup/{{ forgejo_backup_filename }}"
 
         - name: Launch Forgejo backup container with sleep command
           community.docker.docker_compose_v2_run:
             project_src: "{{ service_project_src }}"
+            files:
+              - "{{ copy_docker_compose_backup_result.dest }}"
             service: forgejo
-            command: dummy sh -c "sleep infinity" # Keep container alive indefinitely during backup process
+            command: sh -c "sleep infinity" # Keep container alive indefinitely during backup process
             detach: true
           register: forgejo_backup_container
+          when: copy_docker_compose_backup_result is success
 
         - name: Set backup container ID
           ansible.builtin.set_fact:
@@ -145,19 +173,19 @@
             container: "{{ forgejo_backup_container_id }}"
             command: forgejo dump -f {{ forgejo_container_backup_filepath }}
           register: forgejo_dump_result
-          ignore_errors: "{{ operation_mode == 'upgrade' }}"
           when: forgejo_backup_container_id is defined
-
-        - name: Copy Forgejo backup from container to host
-          ansible.builtin.command:
-            cmd: docker cp {{ forgejo_backup_container_id }}:{{ forgejo_container_backup_filepath }} {{ current_backup_dir }}/{{ forgejo_backup_filename }}
-          register: forgejo_copy_result
+          
+        - name: Check if backup file exists
+          become: true
+          ansible.builtin.stat:
+            path: "{{ current_backup_dir }}/{{ forgejo_backup_filename }}"
+          register: forgejo_backup_file
           when: forgejo_dump_result is success
 
         - name: Mark Forgejo backup as successful
           ansible.builtin.set_fact:
             forgejo_backup_succeeded: true
-          when: forgejo_dump_result is success and forgejo_copy_result is success
+          when: forgejo_dump_result is success and forgejo_backup_file.stat.exists
       rescue:
         - name: Record Forgejo backup failure
           ansible.builtin.set_fact:
@@ -168,20 +196,13 @@
           ansible.builtin.fail:
             msg: "Forgejo backup component failed: {{ ansible_failed_task.name|default('Unknown error') }}"
       always:
-        - name: Clean up temporary Forgejo backup file in container
-          community.docker.docker_compose_v2_exec:
-            project_src: "{{ service_project_src }}"
-            service: forgejo
-            command: rm -f {{ forgejo_container_backup_filepath }}
-          when: forgejo_dump_result is defined and forgejo_dump_result is success
-
         - name: Check if Forgejo backup container exists
           community.docker.docker_container_info:
             name: "{{ forgejo_backup_container_id }}"
           register: forgejo_backup_container_info
           when: forgejo_backup_container_id is defined
 
-        - name: Clean up Forgejo backup container
+        - name: Remove Forgejo backup container
           community.docker.docker_container:
             name: "{{ forgejo_backup_container_id }}"
             state: absent
@@ -192,28 +213,31 @@
     #----- Database Backup - PostgreSQL -----#
     - name: Execute PostgreSQL backup process
       block:
-        - name: Setup PostgreSQL backup variables
+        - name: Setup PostgreSQL container backup filepath
           ansible.builtin.set_fact:
-            postgres_container_backup_filepath: "/var/lib/postgresql/data/{{ postgres_backup_filename }}"
+            postgres_container_backup_filepath: "/tmp/backup/{{ postgres_backup_filename }}"
 
         - name: Backup PostgreSQL database using docker compose exec
           community.docker.docker_compose_v2_exec:
             project_src: "{{ service_project_src }}"
+            files:
+              - "{{ copy_docker_compose_backup_result.dest }}"
             service: forgejo-db
             command: pg_dump -Fc -U {{ db_user }} {{ db_name }} -f {{ postgres_container_backup_filepath }}
           register: pg_dump_result
-
-        - name: Copy PostgreSQL backup from container to host
-          ansible.builtin.command:
-            cmd: docker compose cp forgejo-db:{{ postgres_container_backup_filepath }} {{ current_backup_dir }}/{{ postgres_backup_filename }}
-            chdir: "{{ service_project_src }}"
-          register: pg_copy_result
+          when: copy_docker_compose_backup_result is success
+          
+        - name: Check if PostgreSQL backup file exists
+          become: true
+          ansible.builtin.stat:
+            path: "{{ current_backup_dir }}/{{ postgres_backup_filename }}"
+          register: postgres_backup_file
           when: pg_dump_result is success
 
         - name: Mark PostgreSQL backup as successful
           ansible.builtin.set_fact:
             postgres_backup_succeeded: true
-          when: pg_dump_result is success and pg_copy_result is success
+          when: pg_dump_result is success and postgres_backup_file.stat.exists
       rescue:
         - name: Record PostgreSQL backup failure
           ansible.builtin.set_fact:
@@ -223,13 +247,6 @@
         - name: Fail task to propagate error to parent block
           ansible.builtin.fail:
             msg: "PostgreSQL backup component failed: {{ ansible_failed_task.name|default('Unknown error') }}"
-      always:
-        - name: Clean up temporary PostgreSQL backup file in container
-          community.docker.docker_compose_v2_exec:
-            project_src: "{{ service_project_src }}"
-            service: forgejo-db
-            command: rm -f {{ postgres_container_backup_filepath }}
-          when: pg_dump_result is defined and pg_dump_result is success
   rescue:
     - name: Record overall backup failure
       ansible.builtin.set_fact:
@@ -241,6 +258,12 @@
         msg: "Notifying service rollback handler due to backup failure"
       changed_when: true
       notify: Rollback services
+  always:
+    - name: Clean up docker-compose backup file
+      ansible.builtin.file:
+        path: "{{ copy_docker_compose_backup_result.dest }}"
+        state: absent
+      when: copy_docker_compose_backup_result is defined and copy_docker_compose_backup_result is success
 
 #################################################
 # Backup Status and Reporting
@@ -251,8 +274,12 @@
     backup_succeeded: "{{ postgres_backup_succeeded and forgejo_backup_succeeded and config_backup_succeeded|default(false) }}"
 
 - name: Create backup report
+  become: true
   ansible.builtin.copy:
     dest: "{{ current_backup_dir }}/BACKUP_REPORT.md"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: '0644'
     content: |
       # Backup Report
 
@@ -277,7 +304,6 @@
       {% if backup_failure_reason is defined and not backup_succeeded %}
       Error: {{ backup_failure_reason }}
       {% endif %}
-    mode: '0644'
   when: postgres_backup_succeeded or forgejo_backup_succeeded or config_backup_succeeded|default(false)
 
 #################################################
@@ -303,6 +329,7 @@
     msg: "{{ msg.split('\n') }}"
       
 - name: Clean up backup files if backup failed
+  become: true
   ansible.builtin.file:
     path: "{{ current_backup_dir }}/{{ item }}"
     state: absent

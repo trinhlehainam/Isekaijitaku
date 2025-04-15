@@ -17,6 +17,7 @@ ansible_become_password: !vault |
           3864
 
 # Forgejo data and configuration directories
+forgejo_backup_dir: "/home/vagrant/backup/docker/forgejo-rootless"
 forgejo_data_dir: "/home/vagrant/appdata/docker/forgejo-rootless/data"
 forgejo_conf_dir: "./conf"
 postgres_data_dir: "./postgres"
