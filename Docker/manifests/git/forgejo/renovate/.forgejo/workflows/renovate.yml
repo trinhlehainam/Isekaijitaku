@@ -2,7 +2,9 @@ name: Renovate
 on:
   # Schedule Renovate to run on a regular basis
   schedule:
-    - cron: "0 * * * *"  # Run every hour
+    # Forgejo Actions use UTC timezone: https://forgejo.org/docs/next/user/actions/#onschedule
+    # For example, to run at 4:00 AM in Asia/Tokyo timezone (UTC+9), use: 0 19 * * *
+    - cron: "0 19 * * *"
   # Allow manual trigger
   workflow_dispatch:
   # Disabled push trigger to prevent workflow cancellation with auto-merges
