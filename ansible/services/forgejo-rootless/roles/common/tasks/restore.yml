@@ -22,6 +22,7 @@
     fail_msg: "Required variable forgejo_backup_dir is not defined. Please specify the path to the backup directory."
 
 - name: Gather backup directory information
+  become: true
   ansible.builtin.stat:
     path: "{{ forgejo_backup_dir }}"
   register: backup_dir_stat
@@ -32,6 +33,7 @@
   when: not backup_dir_stat.stat.exists or not backup_dir_stat.stat.isdir
 
 - name: Find most recent backup directory
+  become: true
   ansible.builtin.find:
     paths: "{{ forgejo_backup_dir }}"
     file_type: directory
@@ -52,6 +54,7 @@
     current_backup_dir: "{{ sorted_backup_dirs[0].path }}"
 
 - name: Get backup directory information
+  become: true
   ansible.builtin.stat:
     path: "{{ current_backup_dir }}"
   register: backup_dir_stat
@@ -71,21 +74,25 @@
     forgejo_backup_filename: "forgejo-app-dump.zip"
 
 - name: Check if existing docker-compose.yml exists
+  become: true
   ansible.builtin.stat:
     path: "{{ current_backup_dir }}/setup/docker-compose.yml"
   register: compose_backup_file
 
 - name: Check if existing secrets directory exists
+  become: true
   ansible.builtin.stat:
     path: "{{ current_backup_dir }}/setup/secrets"
   register: secrets_backup_dir
 
 - name: Check if PostgreSQL backup file exists
+  become: true
   ansible.builtin.stat:
     path: "{{ current_backup_dir }}/{{ postgres_backup_filename }}"
   register: postgres_backup_file
 
 - name: Check if Forgejo backup file exists
+  become: true
   ansible.builtin.stat:
     path: "{{ current_backup_dir }}/{{ forgejo_backup_filename }}"
   register: forgejo_backup_file
@@ -135,31 +142,46 @@
         path: "{{ service_project_src }}/secrets"
       register: existing_secrets_dir
 
-    - name: Move existing secrets directory to setup backup
-      ansible.builtin.command:
-        chdir: "{{ service_project_src }}"
-        cmd: mv secrets setup_before_restoration/{{ restore_timestamp }}/secrets
+    - name: Copy existing secrets directory to setup backup
+      become: true
+      ansible.builtin.copy:
+        src: "{{ service_project_src }}/secrets"
+        dest: "{{ service_project_src }}/setup_before_restoration/{{ restore_timestamp }}"
+        remote_src: true
       when: existing_secrets_dir.stat.exists
       register: secrets_backup_result
+
+    - name: Remove existing secrets directory
+      become: true
+      ansible.builtin.file:
+        path: "{{ service_project_src }}/secrets"
+        state: absent
+      when: secrets_backup_result is defined and secrets_backup_result is success
 
 - name: Check for project setup files in backup
   block:
     - name: Restore project setup files from backup
       block:
         - name: Copy docker-compose.yml from backup
+          become: true
           ansible.builtin.copy:
             src: "{{ current_backup_dir }}/setup/docker-compose.yml"
             dest: "{{ service_project_src }}/docker-compose.yml"
             remote_src: true
+            owner: "{{ ansible_user }}"
+            group: "{{ ansible_user }}"
             mode: '0644'
           when: compose_backup_file.stat.exists
           register: compose_restore_result
 
         - name: Copy secrets directory from backup
+          become: true
           ansible.builtin.copy:
             src: "{{ current_backup_dir }}/setup/secrets"
             dest: "{{ service_project_src }}"
             remote_src: true
+            owner: "{{ forgejo_user_id }}"
+            group: "{{ forgejo_group_id }}"
           when: secrets_backup_dir.stat.exists
           register: secrets_restore_result
 
@@ -172,9 +194,12 @@
     current_restore_dir: "{{ current_backup_dir }}/restore"
 
 - name: Create restore workspace directory
+  become: true
   ansible.builtin.file:
     path: "{{ current_restore_dir }}"
     state: directory
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
     mode: '0755'
 
 - name: Remove current data directories
@@ -194,18 +219,25 @@
 - name: Restore Forgejo application data
   block:
     - name: Create temp directory for unzipping
+      become: true
       ansible.builtin.file:
         path: "{{ current_restore_dir }}/temp"
         state: directory
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
         mode: '0755'
       register: temp_unzip_dir
       when: forgejo_backup_file.stat.exists
 
     - name: Unzip Forgejo backup to temp directory
+      become: true
       ansible.builtin.unarchive:
         src: "{{ forgejo_backup_file.stat.path }}"
         dest: "{{ current_restore_dir }}/temp"
         remote_src: true
+        owner: "{{ forgejo_user_id }}"
+        group: "{{ forgejo_group_id }}"
+        mode: '0755'
       register: unzip_result
       when: forgejo_backup_file.stat.exists
 
@@ -235,6 +267,7 @@
             required: false
           
     - name: Check Forgejo restore items
+      become: true
       ansible.builtin.stat:
         path: "{{ item.src }}"
       loop: "{{ forgejo_restore_items }}"
@@ -280,6 +313,19 @@
           - "missing_required_items | length == 0"
         fail_msg: "Required items missing: {{ missing_required_items | map(attribute='src') | join(', ') }}"
         success_msg: "All required items for Forgejo restoration are available"
+        
+    - name: Make sure forgejo data directory exists
+      become: true
+      ansible.builtin.file:
+        path: "{{ item.dest }}"
+        state: directory
+        mode: '0755'
+        owner: "{{ forgejo_user_id }}"
+        group: "{{ forgejo_group_id }}"
+      loop: "{{ forgejo_restore_items }}"
+      loop_control:
+        label: "{{ item.dest }}"
+      when: item.exists and not item.dest is search('app.ini')
 
     - name: Move Forgejo restore items
       become: true
@@ -345,11 +391,13 @@
         postgres_backup_filepath: "{{ current_backup_dir }}/{{ postgres_backup_filename }}"
 
     - name: Verify restore file exists
+      become: true
       ansible.builtin.stat:
         path: "{{ postgres_backup_filepath }}"
       register: postgres_backup_file_stat
 
     - name: Restore backup file into PostgreSQL container
+      become: true
       ansible.builtin.shell:
         chdir: "{{ service_project_src }}"
         cmd: docker compose exec -T forgejo-db pg_restore -U {{ db_user }} -d {{ db_name }} < {{ postgres_backup_filepath }}
@@ -386,8 +434,12 @@
     restore_succeeded: "{{ ((postgres_backup_file.stat.exists and postgres_restore_succeeded) or not postgres_backup_file.stat.exists) and ((forgejo_backup_file.stat.exists and forgejo_restore_succeeded) or not forgejo_backup_file.stat.exists) }}"
 
 - name: Create restoration report
+  become: true
   ansible.builtin.copy:
     dest: "{{ restore_report_path }}"
+    owner: "{{ ansible_user }}"
+    group: "{{ ansible_user }}"
+    mode: '0644'
     content: |
       # Forgejo Restoration Report
 
@@ -420,7 +472,6 @@
       {% endif %}
 
       Services will be {{ 'started' if restore_succeeded else 'left down' }} after restoration.
-    mode: '0644'
 
 #################################################
 # Post-restore Service Management
@@ -440,6 +491,7 @@
   when: restore_succeeded
 
 - name: Clean up temporary restore folders
+  become: true
   ansible.builtin.file:
     path: "{{ current_backup_dir }}/restore/temp"
     state: absent
