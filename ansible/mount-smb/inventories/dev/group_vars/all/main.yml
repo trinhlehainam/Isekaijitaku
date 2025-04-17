@@ -3,10 +3,20 @@ ansible_user: vagrant
 ansible_ssh_private_key_file: ~/.vagrant.d/insecure_private_key
 ansible_python_interpreter: /usr/bin/python3
 
+# SMB Mount Configuration
+smb_host_ip: 192.168.56.12  # Windows VM IP from Vagrantfile
+smb_share_name: Test        # Share name from Vagrantfile provisioner
+smb_user: vagrant           # User defined in Vagrantfile provisioner
+
+# smb_password: will be added below from ansible-vault output
+smb_mount_point: /mnt/test   # Target mount point on Ubuntu VM
+smb_fstype: cifs             # Filesystem type for SMB/CIFS
+smb_mount_uid: 1000           # UID for mounted files/dirs
+smb_mount_gid: 1000           # GID for mounted files/dirs
 smb_password: !vault |
           $ANSIBLE_VAULT;1.1;AES256
-          33316631366532643461326631626635633364343966633539646532346464316137616530386535
-          6330643466323832366332633764303130346330626636630a316366343764613231666136616363
-          39306338393864396265613033373461353436343763316331316436343662313766346236383837
-          3431616363393435660a623235346132373733303434663134313831353932353235333137626335
-          6537
+          35363739643835356339306636646639663139346634613964316538333536316238653431643633
+          6364663039353138353162386461386465316633393233310a626436373330393035323738656664
+          63306638383561633238626665313361376631363561333439643633613761636538373932326336
+          3333616331313236660a386535353031626630303530336431366436316130616332666461323037
+          3565
