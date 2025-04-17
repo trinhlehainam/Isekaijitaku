@@ -39,6 +39,10 @@ Vagrant.configure("2") do |config|
     node.vm.network :forwarded_port, guest: 3389, host: 3389, id: "winrm", auto_correct: true
     node.vm.network :forwarded_port, guest: 5985, host: 5985, id: "winrm", auto_correct: true
 
+    # Vagrant needs WinRM to configure Windows VMs as the guest communicator
+    # SSH doesn't work when using Windows as the guest OS
+    # https://github.com/hashicorp/vagrant/commit/8bb9d1826036aaeddd6e305ea5656c660c5edb2d
+    node.vm.communicator = "winrm"
     # use the plaintext WinRM transport and force it to use basic authentication.
     # NB this is needed because the default negotiate transport stops working
     #    after the domain controller is installed.
@@ -63,7 +67,27 @@ Vagrant.configure("2") do |config|
       vb.customize ["modifyvm", :id, "--macaddress2", "auto"]
     end
 
-    # node.vm.provision "shell", inline: <<-SHELL
-    # SHELL
+    node.vm.provision "shell", inline: <<-SHELL
+      # Allow ICMPv4 In (Ping) - Idempotent
+      if (-Not (Get-NetFirewallRule -Name "Allow_ICMPv4_In" -ErrorAction SilentlyContinue)) {
+        New-NetFirewallRule -Name "Allow_ICMPv4_In" -DisplayName "Allow ICMPv4 In" -Protocol ICMPv4 -IcmpType 8 -Direction Inbound -Action Allow -Profile Any
+      } else {
+        Set-NetFirewallRule -Name "Allow_ICMPv4_In" -Enabled True
+      }
+
+      # Create Test Directory if it doesn't exist
+      $TestPath = "C:\\Test"
+      if (-Not (Test-Path -Path $TestPath)) {
+        New-Item -ItemType Directory -Path $TestPath -Force
+      }
+
+      # Create SMB Share 'Test' if it doesn't exist
+      if (-Not (Get-SmbShare -Name "Test" -ErrorAction SilentlyContinue)) {
+          New-SmbShare -Name "Test" -Path $TestPath -FullAccess "vagrant"
+      }
+
+      # Enable File and Printer Sharing for Any Profile
+      Set-NetFirewallRule -DisplayGroup "File And Printer Sharing" -Profile Any -Enabled True
+    SHELL
   end
 end
