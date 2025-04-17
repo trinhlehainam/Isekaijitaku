@@ -1,0 +1,1 @@
+Add "Inbound Firewall Rule" to allow WinRM port (5985)

@@ -161,7 +161,7 @@ services:
   # - https://github.com/CollaboraOnline/online/issues/2800#issuecomment-2684147364
   collabora:
     # https://hub.docker.com/r/collabora/code/tags
-    image: collabora/code:24.04.13.2.1
+    image: collabora/code:24.04.13.3.1
     container_name: collabora
     hostname: collabora
     environment:
