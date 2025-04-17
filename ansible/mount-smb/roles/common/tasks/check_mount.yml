@@ -1,0 +1,8 @@
+---
+- name: Gather mount facts
+  ansible.builtin.mount_facts:
+    include_aggregate_mounts: false
+
+- name: Determine if SMB share is already mounted
+  ansible.builtin.set_fact:
+    smb_share_is_mounted: "{{ ansible_facts.mounts | selectattr('mount', 'equalto', smb_mount_point) | list | length > 0 }}"

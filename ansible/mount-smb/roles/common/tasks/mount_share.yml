@@ -1,0 +1,16 @@
+---
+- name: Create SMB mount point
+  ansible.builtin.file:
+    path: "{{ smb_mount_point }}"
+    state: directory
+    mode: '0755'
+  when: not smb_share_is_mounted
+
+- name: Mount SMB share
+  ansible.posix.mount:
+    src: "//{{ smb_host_ip }}/{{ smb_share_name }}"
+    path: "{{ smb_mount_point }}"
+    fstype: "{{ smb_fstype }}"
+    opts: "rw,vers=3,file_mode=0600,dir_mode=0700,username={{ smb_user }},password={{ smb_password }},uid={{ smb_mount_uid }},gid={{ smb_mount_gid }}"
+    state: mounted
+  when: not smb_share_is_mounted

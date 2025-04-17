@@ -11,10 +11,12 @@ This project demonstrates how to use Vagrant and Ansible to automatically mount 
         *   Create a directory (`C:\Test`).
         *   Share the directory as `Test` via SMB with full access for the `vagrant` user.
         *   Configure Windows Firewall to allow SMB connections and ICMP (ping).
-2.  **Ansible (`site.yml`, `inventories/`)**: Manages the configuration of the `ubuntu` VM:
+2.  **Ansible (`site.yml`, `inventories/`, `roles/common/`)**: Manages the configuration of the `ubuntu` VM:
     *   Installs `cifs-utils`.
-    *   Creates a mount point directory (`/mnt/test` by default).
-    *   Mounts the Windows SMB share (`//<windows_ip>/Test`) to the specified mount point.
+    *   Uses a role named `common` to handle tasks.
+    *   The role first checks if the SMB share is already mounted.
+    *   Conditionally creates a mount point directory (`/mnt/test` by default) and mounts the Windows SMB share (`//<windows_ip>/Test`) if not already mounted, based on the `operation_mode` variable.
+    *   Conditionally creates a test file (`ansible_test.txt`) in the mounted share to verify write access, based on the `operation_mode` variable.
     *   Uses Ansible Vault (`.vault_pass`) to store the SMB password securely.
     *   Creates a test file (`ansible_test.txt`) in the mounted share to verify write access.
 
@@ -40,8 +42,8 @@ This project demonstrates how to use Vagrant and Ansible to automatically mount 
     ```bash
     vagrant up
     ```
-    This command will create and provision both VMs. Vagrant automatically runs the Ansible playbook (`site.yml`) on the `ubuntu` VM after it's up.
-5.  **Verify Mount**:
+    This command will create and provision both VMs. Vagrant automatically runs the Ansible playbook (`site.yml`) on the `ubuntu` VM after it's up. **Note:** By default, the `vagrant provision` step runs Ansible without specific tags, which will *not* execute the mount or test tasks due to the way the playbook is structured (using `tags: [never, ...]`). See the 'Playbook Execution and Tags' section below for running specific operations.
+5.  **Verify Mount (after running with `--tags mount` or `--tags test`)**:
     *   SSH into the Ubuntu VM:
         ```bash
         vagrant ssh ubuntu
@@ -64,3 +66,20 @@ Configuration is managed in `inventories/dev/group_vars/all/main.yml`:
 *   `smb_fstype`: Filesystem type (`cifs`).
 *   `smb_mount_uid`: User ID to own files/directories on the mounted share.
 *   `smb_mount_gid`: Group ID to own files/directories on the mounted share.
+
+## Playbook Execution and Tags
+
+The `site.yml` playbook includes the `common` role multiple times, controlling which tasks run via Ansible tags and an `operation_mode` variable passed to the role.
+
+*   **Check Mount Status**: The check for an existing mount runs *before* mount or test operations when using the `mount` or `test` tags.
+*   **Mount Operation (`--tags mount`)**: Runs the check tasks and then the tasks to create the mount point and mount the SMB share (if not already mounted).
+    ```bash
+    cd /path/to/mount-smb # Navigate to the project directory
+    ansible-playbook -i inventories/dev/hosts.yml site.yml --vault-password-file .vault_pass --tags mount
+    ```
+*   **Test Operation (`--tags test`)**: Runs the check tasks and then the task to create a test file on the (presumably already mounted) share.
+    ```bash
+    cd /path/to/mount-smb # Navigate to the project directory
+    ansible-playbook -i inventories/dev/hosts.yml site.yml --vault-password-file .vault_pass --tags test
+    ```
+*   **Default Run (No Tags)**: Running `ansible-playbook` without tags (or via `vagrant provision`) will only gather facts, as the role inclusions in `site.yml` are tagged with `never` to prevent accidental execution outside the specific `mount` or `test` tags.

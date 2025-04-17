@@ -1,39 +1,16 @@
 ---
-- name: Mount Windows SMB Share on Ubuntu
+- name: Mount Windows SMB Share
   hosts: all
   become: true
   gather_facts: true
 
-  tasks:
-    - name: Gather mount facts
-      ansible.builtin.mount_facts:
-        include_aggregate_mounts: false
-
-    - name: Determine if SMB share is already mounted
-      ansible.builtin.set_fact:
-        smb_share_is_mounted: "{{ ansible_facts.mounts | selectattr('mount', 'equalto', smb_mount_point) | list | length > 0 }}"
-
-    - name: Create SMB mount point
-      ansible.builtin.file:
-        path: "{{ smb_mount_point }}"
-        state: directory
-        mode: '0755'
-      when: not smb_share_is_mounted
-
-    - name: Mount SMB share
-      ansible.posix.mount:
-        src: "//{{ smb_host_ip }}/{{ smb_share_name }}"
-        path: "{{ smb_mount_point }}"
-        fstype: "{{ smb_fstype }}"
-        opts: "rw,vers=3,file_mode=0600,dir_mode=0700,username={{ smb_user }},password={{ smb_password }},uid={{ smb_mount_uid }},gid={{ smb_mount_gid }}"
-        state: mounted
-      when: not smb_share_is_mounted
-
-    - name: Create a test file on the SMB share
-      ansible.builtin.copy:
-        content: "Test file created by Ansible."
-        dest: "{{ smb_mount_point }}/ansible_test.txt"
-        owner: "{{ smb_mount_uid }}"
-        group: "{{ smb_mount_gid }}"
-        mode: '0644'
-      when: not smb_share_is_mounted
+  roles:
+    - role: common
+      tags: [never, mount]
+      vars:
+        operation_mode: mount
+        
+    - role: common
+      tags: [never, test]
+      vars:
+        operation_mode: test
