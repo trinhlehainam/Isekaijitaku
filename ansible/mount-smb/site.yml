@@ -9,13 +9,13 @@
       tags: [never, mount]
       vars:
         operation_mode: mount
-        
-    - role: common
-      tags: [never, test]
-      vars:
-        operation_mode: test
 
     - role: common
       tags: [never, unmount]
       vars:
         operation_mode: unmount
+        
+    - role: common
+      tags: [never, test]
+      vars:
+        operation_mode: test
