@@ -82,4 +82,9 @@ The `site.yml` playbook includes the `common` role multiple times, controlling w
     cd /path/to/mount-smb # Navigate to the project directory
     ansible-playbook -i inventories/dev/hosts.yml site.yml --vault-password-file .vault_pass --tags test
     ```
-*   **Default Run (No Tags)**: Running `ansible-playbook` without tags (or via `vagrant provision`) will only gather facts, as the role inclusions in `site.yml` are tagged with `never` to prevent accidental execution outside the specific `mount` or `test` tags.
+*   **Unmount Operation (`--tags unmount`)**: Runs the check tasks and then the tasks to remove the test file and unmount the SMB share (if currently mounted).
+    ```bash
+    cd /path/to/mount-smb # Navigate to the project directory
+    ansible-playbook -i inventories/dev/hosts.yml site.yml --vault-password-file .vault_pass --tags unmount
+    ```
+*   **Default Run (No Tags)**: Running `ansible-playbook` without tags (or via `vagrant provision`) will only gather facts, as the role inclusions in `site.yml` are tagged with `never` to prevent accidental execution outside the specific `mount`, `test`, or `unmount` tags.

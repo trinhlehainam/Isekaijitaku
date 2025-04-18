@@ -1,0 +1,6 @@
+---
+- name: Unmount SMB share
+  ansible.posix.mount:
+    path: "{{ smb_mount_point }}"
+    state: unmounted
+  when: smb_share_is_mounted

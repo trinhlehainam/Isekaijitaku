@@ -14,3 +14,8 @@
       tags: [never, test]
       vars:
         operation_mode: test
+
+    - role: common
+      tags: [never, unmount]
+      vars:
+        operation_mode: unmount

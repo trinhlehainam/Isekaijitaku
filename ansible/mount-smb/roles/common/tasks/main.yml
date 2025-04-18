@@ -1,11 +1,15 @@
 ---
 - name: Include check mount tasks
-  ansible.builtin.include_tasks: check_mount.yml
+  ansible.builtin.include_tasks: check.yml
 
 - name: Include mount share tasks
-  ansible.builtin.include_tasks: mount_share.yml
+  ansible.builtin.include_tasks: mount.yml
   when: operation_mode == 'mount'
 
 - name: Include test mount tasks
-  ansible.builtin.include_tasks: test_mount.yml
+  ansible.builtin.include_tasks: test.yml
   when: operation_mode == 'test'
+
+- name: Include unmount share tasks
+  ansible.builtin.include_tasks: unmount.yml
+  when: operation_mode == 'unmount'
