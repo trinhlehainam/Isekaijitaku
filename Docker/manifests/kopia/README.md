@@ -2,6 +2,10 @@
 
 This document outlines the configuration and operational details for running Kopia using the provided `docker-compose.yml` file.
 
+## Important Limitation: Single Repository Only
+
+Kopia server does not currently support serving multiple repositories from a single server instance. Each Kopia server can only be connected to a single repository at a time. For more details and ongoing discussion, see the upstream issue: [kopia/kopia#2976](https://github.com/kopia/kopia/issues/2976).
+
 ## Prerequisites
 
 Ensure Docker and Docker Compose are installed. Create the following secret files in a `./secrets` subdirectory relative to the `docker-compose.yml`:
@@ -15,7 +19,6 @@ Ensure Docker and Docker Compose are installed. Create the following secret file
 The `docker-compose.yml` defines a single service named `kopia`.
 
 ### Image and Environment
-
 The service uses the `kopia/kopia:0.19.0` image. The timezone is set to `Asia/Tokyo`. Environment variables `KOPIA_UI_USERNAME`, `KOPIA_UI_PASSWORD`, and `KOPIA_PASSWORD` are dynamically populated at container start from the corresponding Docker secrets.
 
 ### Volumes
@@ -84,3 +87,5 @@ Access the Web UI via the hostname configured in the Traefik labels (e.g., `http
 ## References
 
 *   [Kopia CLI Command Reference](https://kopia.io/docs/reference/command-line/common/)
+*   [Kopia Docker Installation](https://kopia.io/docs/installation/#docker-images)
+*   [Kopia Docker Compose](https://github.com/kopia/kopia/blob/master/tools/docker/docker-compose.yml)
