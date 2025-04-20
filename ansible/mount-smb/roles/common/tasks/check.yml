@@ -1,11 +1,12 @@
 ---
 - name: Gather mount facts
-  ansible.builtin.mount_facts:
-    include_aggregate_mounts: false
-
+  ansible.builtin.setup:
+    gather_subset:
+      - mounts
+    
 - name: Determine if SMB share is already mounted
   ansible.builtin.set_fact:
-    smb_share_is_mounted: "{{ ansible_facts.mounts | selectattr('mount', 'equalto', smb_mount_point) | list | length > 0 }}"
+    smb_share_is_mounted: "{{ smb_mount_point in ansible_mounts|json_query('[].mount') }}"
 
 - name: Check status of smb_mount_point (when not a mount)
   ansible.builtin.stat:
@@ -13,6 +14,22 @@
   register: smb_mount_point_file_stat
   when: not smb_share_is_mounted
 
+- name: Check if smb_mount_point is a directory and not empty
+  ansible.builtin.find:
+    path: "{{ smb_mount_point }}"
+    file_type: any
+    recurse: false
+  register: smb_mount_point_dir_contents
+  when: 
+    - smb_mount_point_file_stat.stat is defined
+    - smb_mount_point_file_stat.stat.exists
+    - smb_mount_point_file_stat.stat.isdir
+    
+- name: Set check variables
+  ansible.builtin.set_fact:
+    is_file: "{{ smb_mount_point_file_stat.stat is defined and smb_mount_point_file_stat.stat.exists and not smb_mount_point_file_stat.stat.isdir }}"
+    is_empty_dir: "{{ smb_mount_point_dir_contents.examined is defined and smb_mount_point_dir_contents.examined > 0 }}"
+
 - name: Set fact if smb_mount_point exists as a non-empty file/directory (not a mount)
   ansible.builtin.set_fact:
-    smb_mount_point_is_file: "{{ smb_mount_point_file_stat is defined and smb_mount_point_file_stat.exists }}"
+    smb_mount_point_is_file: "{{ is_file or is_empty_dir }}"

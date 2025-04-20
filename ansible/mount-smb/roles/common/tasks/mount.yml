@@ -1,7 +1,11 @@
 ---
-- name: End play if smb mount point is a host directory or file or share is already mounted
+- name: End play if smb share is already mounted
   meta: end_host
-  when: smb_mount_point_is_file or smb_share_is_mounted
+  when: smb_share_is_mounted
+
+- name: End play if smb mount point is a host directory or file
+  meta: end_host
+  when: smb_mount_point_is_file
 
 - name: Create SMB mount point
   ansible.builtin.file:
@@ -16,11 +20,11 @@
     fstype: "{{ smb_fstype }}"
     opts: "rw,vers=3,file_mode=0600,dir_mode=0700,username={{ smb_user }},password={{ smb_password }},uid={{ smb_mount_uid }},gid={{ smb_mount_gid }}"
     state: mounted
-    
-- name: Check mount status
+
+- name: Include check mount tasks
   ansible.builtin.include_tasks: check.yml
   
-- name: Fail if mount is not successful
+- name: Fail if SMB share is not mounted
   ansible.builtin.fail:
-    msg: "Mount failed"
+    msg: "SMB share is not mounted"
   when: not smb_share_is_mounted

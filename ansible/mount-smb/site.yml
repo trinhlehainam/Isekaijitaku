@@ -6,6 +6,11 @@
 
   roles:
     - role: common
+      tags: [never, check]
+      vars:
+        operation_mode: check
+
+    - role: common
       tags: [never, mount]
       vars:
         operation_mode: mount
