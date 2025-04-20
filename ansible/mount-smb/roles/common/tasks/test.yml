@@ -6,3 +6,4 @@
     owner: "{{ smb_mount_uid }}"
     group: "{{ smb_mount_gid }}"
     mode: '0644'
+  when: smb_share_is_mounted
