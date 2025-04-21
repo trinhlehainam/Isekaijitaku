@@ -1,0 +1,82 @@
+##############################################################################
+# Initialization
+##############################################################################
+
+- name: Set destroy operation timestamp
+  ansible.builtin.set_fact:
+    destroy_start_time: "{{ ansible_date_time.iso8601 }}"
+
+- name: Display destroy operation start message
+  ansible.builtin.debug:
+    msg: |
+      Starting Dozzle service destruction on {{ inventory_hostname }}
+      - Project path: {{ service_project_src }}
+      - Service type: {{ "Manager" if inventory_hostname in groups['managers'] else "Agent" }}
+      - Started at: {{ destroy_start_time }}
+
+##############################################################################
+# Service Status Verification
+##############################################################################
+
+- name: Check for existing Dozzle services
+  ansible.builtin.include_tasks: check.yml
+
+- name: Set service existence flag
+  ansible.builtin.set_fact:
+    dozzle_service_exists: "{{ check_result is defined and check_result.services is defined and check_result.services | length > 0 }}"
+
+- name: Display service status
+  ansible.builtin.debug:
+    msg: "{{ 'Found existing Dozzle services to remove' if dozzle_service_exists else 'No Dozzle services found - proceeding with directory cleanup only' }}"
+
+##############################################################################
+# Service Removal
+##############################################################################
+
+- name: Stop and remove Dozzle containers
+  community.docker.docker_compose_v2:
+    project_src: "{{ service_project_src }}"
+    state: absent
+    remove_orphans: true
+    remove_volumes: true
+  when: dozzle_service_exists
+  register: compose_down_result
+
+- name: Display container removal results
+  ansible.builtin.debug:
+    msg: "Successfully stopped and removed Dozzle containers"
+  when: dozzle_service_exists and compose_down_result is success
+
+##############################################################################
+# File System Cleanup
+##############################################################################
+
+- name: Remove docker-compose file
+  ansible.builtin.file:
+    path: "{{ service_project_src }}/docker-compose.yml"
+    state: absent
+
+- name: Remove project directory
+  ansible.builtin.file:
+    path: "{{ service_project_src }}"
+    state: absent
+
+##############################################################################
+# Cleanup Confirmation
+##############################################################################
+
+- name: Verify successful cleanup
+  ansible.builtin.stat:
+    path: "{{ service_project_src }}"
+  register: dir_check
+
+- name: Display cleanup status
+  vars:
+    msg: |
+      Dozzle service destruction completed on {{ inventory_hostname }}
+      - Service type: {{ "Manager" if inventory_hostname in groups['managers'] else "Agent" }}
+      - Started at: {{ destroy_start_time }}
+      - Finished at: {{ ansible_date_time.iso8601 }}
+      - Project directory removed: {{ not dir_check.stat.exists }}
+  ansible.builtin.debug:
+    msg: "{{ msg.split('\n') }}"

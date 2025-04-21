@@ -1,0 +1,34 @@
+---
+- name: Set up Dozzle project name and template source
+  ansible.builtin.set_fact:
+    project_name: "dozzle{{ '_agent' if inventory_hostname in groups['agents'] }}"
+    docker_compose_template_src: "docker-compose{{ '-agent' if inventory_hostname in groups['agents'] else '' }}.yml.j2"
+
+- name: Set up Dozzle project source path
+  ansible.builtin.set_fact:
+    service_project_src: "{{ service_project_src|default(ansible_user_dir + '/Docker/' + project_name) }}"
+
+- name: Build agents connection string for manager
+  ansible.builtin.set_fact:
+    dozzle_agents_connection_string: "{{ groups['agents'] | map('extract', hostvars, ['ansible_host']) | map('regex_replace', '^(.*)$', '\\1:7007') | join(',') }}"
+  when: groups['managers'] is defined and inventory_hostname in groups['managers']
+    
+- name: Set default operation mode if not defined
+  ansible.builtin.set_fact:
+    operation_mode: "{{ operation_mode | default('check') }}"
+
+- name: Include check tasks
+  ansible.builtin.include_tasks: check.yml
+  when: operation_mode == 'check'
+
+- name: Include deploy tasks
+  ansible.builtin.include_tasks: deploy.yml
+  when: operation_mode == 'deploy'
+
+- name: Include destroy tasks
+  ansible.builtin.include_tasks: destroy.yml
+  when: operation_mode == 'destroy'
+
+- name: Include upgrade tasks
+  ansible.builtin.include_tasks: upgrade.yml
+  when: operation_mode == 'upgrade'
