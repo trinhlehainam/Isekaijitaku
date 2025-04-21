@@ -5,13 +5,16 @@ services:
     image: kopia/kopia:0.19.0
     hostname: kopia
     container_name: kopia
+    # Required for FUSE mounts (e.g., browsing snapshots)
+    # https://stackoverflow.com/a/49021109
     cap_add:
-      - SYS_ADMIN # Required for FUSE mounts (e.g., browsing snapshots)
+      - SYS_ADMIN
+    security_opt:
+      - apparmor:unconfined
+    #
     restart: unless-stopped
     environment:
       - TZ=Asia/Tokyo
-      # - KOPIA_HTTPS=true # Optional
-      # - REFRESH_INTERVAL= # Optional
     # https://github.com/kopia/kopia/blob/master/tools/docker/Dockerfile
     entrypoint: 
       - /bin/bash

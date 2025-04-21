@@ -90,10 +90,14 @@
   vars:
     msg: |
       ===== KOPIA ACCESS INFORMATION =====
-      {% if use_traefik | default(false) %}
+      {% if use_traefik|default(false) %}
       Access via Traefik:
-      {% if traefik_router_public | default(false) and public_apex_domain | default(false) %}- Public: https://{{ service_name|default('kopia') }}.{{ public_apex_domain }}{% endif %}
-      {% if traefik_router_private | default(false) and private_apex_domain | default(false) %}- Private: https://{{ service_name|default('kopia') }}.{{ private_apex_domain }}{% endif %}
+        {% if use_traefik_router_public|default(false) and public_apex_domain|default(false) %}
+        - Public: https://{{ service_name|default('kopia') }}.{{ public_apex_domain }}
+        {% endif %}
+        {% if use_traefik_router_private|default(false) and private_apex_domain|default(false) %}
+        - Private: https://{{ service_name|default('kopia') }}.{{ private_apex_domain }}
+        {% endif %}
       {% else %}
       Direct access: http://{{ ansible_host }}:51515
       {% endif %}
