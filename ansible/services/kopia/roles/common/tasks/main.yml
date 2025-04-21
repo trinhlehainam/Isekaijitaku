@@ -1,17 +1,7 @@
 ---
-- name: Set up Dozzle project name and template source
-  ansible.builtin.set_fact:
-    project_name: "dozzle{{ '_agent' if inventory_hostname in groups['agents'] }}"
-    docker_compose_template_src: "docker-compose{{ '-agent' if inventory_hostname in groups['agents'] else '' }}.yml.j2"
-
-- name: Set up Dozzle project source path
+- name: Set up Kopia project source path
   ansible.builtin.set_fact:
     service_project_src: "{{ service_project_src|default(ansible_user_dir + '/Docker/' + project_name) }}"
-
-- name: Build agents connection string for manager
-  ansible.builtin.set_fact:
-    dozzle_agents_connection_string: "{{ groups['agents'] | map('extract', hostvars, ['ansible_host']) | map('regex_replace', '^(.*)$', '\\1:7007') | join(',') }}"
-  when: groups['managers'] is defined and inventory_hostname in groups['managers']
 
 - name: Validate Kopia bind mount directory
   ansible.builtin.assert:

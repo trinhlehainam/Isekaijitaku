@@ -67,7 +67,7 @@
 
 - name: Copy docker-compose file
   ansible.builtin.template:
-    src: "{{ docker_compose_template_src }}"
+    src: "docker-compose.yml.j2"
     dest: "{{ service_project_src }}/docker-compose.yml"
     mode: '0644'
   
@@ -77,7 +77,7 @@
     state: present
   register: output
 
-- name: Display Kopia manager connection info
+- name: Display Kopia connection info
   vars:
     msg: |
       ===== KOPIA MANAGER ACCESS INFORMATION =====
@@ -91,6 +91,3 @@
       =============================================
   ansible.builtin.debug:
     msg: "{{ msg.split('\n') }}"
-  when: 
-    - groups['managers'] is defined and inventory_hostname in groups['managers']
-    - inventory_dir is search('dev')
