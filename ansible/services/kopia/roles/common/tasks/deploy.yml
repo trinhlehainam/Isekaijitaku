@@ -2,7 +2,7 @@
 # Service Status Verification
 ##############################################################################
 
-- name: Check for existing Kopia services
+- name: Check for existing Kopia service
   ansible.builtin.include_tasks: check.yml
 
 - name: Set service existence flag
@@ -31,6 +31,15 @@
       - "kopia_repository_dir is defined"
     fail_msg: "Kopia credentials and bind mount directories are not defined"
     
+- name: Ensure kopia repository directory exists
+  become: true
+  ansible.builtin.file:
+    path: "{{ kopia_repository_dir }}"
+    state: directory
+    mode: '0755'
+    
+# TODO: improve checking kopia_repository_dir parent directory permissions
+
 - name: Create directory for docker-compose files
   ansible.builtin.file:
     path: "{{ service_project_src }}"
@@ -44,14 +53,14 @@
     state: directory
     mode: '0700'
 
-- name: Create kopia manager username file
+- name: Create kopia username file
   become: true
   ansible.builtin.copy:
     content: "{{ kopia_username }}"
     dest: "{{ service_project_src }}/secrets/kopia_username"
     mode: '0600'
 
-- name: Create kopia manager password file
+- name: Create kopia password file
   become: true
   ansible.builtin.copy:
     content: "{{ kopia_password }}"
@@ -71,7 +80,7 @@
     dest: "{{ service_project_src }}/docker-compose.yml"
     mode: '0644'
   
-- name: Start Kopia containers
+- name: Start Kopia container
   community.docker.docker_compose_v2:
     project_src: "{{ service_project_src }}"
     state: present
@@ -80,11 +89,11 @@
 - name: Display Kopia connection info
   vars:
     msg: |
-      ===== KOPIA MANAGER ACCESS INFORMATION =====
+      ===== KOPIA ACCESS INFORMATION =====
       {% if use_traefik | default(false) %}
       Access via Traefik:
-      {% if traefik_router_public | default(false) and public_apex_domain | default(false) %}- Public: https://{{ service_name|default('dozzle') }}.{{ public_apex_domain }}{% endif %}
-      {% if traefik_router_private | default(false) and private_apex_domain | default(false) %}- Private: https://{{ service_name|default('dozzle') }}.{{ private_apex_domain }}{% endif %}
+      {% if traefik_router_public | default(false) and public_apex_domain | default(false) %}- Public: https://{{ service_name|default('kopia') }}.{{ public_apex_domain }}{% endif %}
+      {% if traefik_router_private | default(false) and private_apex_domain | default(false) %}- Private: https://{{ service_name|default('kopia') }}.{{ private_apex_domain }}{% endif %}
       {% else %}
       Direct access: http://{{ ansible_host }}:51515
       {% endif %}

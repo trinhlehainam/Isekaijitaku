@@ -2,10 +2,6 @@
 # Initialization
 ##############################################################################
 
-- name: Define service_name based on host group
-  ansible.builtin.set_fact:
-    service_name: "{{ 'dozzle' if inventory_hostname in groups['managers'] else 'dozzle-agent' }}"
-
 - name: Set upgrade start time
   ansible.builtin.set_fact:
     upgrade_start_time: "{{ ansible_date_time.iso8601_basic_short }}"
@@ -15,30 +11,30 @@
 # Current Version Analysis
 ##############################################################################
 
-- name: Check current dozzle container status
+- name: Check current kopia container status
   ansible.builtin.include_tasks: check.yml
   
-- name: Verify Dozzle container exists
+- name: Verify kopia container exists
   ansible.builtin.assert:
     that:
       - check_result is defined
       - check_result.services is defined
       - check_result.services | length > 0
-    fail_msg: "No existing Dozzle container found for upgrade. Please deploy a new instance first."
+    fail_msg: "No existing kopia container found for upgrade. Please deploy a new instance first."
 
-- name: Extract current running dozzle image information
+- name: Extract current running kopia image information
   ansible.builtin.set_fact:
     current_service: "{{ check_result.services | selectattr('service', 'equalto', service_name) | first }}"
   when: check_result.services | selectattr('service', 'equalto', service_name) | length > 0
 
-- name: Verify dozzle service information is available
+- name: Verify kopia service information is available
   ansible.builtin.assert:
     that:
       - current_service is defined
       - current_service.image is defined
-    fail_msg: "Unable to find Dozzle service information in the check results."
+    fail_msg: "Unable to find kopia service information in the check results."
 
-- name: Extract current dozzle version using regex
+- name: Extract current kopia version using regex
   ansible.builtin.set_fact:
     current_image_match: "{{ current_service.image | regex_search('^\"?(?P<depName>[^\\s:@\"]+)(?::(?P<currentValue>[-a-zA-Z0-9.]+))?(?:@(?P<currentDigest>sha256:[a-zA-Z0-9]+))?\"?$', '\\1', '\\2', '\\3') }}"
     current_image_tag: omit # Explicitly omit first
@@ -56,7 +52,7 @@
 - name: Check if current image tag is missing and fail
   when: current_image_tag == omit
   ansible.builtin.fail:
-    msg: "ERROR: Cannot determine the current image tag for '{{ current_service.image }}'. Please ensure the running service uses an explicit, non-latest version tag (e.g., 'amir20/dozzle:v8.12.4') before attempting an upgrade. Upgrade aborted for this host."
+    msg: "ERROR: Cannot determine the current image tag for '{{ current_service.image }}'. Please ensure the running service uses an explicit, non-latest version tag (e.g., 'kopia/kopia:0.19.0') before attempting an upgrade. Upgrade aborted for this host."
 
 ##############################################################################
 # Compare Versions and Determine if Upgrade is Needed
@@ -64,7 +60,7 @@
 
 - name: Set target image details
   ansible.builtin.set_fact:
-    target_image: "{{ (lookup('template', docker_compose_template_src) | from_yaml).services[service_name].image }}"
+    target_image: "{{ (lookup('template', docker-compose.yml.j2) | from_yaml).services[service_name].image }}"
 
 - name: Initialize version comparison flags
   ansible.builtin.set_fact:
@@ -126,7 +122,7 @@
   block:
     - name: Copy updated docker-compose template
       ansible.builtin.template:
-        src: "{{ docker_compose_template_src }}"
+        src: "docker-compose.yml.j2"
         dest: "{{ service_project_src }}/docker-compose.yml"
         mode: '0644'
 
@@ -155,7 +151,7 @@
       delay: 5
       retries: 5
 
-    - name: Filter dozzle container info
+    - name: Filter kopia container info
       ansible.builtin.set_fact:
         target_container: "{{ item }}"
       loop: "{{ container_info.results | map(attribute='container') }}"
@@ -164,7 +160,7 @@
       when:
         - container_info is defined and container_info.results is defined and container_info.results | length > 0
         - item.Config.Labels['com.docker.compose.service'] == service_name
-        
+      
     - name: Verify container health state
       ansible.builtin.assert:
         that:
@@ -173,7 +169,7 @@
           - target_container.Config.Image is search(target_image_tag)
         fail_msg: |
           Services failed to reach healthy state after upgrade or new version was not applied correctly.
-          Dozzle health: {{ target_container.State.Health.Status }}
+          Kopia health: {{ target_container.State.Health.Status }}
           Image verification: {{ 'OK' if target_container.Config.Image is search(target_image_tag) else 'FAILED' }}
           
     - name: Set upgrade success flag
@@ -212,7 +208,7 @@
       delay: 5
       retries: 5
       
-    - name: Filter dozzle container info
+    - name: Filter kopia container info
       ansible.builtin.set_fact:
         target_container: "{{ item }}"
       loop: "{{ container_info.results | map(attribute='container') }}"

@@ -37,6 +37,7 @@ These variables need to be defined in your inventory files (e.g., `inventories/d
 *   `kopia_password`: Password for the Kopia Web UI user.
 *   `kopia_repo_password`: Password used to encrypt the Kopia repository data.
 *   `kopia_repository_dir`: **Absolute path** on the target host where the Kopia repository data will be stored (e.g., `/mnt/backups/kopia_repo`). This directory will be created if it doesn't exist.
+    > **Note:** The playbook attempts to create this directory during deployment (`deploy.yml`). If this step fails, verify that the *parent* directory does not have immutable attributes set (check with `lsattr`) and that the Ansible user has the necessary permissions, especially if this path is not a dedicated mount point.
 
 **Optional:**
 
