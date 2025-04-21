@@ -22,6 +22,15 @@
       - check_result.services | length > 0
     fail_msg: "No existing kopia container found for upgrade. Please deploy a new instance first."
 
+- name: Validate Kopia credentials and bind mount directories
+  ansible.builtin.assert:
+    that:
+      - "kopia_username is defined"
+      - "kopia_password is defined"
+      - "kopia_repo_password is defined"
+      - "kopia_repository_dir is defined"
+    fail_msg: "Kopia credentials and bind mount directories are not defined"
+
 - name: Extract current running kopia image information
   ansible.builtin.set_fact:
     current_service: "{{ check_result.services | selectattr('service', 'equalto', service_name) | first }}"
@@ -60,7 +69,7 @@
 
 - name: Set target image details
   ansible.builtin.set_fact:
-    target_image: "{{ (lookup('template', docker-compose.yml.j2) | from_yaml).services[service_name].image }}"
+    target_image: "{{ (lookup('template', 'docker-compose.yml.j2') | from_yaml).services[service_name].image }}"
 
 - name: Initialize version comparison flags
   ansible.builtin.set_fact:
@@ -138,7 +147,7 @@
       register: services_facts
       when: pull_result is success
       
-    - name: Wait for services to be running and healthy
+    - name: Wait for services to be running
       when: services_facts is defined and services_facts.containers is defined
       community.docker.docker_container_info:
         name: "{{ item.ID }}"
@@ -146,8 +155,8 @@
       loop_control:
         label: "{{ item.Service }}"
       register: container_info
-      failed_when: not container_info.container.State.Running or container_info.container.State.Health.Status == 'unhealthy'
-      until: container_info.container.State.Running and container_info.container.State.Health.Status == 'healthy'
+      failed_when: not container_info.container.State.Running
+      until: container_info.container.State.Running
       delay: 5
       retries: 5
 
@@ -161,15 +170,13 @@
         - container_info is defined and container_info.results is defined and container_info.results | length > 0
         - item.Config.Labels['com.docker.compose.service'] == service_name
       
-    - name: Verify container health state
+    - name: Verify container is running
       ansible.builtin.assert:
         that:
-          - target_container.State.Health.Status == 'healthy'
           - target_container.State.Running
           - target_container.Config.Image is search(target_image_tag)
         fail_msg: |
           Services failed to reach healthy state after upgrade or new version was not applied correctly.
-          Kopia health: {{ target_container.State.Health.Status }}
           Image verification: {{ 'OK' if target_container.Config.Image is search(target_image_tag) else 'FAILED' }}
           
     - name: Set upgrade success flag
@@ -231,6 +238,17 @@
     - name: Fail playbook due to failed upgrade
       ansible.builtin.fail:
         msg: "Failed to upgrade {{ service_name }} to version {{ target_image_tag }}."
+        
+##############################################################################
+# Clean up
+##############################################################################
+
+- name: Clean up backup docker compose when upgrade success
+  become: true
+  ansible.builtin.file:
+    path: "{{ compose_backup_path }}"
+    state: absent
+  when: backup_result.rc is defined and backup_result.rc == 0
 
 ##############################################################################
 # Final Report

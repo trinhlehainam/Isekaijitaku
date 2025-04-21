@@ -237,6 +237,17 @@
         msg: "Failed to upgrade {{ service_name }} to version {{ target_image_tag }}."
 
 ##############################################################################
+# Clean up
+##############################################################################
+
+- name: Clean up backup docker compose when upgrade success
+  become: true
+  ansible.builtin.file:
+    path: "{{ compose_backup_path }}"
+    state: absent
+  when: backup_result.rc is defined and backup_result.rc == 0
+
+##############################################################################
 # Final Report
 ##############################################################################
 
