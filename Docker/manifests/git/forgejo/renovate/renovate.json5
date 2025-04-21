@@ -95,5 +95,12 @@
       groupName: "Docker base images",
       groupSlug: "docker-base",
     },
+    // Use regex to only match stable semver tags like X.Y.Z
+    // This avoids picking up date-based tags like vYYYYMMDD or prefixed tags like vX.Y.Z
+    {
+      matchDatasources: ["docker"],
+      matchPackageNames: ["kopia/kopia"],
+      versioning: "regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$",
+    },
   ],
 }

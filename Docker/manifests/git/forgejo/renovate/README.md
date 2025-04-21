@@ -237,6 +237,42 @@ A key component of this setup is a centralized configuration repository (`renova
 
 This centralized approach provides consistency while allowing repository-specific adjustments.
 
+## Custom Versioning for Specific Images
+
+### Handling `kopia/kopia` Versioning
+
+Some Docker images, like `kopia/kopia`, utilize tags that don't strictly follow semantic versioning for all releases. For instance, they might push tags based on dates (e.g., `v20250412`, `v20250413`) for development or nightly builds alongside their stable semantic version releases (e.g., `0.19.0`).
+
+By default, Renovate might interpret these date-based tags as the latest versions, leading to pull requests like:
+
+```
+chore(deps): update kopia/kopia docker tag to v20250417
+```
+
+This is often undesirable if the goal is to track only stable, `major.minor.patch` releases.
+
+To address this, we can configure a specific `packageRule` for `kopia/kopia` within Renovate's configuration (`renovate.json5`). This rule employs a custom `regex` versioning scheme designed to exclusively match tags adhering strictly to the `major.minor.patch` pattern (e.g., `0.19.0`).
+
+Here is the configuration snippet added to `renovate.json5`:
+
+```json5
+{
+  // ... other configurations
+  packageRules: [
+    // ... other rules
+    {
+      matchDatasources: ['docker'],
+      matchPackageNames: ['kopia/kopia'],
+      // Use regex to only match stable semver tags like X.Y.Z
+      // This avoids picking up date-based tags like vYYYYMMDD or prefixed tags like vX.Y.Z
+      versioning: 'regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$',
+    },
+  ],
+};
+```
+
+This configuration ensures that Renovate ignores the date-based tags and any `v`-prefixed tags, proposing updates only when a new stable version matching the strict `X.Y.Z` format is available for `kopia/kopia`.
+
 ## CI/CD Workflow Integration (Forgejo Actions)
 
 Renovate integrates well with Forgejo Actions (or Gitea Actions) for automated dependency updates using a workflow file (e.g., `.forgejo/workflows/renovate.yml`).
