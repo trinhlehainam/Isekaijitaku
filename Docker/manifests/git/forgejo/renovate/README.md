@@ -273,6 +273,8 @@ Here is the configuration snippet added to `renovate.json5`:
 
 This configuration ensures that Renovate ignores the date-based tags and any `v`-prefixed tags, proposing updates only when a new stable version matching the strict `X.Y.Z` format is available for `kopia/kopia`.
 
+*Note on Versioning Choice:* While Renovate offers built-in `semver` versioning, it strictly adheres to the SemVer 2.0 specification. In scenarios like `kopia/kopia` where both compliant (e.g., `0.19.0`) and non-compliant (e.g., `v20250417`) tags exist, the behavior of strict `semver` in selecting the 'latest' version can be unpredictable. It might ignore or error on the non-compliant tags. Using `semver-coerced` could also lead to misinterpretation of date-based tags. Therefore, the custom `regex` provides the most explicit and reliable method to filter *only* the desired `X.Y.Z` tags for this specific package.
+
 ## CI/CD Workflow Integration (Forgejo Actions)
 
 Renovate integrates well with Forgejo Actions (or Gitea Actions) for automated dependency updates using a workflow file (e.g., `.forgejo/workflows/renovate.yml`).
