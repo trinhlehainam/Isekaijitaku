@@ -251,7 +251,7 @@ chore(deps): update kopia/kopia docker tag to v20250417
 
 This is often undesirable if the goal is to track only stable, `major.minor.patch` releases.
 
-To address this, we can configure a specific `packageRule` for `kopia/kopia` within Renovate's configuration (`renovate.json5`). This rule employs a custom `regex` versioning scheme designed to exclusively match tags adhering strictly to the `major.minor.patch` pattern (e.g., `0.19.0`).
+To address this, we can configure a specific `packageRule` for `kopia/kopia` within Renovate's configuration (`renovate.json5`). This rule employs a custom `regex` versioning scheme designed to exclusively match tags adhering strictly to the `major.minor.patch` pattern (e.g., `0.19.0`), while also ensuring the `major` component consists of only 1 to 3 digits to filter out date-based tags.
 
 Here is the configuration snippet added to `renovate.json5`:
 
@@ -263,17 +263,17 @@ Here is the configuration snippet added to `renovate.json5`:
     {
       matchDatasources: ['docker'],
       matchPackageNames: ['kopia/kopia'],
-      // Use regex to only match stable semver tags like X.Y.Z
-      // This avoids picking up date-based tags like vYYYYMMDD or prefixed tags like vX.Y.Z
-      versioning: 'regex:^(?<major>\\d+)\\.(?<minor>\\d+)\\.(?<patch>\\d+)$',
+      // Use regex to only match stable semver tags like X.Y.Z where X is 1-3 digits.
+      // This avoids prefixed tags (vX.Y.Z) and date-based tags like YYYYMMDD.M.P (e.g., 20220225.0.205544).
+      versioning: 'regex:^(?<major>\\d{1,3})\\.(?<minor>\\d+)\\.(?<patch>\\d+)$',
     },
   ],
 };
 ```
 
-This configuration ensures that Renovate ignores the date-based tags and any `v`-prefixed tags, proposing updates only when a new stable version matching the strict `X.Y.Z` format is available for `kopia/kopia`.
+This configuration ensures that Renovate ignores `v`-prefixed tags and date-based tags (like `v20250417` or `20220225.0.205544`) by strictly matching the `X.Y.Z` format where `X` (major version) contains only 1 to 3 digits. It proposes updates only when a new stable version meeting these criteria is available.
 
-*Note on Versioning Choice:* While Renovate offers built-in `semver` versioning, it strictly adheres to the SemVer 2.0 specification. In scenarios like `kopia/kopia` where both compliant (e.g., `0.19.0`) and non-compliant (e.g., `v20250417`) tags exist, the behavior of strict `semver` in selecting the 'latest' version can be unpredictable. It might ignore or error on the non-compliant tags. Using `semver-coerced` could also lead to misinterpretation of date-based tags. Therefore, the custom `regex` provides the most explicit and reliable method to filter *only* the desired `X.Y.Z` tags for this specific package.
+*Note on Versioning Choice:* While Renovate offers built-in `semver` versioning, it strictly adheres to the SemVer 2.0 specification. In scenarios like `kopia/kopia` where compliant (`0.19.0`), non-compliant (`v20250417`), and pattern-mimicking (`20220225.0.205544`) tags exist, the behavior of strict `semver` can be unpredictable. Using `semver-coerced` could also lead to misinterpretation. Therefore, the custom `regex` with the digit constraint provides the most explicit and reliable method to filter *only* the desired `X.Y.Z` tags (with a standard-length major version) for this specific package.
 
 ## CI/CD Workflow Integration (Forgejo Actions)
 
