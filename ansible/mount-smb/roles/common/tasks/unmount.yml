@@ -3,7 +3,7 @@
   ansible.posix.mount:
     path: "{{ smb_mount_point }}"
     state: unmounted
-  when: smb_share_is_mounted
+  when: target_path_is_mount_point
 
 - name: Include check mount tasks
   ansible.builtin.include_tasks: check.yml
@@ -11,4 +11,4 @@
 - name: Fail if SMB share is mounted
   ansible.builtin.fail:
     msg: "SMB share is mounted"
-  when: smb_share_is_mounted
+  when: target_path_is_mount_point
