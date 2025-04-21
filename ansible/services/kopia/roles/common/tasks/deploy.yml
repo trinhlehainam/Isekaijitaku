@@ -2,31 +2,68 @@
 # Service Status Verification
 ##############################################################################
 
-- name: Check for existing Dozzle services
+- name: Check for existing Kopia services
   ansible.builtin.include_tasks: check.yml
 
 - name: Set service existence flag
   ansible.builtin.set_fact:
-    dozzle_service_exists: "{{ check_result is defined and check_result.services is defined and check_result.services | length > 0 }}"
+    kopia_service_exists: "{{ check_result is defined and check_result.services is defined and check_result.services | length > 0 }}"
 
 - name: Display service status
   ansible.builtin.debug:
-    msg: "Dozzle service already running - skipping deployment"
-  when: dozzle_service_exists
+    msg: "Kopia service already running - skipping deployment"
+  when: kopia_service_exists
   
-- name: End play if dozzle service already exists and running
+- name: End play if kopia service already exists and running
   meta: end_host
-  when: dozzle_service_exists
+  when: kopia_service_exists
 
 ##############################################################################
 # Service Deployment
 ##############################################################################
 
+- name: Validate Kopia credentials and bind mount directories
+  ansible.builtin.assert:
+    that:
+      - "kopia_username is defined"
+      - "kopia_password is defined"
+      - "kopia_repo_password is defined"
+      - "kopia_repository_dir is defined"
+    fail_msg: "Kopia credentials and bind mount directories are not defined"
+    
 - name: Create directory for docker-compose files
   ansible.builtin.file:
     path: "{{ service_project_src }}"
     state: directory
     mode: '0755'
+
+- name: Create secrets directory for storing sensitive information
+  become: true
+  ansible.builtin.file:
+    path: "{{ service_project_src }}/secrets"
+    state: directory
+    mode: '0700'
+
+- name: Create kopia manager username file
+  become: true
+  ansible.builtin.copy:
+    content: "{{ kopia_username }}"
+    dest: "{{ service_project_src }}/secrets/kopia_username"
+    mode: '0600'
+
+- name: Create kopia manager password file
+  become: true
+  ansible.builtin.copy:
+    content: "{{ kopia_password }}"
+    dest: "{{ service_project_src }}/secrets/kopia_password"
+    mode: '0600'
+
+- name: Create kopia repository password file
+  become: true
+  ansible.builtin.copy:
+    content: "{{ kopia_repo_password }}"
+    dest: "{{ service_project_src }}/secrets/kopia_repo_password"
+    mode: '0600'
 
 - name: Copy docker-compose file
   ansible.builtin.template:
@@ -34,22 +71,22 @@
     dest: "{{ service_project_src }}/docker-compose.yml"
     mode: '0644'
   
-- name: Start Dozzle containers
+- name: Start Kopia containers
   community.docker.docker_compose_v2:
     project_src: "{{ service_project_src }}"
     state: present
   register: output
 
-- name: Display Dozzle manager connection info
+- name: Display Kopia manager connection info
   vars:
     msg: |
-      ===== DOZZLE MANAGER ACCESS INFORMATION =====
+      ===== KOPIA MANAGER ACCESS INFORMATION =====
       {% if use_traefik | default(false) %}
       Access via Traefik:
       {% if traefik_router_public | default(false) and public_apex_domain | default(false) %}- Public: https://{{ service_name|default('dozzle') }}.{{ public_apex_domain }}{% endif %}
       {% if traefik_router_private | default(false) and private_apex_domain | default(false) %}- Private: https://{{ service_name|default('dozzle') }}.{{ private_apex_domain }}{% endif %}
       {% else %}
-      Direct access: http://{{ ansible_host }}:8080
+      Direct access: http://{{ ansible_host }}:51515
       {% endif %}
       =============================================
   ansible.builtin.debug:

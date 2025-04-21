@@ -10,7 +10,7 @@
         docker_users:
           - "{{ ansible_user }}"
 
-- name: Deploy Dozzle services
+- name: Deploy Kopia services
   hosts: all
   gather_facts: true
   tags: [never, deploy]
@@ -19,7 +19,7 @@
       vars:
         operation_mode: deploy
         
-- name: Check Dozzle services status
+- name: Check Kopia services status
   hosts: all
   gather_facts: true
   tags: [never, check]
@@ -28,7 +28,7 @@
       vars:
         operation_mode: check
 
-- name: Destroy Dozzle services
+- name: Destroy Kopia services
   hosts: all
   gather_facts: true
   tags: [never, destroy]
@@ -37,7 +37,7 @@
       vars:
         operation_mode: destroy
 
-- name: Upgrade Dozzle services
+- name: Upgrade Kopia services
   hosts: all
   gather_facts: true
   tags: [never, upgrade]

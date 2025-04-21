@@ -10,6 +10,8 @@
 - name: Create SMB mount point
   ansible.builtin.file:
     path: "{{ smb_mount_point }}"
+    # Make the mount point immutable
+    attributes: "+i"
     state: directory
     mode: '0755'
 

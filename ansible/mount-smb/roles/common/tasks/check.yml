@@ -51,7 +51,7 @@
       - "SMB Mount Point Check Report for: {{ smb_mount_point }}"
       - "--------------------------------------------------"
       - "Is Mounted: {{ target_path_is_mount_point }}"
-      - "{{ smb_mount_point_details }}"
+      - "{{ smb_mount_point_details | default('') }}"
       - "Exists as file or non-empty directory (and not mounted): {{ smb_mount_point_exists_as_non_mount if not target_path_is_mount_point else 'N/A (already mounted)' }}"
       - "Status: {% if target_path_is_mount_point %}Already mounted.{% elif smb_mount_point_exists_as_non_mount %}Exists as a file or non-empty directory, cannot mount.{% else %}Path does not exist or is an empty directory, suitable for mounting.{% endif %}"
   ansible.builtin.debug:

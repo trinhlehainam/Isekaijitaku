@@ -12,6 +12,25 @@
   ansible.builtin.set_fact:
     dozzle_agents_connection_string: "{{ groups['agents'] | map('extract', hostvars, ['ansible_host']) | map('regex_replace', '^(.*)$', '\\1:7007') | join(',') }}"
   when: groups['managers'] is defined and inventory_hostname in groups['managers']
+
+- name: Validate Kopia bind mount directory
+  ansible.builtin.assert:
+    that:
+      - "kopia_repository_dir is defined"
+    fail_msg: "Kopia bind mount directory is not defined"
+
+- name: Check service bind mount variables
+  ansible.builtin.set_fact:
+    kopia_config_dir: "{{ kopia_config_dir if kopia_config_dir is defined and (kopia_config_dir.startswith('/') or kopia_config_dir.startswith('./')) else './config' }}"
+    kopia_cache_dir: "{{ kopia_cache_dir if kopia_cache_dir is defined and (kopia_cache_dir.startswith('/') or kopia_cache_dir.startswith('./')) else './cache' }}"
+    kopia_logs_dir: "{{ kopia_logs_dir if kopia_logs_dir is defined and (kopia_logs_dir.startswith('/') or kopia_logs_dir.startswith('./')) else './logs' }}"
+
+- name: Resolve service bind mount from relative paths to absolute paths
+  ansible.builtin.set_fact:
+    kopia_config_dir: "{{ kopia_config_dir.replace('./', service_project_src + '/') }}"
+    kopia_cache_dir: "{{ kopia_cache_dir.replace('./', service_project_src + '/') }}"
+    kopia_logs_dir: "{{ kopia_logs_dir.replace('./', service_project_src + '/') }}"
+    kopia_repository_dir: "{{ kopia_repository_dir.replace('./', service_project_src + '/') }}"
     
 - name: Set default operation mode if not defined
   ansible.builtin.set_fact:
