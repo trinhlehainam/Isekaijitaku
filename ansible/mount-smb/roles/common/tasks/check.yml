@@ -32,24 +32,27 @@
 - name: Set check variables
   ansible.builtin.set_fact:
     is_file: "{{ smb_mount_point_file_stat.stat is defined and smb_mount_point_file_stat.stat.exists and not smb_mount_point_file_stat.stat.isdir }}"
-    # Check if the find module found any files inside the directory
     is_non_empty_dir: "{{ smb_mount_point_dir_contents.examined is defined and smb_mount_point_dir_contents.files | length > 0 }}"
 
 - name: Set fact if smb_mount_point exists as a file or non-empty directory (not a mount)
   ansible.builtin.set_fact:
     smb_mount_point_exists_as_non_mount: "{{ is_file or is_non_empty_dir }}"
 
+- name: Set up mount details
+  ansible.builtin.set_fact:
+    smb_mount_point_details:
+      - "Mount Details:"
+      - "{{ smb_mount_point_fact|first }}"
+  when: target_path_is_mount_point
+
 - name: Log SMB Mount Point Check Report
   vars:
-    msg: |
-      "SMB Mount Point Check Report for: {{ smb_mount_point }}"
-      "--------------------------------------------------"
-      "Is Mounted: {{ target_path_is_mount_point }}"
-      {% if target_path_is_mount_point %}
-      "Mount Details:"
-        "{{ smb_mount_point_fact | first }}"
-      {% endif %}
-      "Exists as file or non-empty directory (and not mounted): {{ smb_mount_point_exists_as_non_mount if not target_path_is_mount_point else 'N/A (already mounted)' }}"
-      "Status: {% if target_path_is_mount_point %}Already mounted.{% elif smb_mount_point_exists_as_non_mount %}Exists as a file or non-empty directory, cannot mount.{% else %}Path does not exist or is an empty directory, suitable for mounting.{% endif %}"
+    msg:
+      - "SMB Mount Point Check Report for: {{ smb_mount_point }}"
+      - "--------------------------------------------------"
+      - "Is Mounted: {{ target_path_is_mount_point }}"
+      - "{{ smb_mount_point_details }}"
+      - "Exists as file or non-empty directory (and not mounted): {{ smb_mount_point_exists_as_non_mount if not target_path_is_mount_point else 'N/A (already mounted)' }}"
+      - "Status: {% if target_path_is_mount_point %}Already mounted.{% elif smb_mount_point_exists_as_non_mount %}Exists as a file or non-empty directory, cannot mount.{% else %}Path does not exist or is an empty directory, suitable for mounting.{% endif %}"
   ansible.builtin.debug:
-    msg: "{{ msg.split('\n') }}"
+    msg: "{{ msg }}"
