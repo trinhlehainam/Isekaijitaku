@@ -1,5 +1,5 @@
 ---
-# Forgejo and PostgreSQL Backup Tasks
+# Frgejo and PostgreSQL Backup Tasks
 # 
 # This file implements a backup strategy using Docker's native commands for Forgejo and PostgreSQL.
 # Key concepts:
@@ -15,7 +15,7 @@
 # Service Control - Stop Services
 #################################################
 
-- name: Verify Forgejo backup directory is defined
+- name: Verify backup directory is defined
   ansible.builtin.assert:
     that:
       - forgejo_backup_dir is defined
@@ -24,14 +24,19 @@
 - name: Check services status
   vars:
     files_list: "{{ forgejo_files_list }}"
+    project_src: "{{ service_project_src }}"
   ansible.builtin.include_tasks: check.yml
+
+- name: Get services info
+  ansible.builtin.set_fact:
+    forgejo_services_check_result: "{{ check_result }}"
 
 - name: Make sure services are stopped before backup
   community.docker.docker_compose_v2:
     project_src: "{{ service_project_src }}"
     services: "{{ item.service }}"
     state: stopped
-  loop: "{{ check_result.services }}"
+  loop: "{{ forgejo_services_check_result.services }}"
   loop_control:
     label: "{{ item.service }}"
 
@@ -273,18 +278,22 @@
         state: absent
       when: copy_docker_compose_backup_result is defined and copy_docker_compose_backup_result is success
 
-#################################################
-# Backup Status and Reporting
-#################################################
-
 - name: Set overall backup success status
   ansible.builtin.set_fact:
     backup_succeeded: "{{ postgres_backup_succeeded and forgejo_backup_succeeded and config_backup_succeeded|default(false) }}"
     
+- name: Include kopia tasks
+  ansible.builtin.include_tasks: kopia.yml
+  when: backup_succeeded and use_kopia
+
+#################################################
+# Backup Status and Reporting
+#################################################
+
 - name: Get services info
   ansible.builtin.set_fact:
-    forgejo_service_info: "{{ check_result.services | selectattr('service', 'equalto', 'forgejo') | list }}"
-    postgres_service_info: "{{ check_result.services | selectattr('service', 'equalto', 'forgejo-db') | list }}"
+    forgejo_service_info: "{{ forgejo_services_check_result.services | selectattr('service', 'equalto', 'forgejo') | list }}"
+    postgres_service_info: "{{ forgejo_services_check_result.services | selectattr('service', 'equalto', 'forgejo-db') | list }}"
     
 - name: Get service image versions
   ansible.builtin.set_fact:
@@ -315,6 +324,9 @@
       | PostgreSQL | {{ 'SUCCESS ✅' if postgres_backup_succeeded else 'FAILED ❌' }} | {{ postgres_backup_error | default('') if not postgres_backup_succeeded else '' }} |
       | Forgejo | {{ 'SUCCESS ✅' if forgejo_backup_succeeded else 'FAILED ❌' }} | {{ forgejo_backup_error | default('') if not forgejo_backup_succeeded else '' }} |
       | Project Setup | {{ 'SUCCESS ✅' if config_backup_succeeded|default(false) else 'FAILED ❌' }} | {{ config_backup_error | default('') if not config_backup_succeeded|default(false) else '' }} |
+      {% if kopia_snapshot_result is defined and kopia_snapshot_result is success %}
+      | Kopia | {{ 'SUCCESS ✅' if kopia_snapshot_result.rc == 0 else 'FAILED ❌' }} | {{ kopia_snapshot_result.stderr|default('') }} |
+      {% endif %}
 
       ## Summary
       

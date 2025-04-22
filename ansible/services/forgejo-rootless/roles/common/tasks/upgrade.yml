@@ -34,6 +34,7 @@
 - name: Check current forgejo container status
   vars:
     files_list: "{{ forgejo_files_list }}"
+    project_src: "{{ service_project_src }}"
   ansible.builtin.include_tasks: check.yml
   
 - name: Verify Forgejo container exists
@@ -189,6 +190,7 @@
     - name: Perform comprehensive container health check
       vars:
         files_list: "{{ forgejo_files_list }}"
+        project_src: "{{ service_project_src }}"
       ansible.builtin.include_tasks: check.yml
     
     - name: Track container status after upgrade

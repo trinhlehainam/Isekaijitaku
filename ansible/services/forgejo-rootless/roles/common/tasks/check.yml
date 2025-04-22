@@ -15,19 +15,11 @@
 # Initialization and Setup
 #################################################
 
-- name: Verify forgejo project source path and bind mount paths are defined
-  ansible.builtin.assert:
-    that:
-      - service_project_src is defined
-      - forgejo_data_dir is defined
-      - forgejo_conf_dir is defined
-      - postgres_data_dir is defined
-    fail_msg: "Required variables are not defined. Please specify the paths to the Forgejo project directory and bind mount directories."
-      
-- name: Check files list that need to check is defined
+- name: Verify files list and project source path are defined
   ansible.builtin.assert:
     that:
       - files_list is defined
+      - project_src is defined
     fail_msg: "Files list is not defined"
       
 - name: Check files list item need to have id, path and name keys
@@ -65,7 +57,7 @@
     containers_filters:
       label:
         - com.docker.compose.project={{ project_name }}
-        - com.docker.compose.project.working_dir={{ service_project_src }}
+        - com.docker.compose.project.working_dir={{ project_src }}
   register: docker_containers_info
 
 #################################################
@@ -132,7 +124,7 @@
       ## Summary
       - **Total Services**: {{ services_facts | length }}
       - **Project Name**: {{ project_name }}
-      - **Project Directory**: {{ service_project_src }}
+      - **Project Directory**: {{ project_src }}
 
       ## File System Checks
       {% for key in file_check_stats.keys() %}
@@ -173,7 +165,7 @@
   ansible.builtin.set_fact:
     check_result:
       timestamp: "{{ ansible_date_time.iso8601 }}"
-      project_src: "{{ service_project_src }}"
+      project_src: "{{ project_src }}"
       file_check_stats: "{{ file_check_stats }}"
       container_count: "{{ services_facts | length }}"
       services: "{{ services_facts }}"

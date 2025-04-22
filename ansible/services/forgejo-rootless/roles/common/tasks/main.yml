@@ -31,9 +31,20 @@
       - { id: "forgejo_config",   path: "{{ forgejo_conf_dir|trim }}",                    name: "Forgejo Configuration Directory" }
       - { id: "postgres_data",    path: "{{ postgres_data_dir|trim }}",                   name: "PostgreSQL Data Directory" }
 
+- name: Verify service project source path and bind mount paths are defined
+  ansible.builtin.assert:
+    that:
+      - service_project_src is defined
+      - forgejo_data_dir is defined
+      - forgejo_conf_dir is defined
+      - postgres_data_dir is defined
+    fail_msg: "Required variables are not defined. Please specify the paths to the service project directory and bind mount directories."
+  when: operation_mode == 'deploy' or operation_mode == 'upgrade'
+      
 - name: Include check tasks
   vars:
     files_list: "{{ forgejo_files_list }}"
+    project_src: "{{ service_project_src }}"
   ansible.builtin.include_tasks: check.yml
   when: operation_mode == 'check'
 

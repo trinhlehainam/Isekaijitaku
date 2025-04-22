@@ -42,3 +42,8 @@ db_password: !vault |
           35383337323735323061333037306233663533643631633664613835303437343232633266613638
           65316366363233373963636662383364613030653739386234653037303332396337386631316134
           38616135333961386633
+          
+# Kopia variables
+use_kopia: true
+kopia_backup_data_dir: "/data"
+kopia_forgejo_backup_dir: "{{kopia_backup_data_dir}}/{{ forgejo_backup_dir }}"
