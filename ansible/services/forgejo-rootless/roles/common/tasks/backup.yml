@@ -39,6 +39,7 @@
 
 - name: Set up backup variables
   ansible.builtin.set_fact:
+    backup_timestamp: "{{ ansible_date_time.iso8601 }}"
     backup_succeeded: false
     postgres_backup_succeeded: false
     postgres_backup_filename: "forgejo-db-backup.dump"
@@ -52,15 +53,15 @@
     path: "{{ forgejo_backup_dir }}"
     state: directory
     mode: '0755'
-    owner: "{{ ansible_user }}"
-    group: "{{ ansible_user }}"
+    owner: "{{ forgejo_user_id }}"
+    group: "{{ forgejo_group_id }}"
     
 - name: Show backup mode
   ansible.builtin.debug:
     msg: "Running in BACKUP mode - services state will be ROLLED BACK after backup"
 
 #################################################
-# Pre Execution
+# Pre-Execution
 #################################################
 
 - name: Prepare for rollback by managing existing content
@@ -108,6 +109,47 @@
             dest: "{{ service_project_src }}/docker-compose.backup.yml"
             mode: '0644'
           register: copy_docker_compose_backup_result
+
+    #----- Project Setup Backup - Docker Compose and Secrets -----#
+    - name: Execute Project Setup backup process
+      block:
+        - name: Copy docker-compose.yml to backup location
+          become: true
+          ansible.builtin.copy:
+            src: "{{ service_project_src }}/docker-compose.yml"
+            dest: "{{ forgejo_backup_dir }}/docker-compose.yml"
+            owner: "{{ ansible_user }}"
+            group: "{{ ansible_user }}"
+            mode: '0644'
+            remote_src: true
+          register: docker_compose_backup_results
+
+        - name: Check if secrets directory exists
+          ansible.builtin.stat:
+            path: "{{ service_project_src }}/secrets"
+          register: secrets_dir
+
+        - name: Copy secrets files to backup location
+          become: true
+          ansible.builtin.copy:
+            src: "{{ service_project_src }}/secrets"
+            dest: "{{ forgejo_backup_dir }}"
+            owner: "{{ ansible_user }}"
+            group: "{{ ansible_user }}"
+            mode: '0644'
+            remote_src: true
+          when: secrets_dir.stat.exists
+          register: secrets_backup
+
+        - name: Mark project setup backup as successful
+          ansible.builtin.set_fact:
+            config_backup_succeeded: true
+          when: docker_compose_backup_results is success and secrets_backup is success
+      rescue:
+        - name: Record project setup backup failure
+          ansible.builtin.set_fact:
+            config_backup_succeeded: false
+            config_backup_error: "{{ ansible_failed_task.name|default('Unknown error') }}"
 
     #----- Application Backup - Forgejo -----#
     - name: Execute Forgejo backup process
@@ -236,6 +278,16 @@
 - name: Set overall backup success status
   ansible.builtin.set_fact:
     backup_succeeded: "{{ postgres_backup_succeeded and forgejo_backup_succeeded and config_backup_succeeded|default(false) }}"
+    
+- name: Get services info
+  ansible.builtin.set_fact:
+    forgejo_service_info: "{{ check_result.services | selectattr('service', 'equalto', 'forgejo') | list }}"
+    postgres_service_info: "{{ check_result.services | selectattr('service', 'equalto', 'forgejo-db') | list }}"
+    
+- name: Get service image versions
+  ansible.builtin.set_fact:
+    forgejo_image_version: "{{ forgejo_service_info[0].image if forgejo_service_info is defined and forgejo_service_info|length > 0 else 'unknown' }}"
+    postgres_image_version: "{{ postgres_service_info[0].image if postgres_service_info is defined and postgres_service_info|length > 0 else 'unknown' }}"
 
 - name: Create backup report
   become: true
@@ -251,8 +303,8 @@
       **Mode:** 'BACKUP'
 
       ## Versions
-      **Forgejo:** {{ forgejo_image | default('unknown') }}
-      **PostgreSQL:** {{ postgres_image | default('unknown') }}
+      **Forgejo:** {{ forgejo_image_version }}
+      **PostgreSQL:** {{ postgres_image_version }}
 
       ## Components Status
 
@@ -292,8 +344,38 @@
   ansible.builtin.debug:
     msg: "{{ msg.split('\n') }}"
       
-- name: Clean up backup files and restore rollback files
+- name: Check if rollback directory exists
   become: true
+  ansible.builtin.stat:
+    path: "{{ forgejo_backup_dir }}/rollback"
+  register: rollback_dir_stat
+
+- name: Clean up rollback directory
+  become: true
+  when: rollback_dir_stat.stat.exists and rollback_dir_stat.stat.isdir
+  block:
+    - name: Restore files from rollback directory
+      when: not backup_succeeded
+      block:
+        - name: Find items in rollback directory
+          ansible.builtin.find:
+            paths: "{{ forgejo_backup_dir }}/rollback"
+            hidden: true
+            register: rollback_items
+
+        - name: Move items from rollback to main backup directory
+          ansible.builtin.command:
+            cmd: "mv {{ item.path }} {{ forgejo_backup_dir }}/"
+          loop: "{{ rollback_items.files }}"
+          loop_control:
+            label: "{{ item.path | basename }}"
+
+    - name: Remove empty rollback directory
+      ansible.builtin.file:
+        path: "{{ forgejo_backup_dir }}/rollback"
+        state: absent
+
+- name: Clean up backup files and restore rollback files
   when: not backup_succeeded
   block:
     - name: Clean up backup files if backup failed
@@ -303,33 +385,7 @@
       loop:
         - "{{ forgejo_backup_filename }}"
         - "{{ postgres_backup_filename }}"
-        
-    - name: Check if rollback directory exists
-      ansible.builtin.stat:
-        path: "{{ forgejo_backup_dir }}/rollback"
-      register: rollback_dir_stat
 
-    - name: Restore files from rollback directory
-      when: rollback_dir_stat.stat.exists and rollback_dir_stat.stat.isdir
-      block:
-        - name: Find items in rollback directory
-          ansible.builtin.find:
-            paths: "{{ forgejo_backup_dir }}/rollback"
-            hidden: true
-          register: rollback_items
-
-        - name: Move items from rollback to main backup directory
-          ansible.builtin.command:
-            cmd: "mv {{ item.path }} {{ forgejo_backup_dir }}/"
-          loop: "{{ rollback_items.files }}"
-          loop_control:
-            label: "{{ item.path | basename }}"
-
-        - name: Remove empty rollback directory
-          ansible.builtin.file:
-            path: "{{ forgejo_backup_dir }}/rollback"
-            state: absent
-        
     - name: Fail task if backup failed
       ansible.builtin.fail:
-        msg: "Backup failed: {{ backup_failure_reason|default('Unknown error') }}"
+        msg: "Backup failed: {{ backup_timestamp }}"
