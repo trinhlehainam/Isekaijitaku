@@ -22,6 +22,8 @@
     fail_msg: "Required variable forgejo_backup_dir is not defined. Please specify the path to the backup directory."
 
 - name: Check services status
+  vars:
+    files_list: "{{ forgejo_files_list }}"
   ansible.builtin.include_tasks: check.yml
 
 - name: Make sure services are stopped before backup

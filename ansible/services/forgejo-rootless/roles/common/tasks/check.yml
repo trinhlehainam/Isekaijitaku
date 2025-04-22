@@ -23,6 +23,23 @@
       - forgejo_conf_dir is defined
       - postgres_data_dir is defined
     fail_msg: "Required variables are not defined. Please specify the paths to the Forgejo project directory and bind mount directories."
+      
+- name: Check files list that need to check is defined
+  ansible.builtin.assert:
+    that:
+      - files_list is defined
+    fail_msg: "Files list is not defined"
+      
+- name: Check files list item need to have id, path and name keys
+  ansible.builtin.assert:
+    that:
+      - item.id is defined
+      - item.path is defined
+      - item.name is defined
+    fail_msg: "Files list item need to have id, path and name keys"
+  loop: "{{ files_list }}"
+  loop_control:
+    label: "{{ item.id }}"
   
 #################################################
 # File and Directory Existence Checks
@@ -32,12 +49,9 @@
   become: true
   ansible.builtin.stat:
     path: "{{ item.path }}"
-  loop:
-    - { id: "docker_compose",   path: "{{ service_project_src }}/docker-compose.yml",   name: "Docker Compose File" }
-    - { id: "project_secrets",  path: "{{ service_project_src }}/secrets",              name: "Project Secrets Directory" }
-    - { id: "forgejo_data",     path: "{{ forgejo_data_dir|trim }}",                    name: "Forgejo Data Directory" }
-    - { id: "forgejo_config",   path: "{{ forgejo_conf_dir|trim }}",                    name: "Forgejo Configuration Directory" }
-    - { id: "postgres_data",    path: "{{ postgres_data_dir|trim }}",                   name: "PostgreSQL Data Directory" }
+  loop: "{{ files_list }}"
+  loop_control:
+    label: "{{ item.id }}"
   register: data_stats
 
 #################################################

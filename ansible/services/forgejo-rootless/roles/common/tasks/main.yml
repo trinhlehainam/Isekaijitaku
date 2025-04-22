@@ -22,7 +22,18 @@
   ansible.builtin.set_fact:
     operation_mode: "{{ operation_mode | default('check') }}"
 
+- name: Set up files list need to check
+  ansible.builtin.set_fact:
+    forgejo_files_list:
+      - { id: "docker_compose",   path: "{{ service_project_src }}/docker-compose.yml",   name: "Docker Compose File" }
+      - { id: "project_secrets",  path: "{{ service_project_src }}/secrets",              name: "Project Secrets Directory" }
+      - { id: "forgejo_data",     path: "{{ forgejo_data_dir|trim }}",                    name: "Forgejo Data Directory" }
+      - { id: "forgejo_config",   path: "{{ forgejo_conf_dir|trim }}",                    name: "Forgejo Configuration Directory" }
+      - { id: "postgres_data",    path: "{{ postgres_data_dir|trim }}",                   name: "PostgreSQL Data Directory" }
+
 - name: Include check tasks
+  vars:
+    files_list: "{{ forgejo_files_list }}"
   ansible.builtin.include_tasks: check.yml
   when: operation_mode == 'check'
 
