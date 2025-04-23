@@ -3,7 +3,7 @@ services:
   adguardhome:
     container_name: adguardhome
     # https://hub.docker.com/r/adguard/adguardhome/tags
-    image: adguard/adguardhome:v0.107.60
+    image: adguard/adguardhome:v0.107.61
     restart: always
     depends_on:
       unbound:
