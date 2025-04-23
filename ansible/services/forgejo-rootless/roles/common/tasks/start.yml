@@ -19,6 +19,9 @@
   retries: 5
   
 - name: Check services status
+  vars:
+    files_list: "{{ forgejo_files_list }}"
+    project_src: "{{ service_project_src }}"
   ansible.builtin.include_tasks: check.yml
   
 - name: Fail if services are not running or unhealthy

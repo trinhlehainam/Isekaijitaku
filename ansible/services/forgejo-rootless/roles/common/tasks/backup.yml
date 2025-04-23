@@ -278,18 +278,14 @@
         state: absent
       when: copy_docker_compose_backup_result is defined and copy_docker_compose_backup_result is success
 
-- name: Set overall backup success status
-  ansible.builtin.set_fact:
-    backup_succeeded: "{{ postgres_backup_succeeded and forgejo_backup_succeeded and config_backup_succeeded|default(false) }}"
-    
-- name: Include kopia tasks
-  ansible.builtin.include_tasks: kopia.yml
-  when: backup_succeeded and use_kopia
-
 #################################################
 # Backup Status and Reporting
 #################################################
 
+- name: Set overall backup success status
+  ansible.builtin.set_fact:
+    backup_succeeded: "{{ postgres_backup_succeeded and forgejo_backup_succeeded and config_backup_succeeded|default(false) }}"
+    
 - name: Get services info
   ansible.builtin.set_fact:
     forgejo_service_info: "{{ forgejo_services_check_result.services | selectattr('service', 'equalto', 'forgejo') | list }}"
@@ -324,9 +320,6 @@
       | PostgreSQL | {{ 'SUCCESS ✅' if postgres_backup_succeeded else 'FAILED ❌' }} | {{ postgres_backup_error | default('') if not postgres_backup_succeeded else '' }} |
       | Forgejo | {{ 'SUCCESS ✅' if forgejo_backup_succeeded else 'FAILED ❌' }} | {{ forgejo_backup_error | default('') if not forgejo_backup_succeeded else '' }} |
       | Project Setup | {{ 'SUCCESS ✅' if config_backup_succeeded|default(false) else 'FAILED ❌' }} | {{ config_backup_error | default('') if not config_backup_succeeded|default(false) else '' }} |
-      {% if kopia_snapshot_result is defined and kopia_snapshot_result is success %}
-      | Kopia | {{ 'SUCCESS ✅' if kopia_snapshot_result.rc == 0 else 'FAILED ❌' }} | {{ kopia_snapshot_result.stderr|default('') }} |
-      {% endif %}
 
       ## Summary
       
@@ -335,6 +328,14 @@
       Error: {{ backup_failure_reason }}
       {% endif %}
   when: postgres_backup_succeeded or forgejo_backup_succeeded or config_backup_succeeded|default(false)
+
+#################################################
+# Kopia Backup
+#################################################
+
+- name: Include kopia tasks
+  ansible.builtin.include_tasks: kopia.yml
+  when: backup_succeeded|bool and use_kopia|bool
 
 #################################################
 # Cleanup and Service Restoration
@@ -350,10 +351,16 @@
 - name: Show final backup status
   vars:
     msg: |
-      Backup {{ 'SUCCEEDED' if backup_succeeded else 'FAILED' }}.
-      PostgreSQL: {{ 'OK' if postgres_backup_succeeded else 'FAILED' }}{% if postgres_backup_error is defined and not postgres_backup_succeeded %} ({{ postgres_backup_error }}){% endif %}.
-      Forgejo: {{ 'OK' if forgejo_backup_succeeded else 'FAILED' }}{% if forgejo_backup_error is defined and not forgejo_backup_succeeded %} ({{ forgejo_backup_error }}){% endif %}.
-      Project Setup: {{ 'OK' if config_backup_succeeded|default(false) else 'FAILED' }}{% if config_backup_error is defined and not config_backup_succeeded|default(false) %} ({{ config_backup_error }}){% endif %}.
+      Backup {{ 'SUCCEEDED ✅' if backup_succeeded else 'FAILED ❌' }}.
+      PostgreSQL: {{ 'OK ✅' if postgres_backup_succeeded else 'FAILED ❌' }}{% if postgres_backup_error is defined and not postgres_backup_succeeded %} ({{ postgres_backup_error }}){% endif %}.
+      Forgejo: {{ 'OK ✅' if forgejo_backup_succeeded else 'FAILED ❌' }}{% if forgejo_backup_error is defined and not forgejo_backup_succeeded %} ({{ forgejo_backup_error }}){% endif %}.
+      Project Setup: {{ 'OK ✅' if config_backup_succeeded|default(false) else 'FAILED ❌' }}{% if config_backup_error is defined and not config_backup_succeeded|default(false) %} ({{ config_backup_error }}){% endif %}.
+      {% if kopia_snapshot_result is defined and kopia_snapshot_result is success %}
+      Kopia: {{ 'OK ✅' if kopia_snapshot_result.rc is defined and kopia_snapshot_result.rc == 0 else 'FAILED ❌' }}
+        {% if kopia_snapshot_result.rc is defined and kopia_snapshot_result.rc != 0 %} 
+        {{ kopia_snapshot_result.stderr|default('') }}
+        {% endif %}.
+      {% endif %}
       Services state will be ROLLED BACK.
   ansible.builtin.debug:
     msg: "{{ msg.split('\n') }}"

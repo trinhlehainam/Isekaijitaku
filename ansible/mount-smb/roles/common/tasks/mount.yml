@@ -21,6 +21,7 @@
     path: "{{ smb_mount_point }}"
     fstype: "{{ smb_fstype }}"
     opts: "rw,vers=3,file_mode=0600,dir_mode=0700,username={{ smb_user }},password={{ smb_password }},uid={{ smb_mount_uid }},gid={{ smb_mount_gid }}"
+    boot: true
     state: mounted
 
 - name: Include check mount tasks

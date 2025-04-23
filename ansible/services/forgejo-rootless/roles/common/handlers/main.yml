@@ -9,7 +9,7 @@
     services: "{{ item.service }}"
     remove_orphans: true
     state: "{{ 'present' if item.state == 'running' else 'stopped' }}"
-  when: service_project_src is defined and check_result is defined and check_result.services is defined
-  loop: "{{ check_result.services }}"
+  when: service_project_src is defined and forgejo_services_check_result is defined and forgejo_services_check_result.services is defined
+  loop: "{{ forgejo_services_check_result.services }}"
   loop_control:
     label: "{{ item.service }}"
