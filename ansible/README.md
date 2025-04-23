@@ -77,3 +77,20 @@ ansible-playbook -i inventories/dev/hosts.yml playbooks/site.yml -t deploy
 ```
 
 This dual configuration (`ansible.cfg` at the root and within each project) ensures roles are discoverable regardless of whether the playbook is executed from the repository root or a project subdirectory.
+
+## Semaphore UI Role & Collection Dependency Lookup
+
+It's important to note that Semaphore UI employs its own specific mechanism for discovering role and collection dependencies defined in `requirements.yml` files *before* executing a playbook. This dependency installation step is separate from Ansible's runtime role lookup described earlier.
+
+Semaphore searches for dependency files in the following order (as implemented in [PR #2687](https://github.com/semaphoreui/semaphore/pull/2687)):
+
+1.  `<playbook_dir>/collections/requirements.yml`
+2.  `<playbook_dir>/roles/requirements.yml`
+3.  `<repo_dir>/collections/requirements.yml`
+4.  `<repo_dir>/roles/requirements.yml`
+
+Where:
+*   `<playbook_dir>` is the directory containing the playbook being executed.
+*   `<repo_dir>` is the root directory of the repository.
+
+This allows for defining dependencies both at the project level (within the playbook's directory structure) and globally at the repository level (in the root `roles/` or `collections/` directories). Once dependencies are installed by Semaphore using these files, the standard Ansible role lookup logic (using `ansible.cfg`) applies during playbook execution to find the actual roles.
