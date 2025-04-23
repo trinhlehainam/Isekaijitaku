@@ -18,6 +18,8 @@
 ##############################################################################
 
 - name: Check for existing Kopia services
+  vars:
+    project_src: "{{ service_project_src }}"
   ansible.builtin.include_tasks: check.yml
 
 - name: Set service existence flag

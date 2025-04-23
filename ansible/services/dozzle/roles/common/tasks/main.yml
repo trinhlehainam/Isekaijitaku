@@ -7,6 +7,8 @@
 - name: Set up Dozzle project source path
   ansible.builtin.set_fact:
     service_project_src: "{{ service_project_src|default(ansible_user_dir + '/Docker/' + project_name) }}"
+    files_list:
+      - { id: "docker_compose",   path: "{{ service_project_src }}/docker-compose.yml",   name: "Docker Compose File" }
 
 - name: Build agents connection string for manager
   ansible.builtin.set_fact:
@@ -18,6 +20,8 @@
     operation_mode: "{{ operation_mode | default('check') }}"
 
 - name: Include check tasks
+  vars:
+    project_src: "{{ service_project_src }}"
   ansible.builtin.include_tasks: check.yml
   when: operation_mode == 'check'
 

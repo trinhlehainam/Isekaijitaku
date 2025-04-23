@@ -12,6 +12,8 @@
 ##############################################################################
 
 - name: Check current kopia container status
+  vars:
+    project_src: "{{ service_project_src }}"
   ansible.builtin.include_tasks: check.yml
   
 - name: Verify kopia container exists

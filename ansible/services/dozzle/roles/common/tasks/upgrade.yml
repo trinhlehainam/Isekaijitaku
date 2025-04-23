@@ -16,6 +16,8 @@
 ##############################################################################
 
 - name: Check current dozzle container status
+  vars:
+    project_src: "{{ service_project_src }}"
   ansible.builtin.include_tasks: check.yml
   
 - name: Verify Dozzle container exists

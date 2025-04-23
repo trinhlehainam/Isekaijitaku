@@ -268,3 +268,4 @@ To restore from a backup:
 - [Gitea Backup and Restore Documentation](https://gitea.com/gitea/docs/src/branch/main/docs/administration/backup-and-restore.md)
 - [Forgejo Upgrade and Backup Documentation](https://forgejo.org/docs/latest/admin/upgrade/#backup)
 - [Gitea Ansible Role Backup](https://github.com/roles-ansible/ansible_role_gitea/blob/main/tasks/backup.yml)
+- [Kopia Snapshot Create](https://kopia.io/docs/reference/command-line/common/snapshot-create/)
