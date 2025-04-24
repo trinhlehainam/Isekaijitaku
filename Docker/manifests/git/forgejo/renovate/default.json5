@@ -2,17 +2,15 @@
   // https://github.com/SpotOnInc/renovate-config/blob/main/default.json
   "$schema": "https://docs.renovatebot.com/renovate-schema.json",
   "extends": [
-    // https://docs.renovatebot.com/presets-config/#configrecommended
-    "config:recommended",
+    // https://docs.renovatebot.com/upgrade-best-practices/#use-the-configbest-practices-preset
+    "config:best-practices",
     "group:linters",
-    "helpers:pinGitHubActionDigests",
-    "docker:pinDigests",
     "preview:dockerVersions",
     "preview:dockerCompose",
+    // https://docs.renovatebot.com/upgrade-best-practices/#take-major-updates-in-sequence
     ":separateMultipleMajorReleases",
     ":ignoreUnstable",
     ":semanticCommits",
-    ":configMigration",
     ":semanticPrefixFixDepsChoreOthers",
     "customManagers:dockerfileVersions",
     "customManagers:githubActionsVersions",
@@ -32,7 +30,7 @@
   "automergeStrategy": "auto",
   // https://docs.renovatebot.com/modules/platform/gitea/#unsupported-platform-featuresconcepts
   // Platform-native automerge not supported: Gitea versions older than v1.24.0 and Forgejo versions older than v10.0.0 don't support required branch autodelete for automerge.
-  "platformAutomerge": false,
+  // "platformAutomerge": false,
   "vulnerabilityAlerts": {
     "description": "Be sure that the Dependency graph and Dependabot alerts are enabled for the repo. Details: https://docs.renovatebot.com/configuration-options/#vulnerabilityalerts",
     "enabled": true,

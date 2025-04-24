@@ -7,6 +7,9 @@
 - name: Set up Dozzle project source path
   ansible.builtin.set_fact:
     service_project_src: "{{ service_project_src|default(ansible_user_dir + '/Docker/' + project_name) }}"
+    
+- name: Set up check files list
+  ansible.builtin.set_fact:
     files_list:
       - { id: "docker_compose",   path: "{{ service_project_src }}/docker-compose.yml",   name: "Docker Compose File" }
 

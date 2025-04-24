@@ -94,3 +94,60 @@ Where:
 *   `<repo_dir>` is the root directory of the repository.
 
 This allows for defining dependencies both at the project level (within the playbook's directory structure) and globally at the repository level (in the root `roles/` or `collections/` directories). Once dependencies are installed by Semaphore using these files, the standard Ansible role lookup logic (using `ansible.cfg`) applies during playbook execution to find the actual roles.
+
+## Semaphore UI and ansible.cfg Considerations
+
+Understanding how Ansible finds its configuration file and how Semaphore UI interacts with it is crucial for ensuring consistent behavior, especially regarding the `roles_path`.
+
+### Ansible Configuration File Precedence
+
+Ansible searches for an `ansible.cfg` file in the following order and uses the *first one found*:
+
+1.  `ANSIBLE_CONFIG` environment variable
+2.  `ansible.cfg` (in the current directory)
+3.  `~/.ansible.cfg` (in the home directory)
+4.  `/etc/ansible/ansible.cfg`
+
+Reference: [Ansible Configuration Settings](https://docs.ansible.com/ansible/latest/reference_appendices/config.html#the-configuration-file)
+
+### Semaphore UI Default Configuration
+
+Semaphore UI's execution environment (e.g., the Docker container) includes a default `ansible.cfg`. As seen [here](https://github.com/semaphoreui/semaphore/blob/develop/deployment/docker/server/ansible.cfg), its primary settings are:
+
+```ini
+[defaults]
+host_key_checking = False
+bin_ansible_callbacks = True
+stdout_callback = yaml
+
+[ssh_connection]
+ssh_args = -o UserKnownHostsFile=/dev/null
+```
+
+This default configuration *does not* specify a `roles_path`.
+
+### Semaphore UI Runtime `roles_path` vs. Shared Roles
+
+When Semaphore executes a playbook, it appears to dynamically construct a `roles_path` similar to `<playbook_dir>/roles:/tmp/semaphore/.ansible/roles:/usr/share/ansible/roles:/etc/ansible/roles:<playbook_dir>`. While this covers roles relative to the playbook and system/temporary paths, it crucially **omits** the `./roles` path relative to the repository root, which is necessary for our shared role structure.
+
+### Recommended `ansible.cfg` for Semaphore UI
+
+To ensure Semaphore UI finds the shared roles located in the repository's root `./roles` directory, you **must** place an `ansible.cfg` file in the repository root. This file should contain *both* the desired Semaphore defaults *and* the correct `roles_path` pointing to the shared directory.
+
+Place the following content in `ansible-repo/ansible.cfg`:
+
+```ini
+[defaults]
+# Ensure shared roles from the repository root are found
+roles_path = ./roles:/tmp/semaphore/.ansible/roles:/usr/share/ansible/roles:/etc/ansible/roles
+
+# Recommended Semaphore UI defaults
+host_key_checking = False
+bin_ansible_callbacks = True
+stdout_callback = yaml
+
+[ssh_connection]
+ssh_args = -o UserKnownHostsFile=/dev/null
+```
+
+By placing this file in the repository root, it will likely be the first `ansible.cfg` found by Ansible when executed by Semaphore (assuming `ANSIBLE_CONFIG` is not set and Semaphore runs from the root), thereby overriding the internal default and correctly setting the `roles_path`.
