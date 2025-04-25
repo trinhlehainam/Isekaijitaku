@@ -208,10 +208,55 @@ A key component of this setup is a centralized configuration repository (`renova
 
       > **Important**: When using `docker:pinDigests` with custom regex managers (especially for template files), you **must** explicitly define an `autoReplaceStringTemplate` that specifies how replacement strings should be formatted. Without this parameter, Renovate will not know how to properly replace the existing content with both the new version and digest. The example above shows the correct format for typical Docker image references.
 
+##### Delaying Updates with `minimumReleaseAge`
+
+To prevent Renovate from immediately proposing or automerging updates for newly released packages, you can use the `minimumReleaseAge` option within your configuration presets (`default.json5`, `meta.json5`) or specific `packageRules`. This option defines a waiting period after a package's release date before Renovate will consider it.
+
+Renovate parses the time duration string using the [`ms`](https://github.com/vercel/ms) library, which supports various units. It also includes custom handling for months, approximating each month as 30 days.
+
+**Configuration:**
+
+You can set `minimumReleaseAge` globally or within specific `packageRules`.
+
+```json5
+// Example: Global setting in default.json5 or renovate.json5
+{
+  // Wait 3 days after release before considering any update
+  "minimumReleaseAge": "3 days"
+}
+
+// Example: Within a packageRule
+{
+  "packageRules": [
+    {
+      "matchPackagePatterns": ["^some-critical-dependency"],
+      // Wait 1 week for this specific dependency
+      "minimumReleaseAge": "7 days"
+    }
+  ]
+}
+```
+
+**Example Time Duration Strings:**
+
+The following formats are valid for `minimumReleaseAge`:
+
+- `"1 day"`
+- `"2 days"`
+- `"72 hours"`
+- `"1 week"`
+- `"1 month"` (interpreted as 30 days)
+- `"2M"` (interpreted as 60 days)
+- `"3 months"` (interpreted as 90 days)
+- `"60d"`
+- `"1y"`
+
+Using `minimumReleaseAge` provides a buffer, allowing time for potential issues in new releases to be discovered before they are automatically introduced into your projects.
+
 3. **Extend from the Central Presets** in each monitored repository:
    - **Recommended Method (using `default.json` lookup):** Create a `default.json` file (must be plain JSON, no comments) in the monitored repository's configuration directory (e.g., `.github/renovate/`, `.forgejo/renovate/`). This file explicitly tells Renovate which presets to load from the central repository.
      ```json
-     // .github/renovate/default.json - In Monitored Repo
+     // Example content for default.json in a monitored repository
      {
        "$schema": "https://docs.renovatebot.com/renovate-schema.json",
        "extends": [
@@ -220,6 +265,7 @@ A key component of this setup is a centralized configuration repository (`renova
        ]
      }
      ```
+
    - **Alternative Method (using `renovate.json5`):** If you don't use the `default.json` lookup, you can create a `renovate.json5` file in the monitored repository and extend the central configuration implicitly or explicitly.
      ```json5
      // .github/renovate/renovate.json5 - In Monitored Repo
