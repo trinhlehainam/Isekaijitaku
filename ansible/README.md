@@ -146,8 +146,24 @@ host_key_checking = False
 bin_ansible_callbacks = True
 stdout_callback = yaml
 
+# Note: vault_password_file is intentionally omitted here.
+# See 'Handling Vault Passwords' section below.
+
 [ssh_connection]
 ssh_args = -o UserKnownHostsFile=/dev/null
 ```
 
 By placing this file in the repository root, it will likely be the first `ansible.cfg` found by Ansible when executed by Semaphore (assuming `ANSIBLE_CONFIG` is not set and Semaphore runs from the root), thereby overriding the internal default and correctly setting the `roles_path`.
+
+### Handling Vault Passwords (Local vs. Semaphore UI)
+
+It is recommended **not** to include `vault_password_file` in the `ansible.cfg` committed to the repository. Semaphore UI provides its own mechanisms for integrating with Ansible Vault credentials.
+
+For **local development and testing**, provide the vault password file path directly via the command line:
+
+```bash
+# Example running from project1 directory locally
+ansible-playbook -i inventories/dev/hosts.yml site.yml --vault-password-file .vault_pass -t check 
+```
+
+**Important:** Ensure your local vault password file (e.g., `.vault_pass` at the repository root) is added to your `.gitignore` file to prevent accidentally committing sensitive credentials.
