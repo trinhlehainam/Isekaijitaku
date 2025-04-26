@@ -1,0 +1,31 @@
+---
+- name: Set up {{ project_name|upper }} project source path
+  ansible.builtin.set_fact:
+    service_project_src: "{{ service_project_src|default(ansible_user_dir + '/Docker/' + project_name) }}"
+    
+- name: Set up {{ project_name|upper }} files list
+  ansible.builtin.set_fact:
+    files_list:
+      - { id: "docker_compose",   path: "{{ service_project_src }}/docker-compose.yml",   name: "Docker Compose File" }
+
+- name: Set default operation mode if not defined
+  ansible.builtin.set_fact:
+    operation_mode: "{{ operation_mode | default('check') }}"
+
+- name: Include check tasks
+  vars:
+    project_src: "{{ service_project_src }}"
+  ansible.builtin.include_tasks: check.yml
+  when: operation_mode == 'check'
+
+- name: Include deploy tasks
+  ansible.builtin.include_tasks: deploy.yml
+  when: operation_mode == 'deploy'
+
+- name: Include destroy tasks
+  ansible.builtin.include_tasks: destroy.yml
+  when: operation_mode == 'destroy'
+
+- name: Include upgrade tasks
+  ansible.builtin.include_tasks: upgrade.yml
+  when: operation_mode == 'upgrade'
