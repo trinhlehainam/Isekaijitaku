@@ -6,50 +6,48 @@
   ansible.builtin.set_fact:
     upgrade_start_time: "{{ ansible_date_time.iso8601_basic_short }}"
     backup_timestamp: "{{ lookup('pipe', 'date +%Y-%m-%d_%H-%M') }}"
+    upgrade_success: false # Initialize upgrade success flag
 
 ##############################################################################
 # Current Version Analysis
 ##############################################################################
 
-- name: Check current kopia container status
+- name: Check current {{ project_name|upper }} container status
   vars:
     project_src: "{{ service_project_src }}"
   ansible.builtin.include_tasks: check.yml
   
-- name: Verify kopia container exists
-  ansible.builtin.assert:
-    that:
-      - check_result is defined
-      - check_result.services is defined
-      - check_result.services | length > 0
-    fail_msg: "No existing kopia container found for upgrade. Please deploy a new instance first."
-
-- name: Validate Kopia credentials and bind mount directories
-  ansible.builtin.assert:
-    that:
-      - "kopia_username is defined"
-      - "kopia_password is defined"
-      - "kopia_repo_password is defined"
-      - "kopia_repository_dir is defined"
-    fail_msg: "Kopia credentials and bind mount directories are not defined"
-
-- name: Extract current running kopia image information
+- name: Extract current running {{ project_name|upper }} image information
   ansible.builtin.set_fact:
-    current_service: "{{ check_result.services | selectattr('service', 'equalto', service_name) | first }}"
-  when: check_result.services | selectattr('service', 'equalto', service_name) | length > 0
+    current_service: "{{ check_result.services | selectattr('service', 'equalto', 'omni-tools') | first }}"
+  when: check_result.services | selectattr('service', 'equalto', 'omni-tools') | length > 0
 
-- name: Verify kopia service information is available
+- name: Define docker-compose path
+  ansible.builtin.set_fact:
+    compose_file_path: "{{ service_project_src }}/docker-compose.yml"
+
+- name: Check if target docker-compose file exists
+  ansible.builtin.stat:
+    path: "{{ compose_file_path }}"
+  register: compose_file_stat
+
+- name: Verify {{ project_name|upper }} service information is available
   ansible.builtin.assert:
     that:
       - current_service is defined
-      - current_service.image is defined
-    fail_msg: "Unable to find kopia service information in the check results."
+      - compose_file_stat.stat.exists
+    fail_msg: "Unable to find {{ project_name|upper }} service information in the check results."
+    
+- name: Get current docker-compose content
+  ansible.builtin.slurp:
+    path: "{{ compose_file_path }}"
+  register: current_docker_compose
 
-- name: Extract current kopia version using regex
+- name: Extract current {{ project_name|upper }} version using regex
   ansible.builtin.set_fact:
-    current_image_match: "{{ current_service.image | regex_search('^\"?(?P<depName>[^\\s:@\"]+)(?::(?P<currentValue>[-a-zA-Z0-9.]+))?(?:@(?P<currentDigest>sha256:[a-zA-Z0-9]+))?\"?$', '\\1', '\\2', '\\3') }}"
+    current_image_match: "{{ (current_docker_compose.content | b64decode | from_yaml).services['omni-tools'].image | regex_search('^\"?(?P<depName>[^\\s:@\"]+)(?::(?P<currentValue>[-a-zA-Z0-9.]+))?(?:@(?P<currentDigest>sha256:[a-zA-Z0-9]+))?\"?$', '\\1', '\\2', '\\3') }}"
     current_image_tag: omit # Explicitly omit first
-  when: current_service.image is defined
+  when: current_docker_compose is defined and current_docker_compose.content is defined
 
 - name: Set image tag from regex match if found
   ansible.builtin.set_fact:
@@ -71,7 +69,7 @@
 
 - name: Set target image details
   ansible.builtin.set_fact:
-    target_image: "{{ (lookup('template', 'docker-compose.yml.j2') | from_yaml).services[service_name].image }}"
+    target_image: "{{ (lookup('template', 'docker-compose.yml.j2') | from_yaml).services['omni-tools'].image }}"
 
 - name: Initialize version comparison flags
   ansible.builtin.set_fact:
@@ -91,166 +89,101 @@
 - name: Clean current version string for comparison
   ansible.builtin.set_fact:
     current_version_clean: "{{ current_image_tag | regex_replace('^v?((?:\\d+\\.){0,2}\\d+).*$', '\\1') }}"
+  when: current_image_tag != omit
 
 - name: Clean target version string for comparison
   ansible.builtin.set_fact:
     target_version_clean: "{{ target_image_tag | regex_replace('^v?((?:\\d+\\.){0,2}\\d+).*$', '\\1') }}"
+  when: target_image_tag != omit
 
 - name: Set final upgrade needed flag based on tag change or version comparison
   ansible.builtin.set_fact:
     upgrade_needed: "{{ target_version_clean is version(current_version_clean, '>') }}"
 
 ##############################################################################
-# Backup and Prepare for Upgrade
-##############################################################################
-
-- name: Backup and Prepare for Upgrade
-  when: upgrade_needed
-  block:
-    - name: Define docker-compose paths
-      ansible.builtin.set_fact:
-        compose_file_path: "{{ service_project_src }}/docker-compose.yml"
-        compose_backup_path: "{{ service_project_src }}/{{ backup_timestamp }}.docker-compose.yml"
-
-    - name: Check if current docker-compose file exists
-      ansible.builtin.stat:
-        path: "{{ compose_file_path }}"
-      register: compose_file_stat
-
-    - name: Backup current docker-compose file
-      ansible.builtin.command:
-        cmd: "mv {{ compose_file_path }} {{ compose_backup_path }}"
-      when: compose_file_stat.stat.exists
-      changed_when: true
-      register: backup_result
-
-##############################################################################
-# Upgrade Process
+# Upgrade Process (Using Replace Module)
 ##############################################################################
 
 - name: Perform Upgrade and Verification Steps
   when: upgrade_needed
   block:
-    - name: Copy updated docker-compose template
-      ansible.builtin.template:
-        src: "docker-compose.yml.j2"
-        dest: "{{ service_project_src }}/docker-compose.yml"
-        mode: '0644'
+    - name: Replace image tag in docker-compose file
+      ansible.builtin.replace:
+        path: "{{ compose_file_path }}"
+        regexp: "{{ current_image_tag }}"
+        replace: "{{ target_image_tag }}"
+        backup: true # Automatically creates backup
+      register: replace_result
 
-    - name: Pull updated images
+    - name: Pull updated images (only if replace made a change)
       community.docker.docker_compose_v2_pull:
         project_src: "{{ service_project_src }}"
+      when: replace_result.changed
       register: pull_result
-      
-    - name: Start services with new docker-compose configuration
-      community.docker.docker_compose_v2:
-        project_src: "{{ service_project_src }}"
-        state: present
-      register: services_facts
-      when: pull_result is success
-      
-    - name: Wait for services to be running
-      when: services_facts is defined and services_facts.containers is defined
-      community.docker.docker_container_info:
-        name: "{{ item.ID }}"
-      loop: "{{ services_facts.containers }}"
-      loop_control:
-        label: "{{ item.Service }}"
-      register: container_info
-      failed_when: not container_info.container.State.Running
-      until: container_info.container.State.Running
-      delay: 5
-      retries: 5
 
-    - name: Filter kopia container info
+    - name: Start services with new docker-compose configuration (only if pulled)
+      ansible.builtin.include_tasks: start.yml
+
+    - name: Extract current running {{ project_name|upper }} image information
       ansible.builtin.set_fact:
-        target_container: "{{ item }}"
-      loop: "{{ container_info.results | map(attribute='container') }}"
-      loop_control:
-        label: "{{ item.Name }}"
-      when:
-        - container_info is defined and container_info.results is defined and container_info.results | length > 0
-        - item.Config.Labels['com.docker.compose.service'] == service_name
-      
-    - name: Verify container is running
+        current_service: "{{ check_result.services | selectattr('service', 'equalto', 'omni-tools') | first }}"
+      when: check_result.services | selectattr('service', 'equalto', 'omni-tools') | length > 0
+
+    - name: Verify container is running with the target version (only if checked)
       ansible.builtin.assert:
         that:
-          - target_container.State.Running
-          - target_container.Config.Image is search(target_image_tag)
+          - current_service is defined
+          - current_service.state == 'running'
+          - current_service.image is search(target_image_tag)
         fail_msg: |
-          Services failed to reach healthy state after upgrade or new version was not applied correctly.
-          Image verification: {{ 'OK' if target_container.Config.Image is search(target_image_tag) else 'FAILED' }}
-          
+          Service omni-tools failed to reach healthy state after upgrade or new version '{{ target_image_tag }}' was not applied correctly.
+          Container State: {{ current_service.state|default('Unknown') }}
+          Expected Image Tag: {{ target_image_tag }}
+          Actual Image: {{ current_service.image|default('Not Found') }}
+      when: current_service is defined
+
     - name: Set upgrade success flag
       ansible.builtin.set_fact:
         upgrade_success: true
+      when: replace_result.changed # Only successful if a change was attempted
 
   rescue:
-    - name: Check if backup exists before restoring
-      ansible.builtin.stat:
-        path: "{{ compose_backup_path }}"
-      register: restore_target_backup_stat
+    - name: Restore docker-compose from backup if replace occurred
+      when: replace_result is defined and replace_result.changed and replace_result.backup_file is defined and replace_result.backup_file
+      block:
+        - name: Check if backup file exists
+          ansible.builtin.stat:
+            path: "{{ replace_result.backup_file }}"
+          register: restore_backup_stat
 
-    - name: Restore docker-compose from backup before failing
-      ansible.builtin.command:
-        cmd: "mv {{ compose_backup_path }} {{ compose_file_path }}"
-      when: restore_target_backup_stat.stat.exists
-      register: restore_target_backup_result
-      
-    - name: Start services with original docker-compose configuration
-      community.docker.docker_compose_v2:
-        project_src: "{{ service_project_src }}"
-        state: present
-      register: services_facts
-      when: restore_target_backup_result is defined and restore_target_backup_result.rc == 0
-      
-    - name: Wait for services to be running and healthy
-      when: services_facts is defined and services_facts.containers is defined
-      community.docker.docker_container_info:
-        name: "{{ item.ID }}"
-      loop: "{{ services_facts.containers }}"
-      loop_control:
-        label: "{{ item.Service }}"
-      register: container_info
-      failed_when: not container_info.container.State.Running or container_info.container.State.Health.Status == 'unhealthy'
-      until: container_info.container.State.Running and container_info.container.State.Health.Status == 'healthy'
-      delay: 5
-      retries: 5
-      
-    - name: Filter kopia container info
-      ansible.builtin.set_fact:
-        target_container: "{{ item }}"
-      loop: "{{ container_info.results | map(attribute='container') }}"
-      loop_control:
-        label: "{{ item.Name }}"
-      when:
-        - container_info is defined and container_info.results is defined and container_info.results | length > 0
-        - item.Config.Labels['com.docker.compose.service'] == service_name
-        
-    - name: Report failed upgrade
-      vars:
-        msg: |
-          ERROR: Failed to upgrade {{ service_name }} to version {{ target_image_tag }}.
-          Attempted to restore original compose file from {{ compose_backup_path }}:
-          {{ 'Success' if target_container is defined and target_container.State.Running and target_container.State.Health.Status == 'healthy' else ('Backup restore failed' if restore_target_backup_stat.stat.exists else 'Backup not found') }}.
-          Upgrade aborted.
-      ansible.builtin.debug:
-        msg: "{{ msg.split('\n') }}"
-        
-    - name: Fail playbook due to failed upgrade
+        - name: Restore docker-compose from replace backup
+          ansible.builtin.command:
+            cmd: "mv {{ replace_result.backup_file }} {{ compose_file_path }}"
+          when: restore_backup_stat.stat.exists
+          register: restore_backup_result
+
+        - name: Start services with original docker-compose configuration after restore
+          ansible.builtin.include_tasks: start.yml
+          when: restore_backup_result is defined and restore_backup_result.rc == 0
+
+    - name: Fail the playbook after rescue attempt
       ansible.builtin.fail:
-        msg: "Failed to upgrade {{ service_name }} to version {{ target_image_tag }}."
-        
+        msg: "Upgrade failed for {{ project_name }}. Attempted rollback. See previous logs for details."
+
 ##############################################################################
-# Clean up
+# Cleanup
 ##############################################################################
 
-- name: Clean up backup docker compose when upgrade success
-  become: true
+- name: Clean up backup docker compose file created by replace module
   ansible.builtin.file:
-    path: "{{ compose_backup_path }}"
+    path: "{{ replace_result.backup_file }}"
     state: absent
-  when: backup_result.rc is defined and backup_result.rc == 0
+  when:
+    - upgrade_success
+    - replace_result is defined
+    - replace_result.changed | default(false)
+    - replace_result.backup_file is defined
+    - replace_result.backup_file
 
 ##############################################################################
 # Final Report
@@ -263,3 +196,9 @@
       - "Target Version: {{ target_image_name }}:{{ target_image_tag }}"
       - "Upgrade Attempted: {{ 'Yes' if upgrade_needed else 'No (Not Required)' }}"
       - "Upgrade Successful: {{ upgrade_success if upgrade_success|default(false) else 'N/A' }}"
+  when: upgrade_needed # Only show summary if an upgrade was attempted or considered
+
+- name: Display skip message when no upgrade needed
+  ansible.builtin.debug:
+    msg: "{{ project_name | upper }} upgrade skipped on {{ inventory_hostname }}: Current version '{{ current_image_tag }}' is already the target version '{{ target_image_tag }}' or newer."
+  when: not upgrade_needed
