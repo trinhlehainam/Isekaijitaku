@@ -1,0 +1,38 @@
+- name: Verify service project source
+  ansible.builtin.assert:
+    that:
+      - service_project_src is defined
+    fail_msg: "service_project_src is not defined"
+
+- name: Start services
+  community.docker.docker_compose_v2:
+    project_src: "{{ service_project_src }}"
+    state: present
+    remove_orphans: yes
+  register: services_facts
+  when: service_project_src is defined
+
+- name: Wait for services to be running
+  when: services_facts is defined
+  community.docker.docker_container_info:
+    name: "{{ item.ID }}"
+  loop: "{{ services_facts.containers }}"
+  loop_control:
+    label: "{{ item.Service }}"
+  register: container_info
+  failed_when: not container_info.container.State.Running
+  until: container_info.container.State.Running
+  delay: 10
+  retries: 5
+  
+- name: Check services status
+  vars:
+    project_src: "{{ service_project_src }}"
+  ansible.builtin.include_tasks: check.yml
+  
+- name: Fail if services are not running
+  ansible.builtin.fail:
+    msg: "Services are not running after start"
+  when:
+    - check_result.services is not defined
+    - check_result.services | selectattr('State.Running', 'equalto', false) | list | length > 0
