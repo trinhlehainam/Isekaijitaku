@@ -1,16 +1,4 @@
 ---
-# Frgejo and PostgreSQL Backup Tasks
-# 
-# This file implements a backup strategy using Docker's native commands for Forgejo and PostgreSQL.
-# Key concepts:
-# - Stops Forgejo service completely during backup (following official guidance)
-# - Uses 'forgejo dump' and 'pg_dump' commands for creating backups
-# - Uses docker compose run/exec for running one-shot commands
-# - Copies generated backup files to host using docker compose cp
-# - Creates timestamp-based backup directories
-# - Performs health checks to verify service status
-# - Supports standard mode (restart service) and update mode (keep service stopped)
-
 #################################################
 # Service Control - Stop Services
 #################################################

@@ -1,39 +1,24 @@
 # Forgejo Backup System
 
-This document describes the backup functionality for Forgejo and PostgreSQL databases in a Docker-based deployment. The system implements a hierarchical error handling approach with service state preservation that ensures data consistency, robust failure handling, and intelligent service state rollback.
+This document describes the backup functionality for Forgejo and PostgreSQL databases in a Docker-based deployment. The system implements a hierarchical error handling approach with service state preservation that ensures data consistency, failure handling, and service state rollback.
 
-## Backup Architecture
+## Prerequisites and Configuration
 
-The backup process employs a sophisticated error handling structure with the following key features:
+The backup system relies on several variables typically defined in Ansible inventory files (`host_vars` or `group_vars`). Ensure these are correctly set for your environment:
 
-1.  **Hierarchical Error Handling**: Nested block/rescue structure captures and tracks failures.
-2.  **Component Isolation**: Forgejo and PostgreSQL backups execute in their own blocks with independent error handling.
-3.  **Smart Service State Preservation**: Captures container state before shutdown for precise recovery.
-4.  **Container Health Detection**: Provides accurate health status detection (healthy, starting, unhealthy).
-5.  **State-Aware Service Rollback**: Uses captured state to intelligently return services to their original running state via handlers.
-6.  **Direct Backup with Rollback**: Backups are stored directly in `forgejo_backup_dir`. Existing content is moved to a `rollback` subdirectory before a new backup starts.
-7.  **Automatic Restore on Failure**: If the backup fails, the previous state from the `rollback` directory is automatically restored.
-8.  **Detailed Error Reporting**: Captures specific errors and includes them in the backup report.
-9.  **Resource Cleanup Guarantees**: `always` sections ensure cleanup tasks execute.
+| Variable                 | Description                                                                                                   | Example Value (from dev host_vars)          |
+| :----------------------- | :------------------------------------------------------------------------------------------------------------ | :------------------------------------------ |
+| `forgejo_backup_dir`     | Host directory where backup files and the `rollback` directory are stored.                                    | `/home/vagrant/backup/docker/forgejo-rootless` |
+| `forgejo_backup_filename`| Filename for the Forgejo application dump.                                                                    | `forgejo-app-dump.zip` (Default)           |
+| `postgres_backup_filename`| Filename for the PostgreSQL database dump.                                                                    | `forgejo-db-backup.dump` (Default)         |
+| `forgejo_db_user`        | Username for the PostgreSQL database connection (used by `pg_dump`). Must be defined somewhere.                 | *(Not defined in dev host_vars)*            |
+| `forgejo_db_name`        | Name of the PostgreSQL database to back up (used by `pg_dump`). Must be defined somewhere.                    | *(Not defined in dev host_vars)*            |
+| `db_password`            | Password for the `forgejo_db_user`. Must be defined, often vaulted.                                           | *(Vaulted)*                                 |
+| `use_kopia`              | Boolean flag to enable/disable Kopia snapshot tasks for the backup directory.                                 | `true`                                      |
+| `kopia_backup_data_dir`  | Base directory path within Kopia's configuration where data source paths are relative to.                      | `/data`                                     |
+| `kopia_forgejo_backup_dir` | The full path Kopia uses to identify the Forgejo backup directory for snapshotting policies and actions.        | `/data/{{ forgejo_backup_dir }}`            |
 
-## Backup Process Flow
-
-The backup process follows these steps:
-
-1.  Checks and captures detailed service state information.
-2.  Stops Forgejo services, preserving their original state.
-3.  Sets up backup variables and file paths.
-4.  **Rollback Preparation**: Checks `forgejo_backup_dir` for existing content. If found, moves it into a `rollback` subdirectory.
-5.  Launches dedicated containers for Forgejo and PostgreSQL backups.
-6.  Runs the Forgejo dump command.
-7.  Runs the PostgreSQL `pg_dump` command.
-8.  Copies backup files (`forgejo-app-dump.zip`, `forgejo-db-backup.dump`) directly into `forgejo_backup_dir`.
-9.  Verifies container existence before cleanup.
-10. Cleans up temporary files and containers.
-11. Creates a `BACKUP_REPORT.md` in `forgejo_backup_dir` with component status.
-12. **On Success**: Notifies the service rollback handler.
-13. **On Failure**: Cleans up partial backup files, restores content from the `rollback` directory, removes the `rollback` directory, and then notifies the service rollback handler.
-14. Rolls back services to their original state via the handler.
+Set these variables in your inventory files or pass them as extra vars when running the playbook.
 
 ## Running the Backup
 
@@ -49,7 +34,7 @@ Replace `inventories/dev` with your target inventory file or directory.
 
 This command executes only the play within `site.yml` tagged with `backup`. This play specifically includes the `common` role and sets the `operation_mode` variable to `backup` internally, triggering the tasks defined in `roles/common/tasks/backup.yml`.
 
-### Related Tasks
+### Integration with Upgrade
 
 The backup process is tightly integrated with the upgrade task:
 
@@ -61,39 +46,19 @@ Other tasks like `restore`, `check`, and `deploy` are executed using their respe
 
 If the `forgejo_backup_dir` variable is not explicitly set in your inventory, the `main.yml` task within the role will default to using `{{ ansible_user_dir }}/Backup/{{ project_name }}` on the target host (where `ansible_user_dir` is the home directory of the Ansible user and `project_name` is likely 'forgejo-rootless').
 
-## Running Backups
+## Implementation Details
 
-To run a backup with automatic service recovery afterward:
+The backup process utilizes nested Ansible `block/rescue/always` structures to manage execution flow and handle errors at different levels. Failures within the Forgejo application backup or the PostgreSQL database backup are caught individually, allowing for component-specific error reporting. A higher-level block encompasses the entire backup sequence, catching broader failures. Before initiating the backup, the system captures the current state (running, stopped, health) of relevant Docker containers using `community.docker.docker_container_info`. This captured state is crucial for the post-backup restoration phase, ensuring services are returned precisely to their pre-backup condition.
 
-```bash
-ansible-playbook site.yml -i inventories/production/hosts.yml -t backup
-```
+Backups are written directly into the target `forgejo_backup_dir`. To prevent data loss from failed backups overwriting good ones, any existing content within `forgejo_backup_dir` is first moved into a temporary `rollback` subdirectory. If the new backup completes successfully, this `rollback` directory is removed. If the new backup fails, the contents of the `rollback` directory are moved back into `forgejo_backup_dir`, effectively restoring the previous backup state. Cleanup tasks, such as removing temporary containers or the `rollback` directory, are placed within `always` blocks to guarantee their execution regardless of whether the preceding tasks succeeded or failed.
 
-The system will intelligently roll back services to their original state after backup completion, regardless of success or failure. This ensures services are properly returned to their pre-backup state, maintaining the expected service availability through state-aware rollback handlers.
+The actual data extraction relies on native tooling: `forgejo dump` is executed within a temporary Forgejo container to create an application-consistent snapshot, and `pg_dump` is run from a temporary PostgreSQL container to produce a database dump. File transfer from these temporary containers to the host's backup directory is achieved through Docker volume mounts configured in the `docker-compose.backup.yml` file, rather than explicit copy commands in the Ansible tasks.
 
-### Configuration Options
+Ansible handlers, combined with the pre-captured service state, ensure reliable restoration of services to their original running condition after the backup process concludes, triggered reliably due to `force_handlers: true` in the playbook configuration. Variables defined in the Ansible inventory manage critical paths and settings consistently throughout the tasks.
 
-The backup system uses several variables typically defined in Ansible inventory files (`host_vars` or `group_vars`). Key variables include:
+## Backup File Structure
 
-| Variable                 | Description                                                                                                   | Example Value (from dev host_vars)          |
-| :----------------------- | :------------------------------------------------------------------------------------------------------------ | :------------------------------------------ |
-| `forgejo_backup_dir`     | Host directory where backup files and the `rollback` directory are stored.                                    | `/home/vagrant/backup/docker/forgejo-rootless` |
-| `forgejo_backup_filename`| Filename for the Forgejo application dump.                                                                    | `forgejo-app-dump.zip` (Default)           |
-| `postgres_backup_filename`| Filename for the PostgreSQL database dump.                                                                    | `forgejo-db-backup.dump` (Default)         |
-| `forgejo_db_user`        | Username for the PostgreSQL database connection (used by `pg_dump`). Must be defined somewhere.                 | *(Not defined in dev host_vars)*            |
-| `forgejo_db_name`        | Name of the PostgreSQL database to back up (used by `pg_dump`). Must be defined somewhere.                    | *(Not defined in dev host_vars)*            |
-| `db_password`            | Password for the `forgejo_db_user`. Must be defined, often vaulted.                                           | *(Vaulted)*                                 |
-| `use_kopia`              | Boolean flag to enable/disable Kopia snapshot tasks for the backup directory.                                 | `true`                                      |
-| `kopia_backup_data_dir`  | Base directory path within Kopia's configuration where data source paths are relative to.                      | `/data`                                     |
-| `kopia_forgejo_backup_dir` | The full path Kopia uses to identify the Forgejo backup directory for snapshotting policies and actions.        | `/data/{{ forgejo_backup_dir }}`            |
-
-(Note: The backup of `docker-compose.yml` and `secrets` has been removed from this process.)
-
-You can set these variables in your inventory files or pass them as extra vars when running the playbook.
-
-### Backup File Structure
-
-Backups are stored directly in the configured backup directory (`forgejo_backup_dir`, default: `backups` within the Forgejo project directory). 
+Backups are stored directly in the configured backup directory (`forgejo_backup_dir`, default: `backups` within the Forgejo project directory).
 
 If a backup runs successfully when existing files are present, the previous files will be moved into a `rollback` subdirectory:
 
@@ -110,133 +75,11 @@ If a backup runs successfully when existing files are present, the previous file
 
 If a backup fails, the `rollback` directory contents are restored, and the `rollback` directory is removed, leaving the previous state intact.
 
-## Backup Technology
-
-The backup system integrates multiple technologies to ensure reliable backups:
-
-- **Docker Compose V2**: Controls service lifecycle and launches backup containers
-- **Docker Container Exec**: Executes backup commands within running containers
-- **Forgejo dump**: Creates consistent application snapshots with official tooling
-- **pg_dump**: Generates consistent PostgreSQL backups in custom format (-Fc) for optimal restoration
-- **docker cp**: Transfers backup files from containers to the host filesystem
-- **Container lifecycle management**: Manages dedicated backup containers with controlled lifecycles
-- **Ansible handlers**: Provides reliable service restoration even after failures through task inclusion
-- **Hierarchical error handling**: Employs block/rescue/always structures for robust failure management
-- **Centralized backup paths**: Uses variables to consistently define and reference backup file paths
-- **Container existence verification**: Checks for container existence before attempting cleanup operations
-- **Force handlers execution**: Ensures service restoration handlers run even when the playbook fails
-
 ## Integration with Kopia
 
 This backup process generates local backup files in the `forgejo_backup_dir`. It is recommended to use a tool like Kopia to snapshot this directory for offsite or versioned backups.
 
 **Important Kopia Note:** Ensure that Kopia has a specific policy configured for the `forgejo_backup_dir` path. If no specific policy exists, Kopia might create a default snapshot policy that does not include compression, potentially leading to larger-than-expected snapshot sizes. Configure a policy with appropriate compression (e.g., `zstd`) for this directory.
-
-### Service State Preservation and Rollback
-
-The backup system includes a sophisticated service state preservation and recovery mechanism:
-
-1.  **Service State Capture**: Before stopping services, the system captures detailed information about the running containers:
-    - Container IDs and names
-    - Service names from Docker Compose labels
-    - Running state (running or stopped)
-    - Health status (healthy, starting, unhealthy)
-    - Other metadata such as uptime and image information
-
-2.  **State-Aware Rollback Handler**: After backup completion, a specialized handler returns each service to its original state:
-
-```yaml
-- name: Rollback services
-  community.docker.docker_compose_v2:
-    project_src: "{{ forgejo_project_src }}"
-    services: "{{ item.service }}"
-    state: "{{ 'present' if item.state == 'running' else 'stopped' }}"
-  when: forgejo_project_src is defined and check_result is defined and check_result.services is defined
-  loop: "{{ check_result.services }}"
-  loop_control:
-    label: "{{ item.service }}"
-```
-
-This handler uses container state information preserved in `check_result.services` to determine whether each service should be running or stopped after backup.
-
-3.  **Health State Detection**: The system detects container health status using Docker's native health checks:
-    - `healthy`: Container is running and passing health checks
-    - `starting`: Container is running but health checks are still in progress
-    - `unhealthy`: Container is running but failing health checks
-
-The playbook is configured with `force_handlers: true` to ensure that state rollback is executed even when the playbook fails, which is essential for service restoration after backup failures:
-
-```yaml
-- name: Backup Forgejo Rootless services
-  hosts: all
-  gather_facts: true
-  tags: [never, backup]
-  force_handlers: true
-  # Rest of the playbook...
-```
-
-This configuration guarantees that services will always be rolled back to their original state after backup operations, maintaining system consistency.
-
-### Docker Compose Entrypoint Behavior
-
-#### Understanding Command Handling in Docker Compose Run
-
-When using Docker Compose with custom entrypoints that forward arguments, a critical behavior needs to be understood, especially with the Forgejo container's entrypoint configuration:
-
-```yaml
-# Example from docker-compose.yml
-entrypoint:
-  - /bin/sh
-  - -c
-  - |
-    # Setup code and environment preparation
-    /usr/bin/dumb-init -- /usr/local/bin/docker-entrypoint.sh "$@"
-```
-
-#### Argument Passing Quirk
-
-Docker Compose has a specific behavior when using the `run` command that differs from how regular command execution works:
-
-1.  **Command Truncation**: When executing `docker compose run service_name command args`, the **first word** of the command is systematically ignored/dropped when passed to the `"$@"` shell argument placeholder in the entrypoint
-
-2.  **Resulting Behavior**: If your entrypoint uses `"$@"` to capture and pass arguments, you'll encounter unexpected command truncation
-
-#### Example and Solution
-
-Consider running the Forgejo dump command:
-
-```bash
-# CORRECT APPROACH - Add a dummy placeholder that will be intentionally dropped
-# The entrypoint actually receives 'forgejo dump ...' as desired
-docker compose run forgejo dummy forgejo dump -f /tmp/backup/forgejo-app-dump.zip
-```
-
-#### Implementation in Ansible
-
-The backup system uses this technique when executing commands via `docker_container_exec` within the temporary backup containers launched by `docker_compose_v2_run`:
-
-```yaml
-- name: Run pg_dump command in the backup container
-  community.docker.docker_container_exec:
-    container: "{{ postgres_backup_container_id }}"
-    # No dummy needed here as exec doesn't have the same quirk as run
-    command: >
-      pg_dump ... -f {{ postgres_container_backup_filepath }}
-    environment:
-      PGPASSWORD: "{{ forgejo_db_password }}"
-
-- name: Run Forgejo dump command in the backup container
-  community.docker.docker_container_exec:
-    container: "{{ forgejo_backup_container_id }}"
-    # No dummy needed here
-    command: forgejo dump -f {{ forgejo_container_backup_filepath }}
-```
-
-*(Self-correction: The original doc incorrectly stated `docker_compose_v2` was used for the dump command itself; it's actually `docker_compose_v2_run` to start the container and `docker_container_exec` to run the dump command inside it. The 'dummy' argument quirk applies primarily to `docker compose run` directly from the shell or potentially `docker_compose_v2` with a `command` argument, not `docker_container_exec`)*
-
-#### Scope of Impact
-
-This behavior is specifically a concern with `docker compose run` operations. Other operations like `up`, `down`, `exec`, etc., and specifically `docker_container_exec` used here, don't exhibit this argument handling quirk.
 
 ## Restore Process
 
@@ -248,20 +91,23 @@ To restore from a backup:
    docker compose stop forgejo
    ```
 
-2. Restore PostgreSQL database:
+2. Replace the contents of the Forgejo data volume (`/var/lib/forgejo` or similar) with the contents of the `forgejo-app-dump.zip` from your desired backup.
+
+3. Replace the contents of the PostgreSQL data volume (`/var/lib/postgresql/data` or similar) by restoring the `forgejo-db-backup.dump` file using `pg_restore`. This typically involves starting a temporary PostgreSQL container, copying the dump file into it, and executing `pg_restore`.
+
+   Example `pg_restore` command (adjust paths and credentials):
    ```bash
-   docker compose exec forgejo-db pg_restore -Fc -c -U <db_user> -d <db_name> /path/to/forgejo-db-backup.dump
+   pg_restore -U <db_user> -d <db_name> -c --if-exists <dump_file>
    ```
 
-3. Restore Forgejo data (if needed):
+4. Restore the `docker-compose.yml` and `secrets` directory from the backup to the project directory (`/path/to/forgejo-rootless`).
+
+5. Restart the Forgejo service:
    ```bash
-   docker compose run --rm forgejo sh -c "forgejo restore -f /path/to/forgejo-app-dump.zip"
+   docker compose up -d forgejo
    ```
 
-4. Restart services:
-   ```bash
-   docker compose up -d
-   ```
+*(Note: The restore process is manual and requires careful handling of Docker volumes and database restoration commands. This section provides a general outline; specific steps may vary based on your exact volume configuration and database setup.)*
 
 ## References
 
