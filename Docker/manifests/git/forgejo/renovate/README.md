@@ -139,8 +139,7 @@ The repository requires these key configuration files with minimal customization
          - **Warning:** Must be used alone, not with other patterns
          - **Correct example:** `["!/my-org/temp-.*/"]` matches everything EXCEPT temp repos in my-org
          - Do not mix with positive patterns due to OR logic
-       
-       - **Regular Expressions:** Patterns enclosed in `/` are treated as regex
+         - **Regular Expressions:** Patterns enclosed in `/` are treated as regex
          - Example: `["/my-org\/[a-z]+-service/"]` matches lowercase service repos
    - All other settings can remain at their defaults
 
@@ -206,6 +205,32 @@ A key component of this setup is a centralized configuration repository (`renova
      ```
       This allows Renovate to track Docker image dependencies even when defined within Ansible's Jinja2 templating structure.
 
+      **Note on Template Formatting:** The configured `matchStrings` regex `image:\s*\"?(?<depName>[^\s:@\"]+)(?::(?<currentValue>[-a-zA-Z0-9.]+))?(?:@(?<currentDigest>sha256:[a-zA-Z0-9]+))?\"?` requires that image names in your `.yaml.j2` template files are defined either **without quotes** or **with double quotes**. Using single quotes (`'`) or backticks (`` ` ``) will prevent Renovate from detecting the dependency based on this configuration.
+
+      **Correct Examples (Renovate will detect these):**
+      ```yaml
+      # docker-compose.yaml.j2
+      services:
+        app:
+          image: nginx:1.25 # No quotes
+          ports:
+            - "80:80"
+        db:
+          image: "postgres:15" # Double quotes
+          environment:
+            POSTGRES_PASSWORD: "password"
+      ```
+
+      **Incorrect Examples (Renovate will NOT detect these correctly):**
+      ```yaml
+      # docker-compose.yaml.j2
+      services:
+        app:
+          image: 'nginx:1.25' # Incorrect: Single quotes
+        db:
+          image: `postgres:15` # Incorrect: Backticks
+      ```
+
       > **Important**: When using `docker:pinDigests` with custom regex managers (especially for template files), you **must** explicitly define an `autoReplaceStringTemplate` that specifies how replacement strings should be formatted. Without this parameter, Renovate will not know how to properly replace the existing content with both the new version and digest. The example above shows the correct format for typical Docker image references.
 
 ##### Delaying Updates with `minimumReleaseAge`
@@ -254,17 +279,17 @@ The following formats are valid for `minimumReleaseAge`:
 Using `minimumReleaseAge` provides a buffer, allowing time for potential issues in new releases to be discovered before they are automatically introduced into your projects.
 
 3. **Extend from the Central Presets** in each monitored repository:
-   - **Recommended Method (using `default.json` lookup):** Create a `default.json` file (must be plain JSON, no comments) in the monitored repository's configuration directory (e.g., `.github/renovate/`, `.forgejo/renovate/`). This file explicitly tells Renovate which presets to load from the central repository.
-     ```json
-     // Example content for default.json in a monitored repository
-     {
-       "$schema": "https://docs.renovatebot.com/renovate-schema.json",
-       "extends": [
-         "local>renovate_account/renovate-config:default.json5",
-         "local>renovate_account/renovate-config:meta.json5"
-       ]
-     }
-     ```
+    - **Recommended Method (using `default.json` lookup):** Create a `default.json` file (must be plain JSON, no comments) in the monitored repository's configuration directory (e.g., `.github/renovate/`, `.forgejo/renovate/`). This file explicitly tells Renovate which presets to load from the central repository.
+      ```json
+      // Example content for default.json in a monitored repository
+      {
+        "$schema": "https://docs.renovatebot.com/renovate-schema.json",
+        "extends": [
+          "local>renovate_account/renovate-config:default.json5",
+          "local>renovate_account/renovate-config:meta.json5"
+        ]
+      }
+      ```
 
    - **Alternative Method (using `renovate.json5`):** If you don't use the `default.json` lookup, you can create a `renovate.json5` file in the monitored repository and extend the central configuration implicitly or explicitly.
      ```json5

@@ -4,7 +4,7 @@ services:
   omni-tools:
     container_name: omni-tools
     # https://hub.docker.com/r/iib0011/omni-tools/tags
-    image: 'iib0011/omni-tools:0.3.0'
+    image: "iib0011/omni-tools:0.3.0"
     restart: unless-stopped
 {% if not use_traefik|default(false) %}
     ports:
