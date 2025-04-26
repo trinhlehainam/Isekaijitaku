@@ -17,14 +17,14 @@ services:
       - "traefik.enable=true"
       - 'traefik.docker.network=proxy'
       - 'traefik.http.services.it-tools.loadbalancer.server.port=80'
-  {% if traefik_router_private|default(false) and traefik_private_root_domain|default(false) %}
+  {% if use_traefik_router_private|default(false) and private_apex_domain|default(false) %}
       ## Private
       - "traefik.http.routers.it-tools-local.rule=Host(`{{ service_name|default('it-tools') }}.{{ private_apex_domain }}`)"
       - "traefik.http.routers.it-tools-local.entrypoints=websecure"
       - "traefik.http.routers.it-tools-local.tls.certresolver=stepca"
       - "traefik.http.routers.it-tools-local.middlewares=oauth2-admin@file"
   {% endif %}
-  {% if traefik_router_public|default(false) and traefik_public_root_domain|default(false) %}
+  {% if use_traefik_router_public|default(false) and public_apex_domain|default(false) %}
       ## Public
       - "traefik.http.routers.it-tools.rule=Host(`{{ service_name|default('it-tools') }}.{{ public_apex_domain }}`)"
       - "traefik.http.routers.it-tools.entrypoints=websecure"

@@ -1,18 +1,31 @@
 ---
-- name: Create directory for docker-compose files
-  ansible.builtin.file:
-    path: "{{ ansible_user_dir }}/Docker/it-tools"
-    state: directory
-    mode: '0755'
+- name: Set up {{ project_name|upper }} project source path
+  ansible.builtin.set_fact:
+    service_project_src: "{{ service_project_src|default(ansible_user_dir + '/Docker/' + project_name) }}"
+    
+- name: Set up {{ project_name|upper }} files list
+  ansible.builtin.set_fact:
+    files_list:
+      - { id: "docker_compose",   path: "{{ service_project_src }}/docker-compose.yml",   name: "Docker Compose File" }
 
-- name: Copy docker-compose file
-  ansible.builtin.template:
-    src: "docker-compose.yml.j2"
-    dest: "{{ ansible_user_dir }}/Docker/it-tools/docker-compose.yml"
-    mode: '0644'
-  
-- name: Start IT-Tools containers
-  community.docker.docker_compose_v2:
-    project_src: "{{ ansible_user_dir }}/Docker/it-tools"
-    state: present
-  register: output
+- name: Set default operation mode if not defined
+  ansible.builtin.set_fact:
+    operation_mode: "{{ operation_mode | default('check') }}"
+
+- name: Include check tasks
+  vars:
+    project_src: "{{ service_project_src }}"
+  ansible.builtin.include_tasks: check.yml
+  when: operation_mode == 'check'
+
+- name: Include deploy tasks
+  ansible.builtin.include_tasks: deploy.yml
+  when: operation_mode == 'deploy'
+
+- name: Include destroy tasks
+  ansible.builtin.include_tasks: destroy.yml
+  when: operation_mode == 'destroy'
+
+- name: Include upgrade tasks
+  ansible.builtin.include_tasks: upgrade.yml
+  when: operation_mode == 'upgrade'
