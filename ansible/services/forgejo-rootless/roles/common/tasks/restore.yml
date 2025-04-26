@@ -27,42 +27,10 @@
     path: "{{ forgejo_backup_dir }}"
   register: backup_dir_stat
 
-- name: Fail if backup directory doesn't exist
-  ansible.builtin.fail:
-    msg: "Backup directory {{ forgejo_backup_dir }} doesn't exist or is not a directory"
-  when: not backup_dir_stat.stat.exists or not backup_dir_stat.stat.isdir
-
-- name: Find most recent backup directory
-  become: true
-  ansible.builtin.find:
-    paths: "{{ forgejo_backup_dir }}"
-    file_type: directory
-    patterns: "*-*-*_*-*"
-  register: timestamp_dirs
-
-- name: Sort timestamp directories by modification time
-  ansible.builtin.set_fact:
-    sorted_backup_dirs: "{{ timestamp_dirs.files | sort(attribute='mtime', reverse=true) }}"
-
-- name: Verify backup directories exist
-  ansible.builtin.assert:
-    that: sorted_backup_dirs|length > 0
-    fail_msg: "No backup directories found in {{ forgejo_backup_dir }}."
-
-- name: Set latest backup directory
-  ansible.builtin.set_fact:
-    current_backup_dir: "{{ sorted_backup_dirs[0].path }}"
-
-- name: Get backup directory information
-  become: true
-  ansible.builtin.stat:
-    path: "{{ current_backup_dir }}"
-  register: backup_dir_stat
-
 - name: Verify backup directory exists
   ansible.builtin.assert:
     that: backup_dir_stat.stat.exists and backup_dir_stat.stat.isdir
-    fail_msg: "Backup directory {{ current_backup_dir }} doesn't exist or is not a directory"
+    fail_msg: "Backup directory {{ forgejo_backup_dir }} doesn't exist or is not a directory"
 
 - name: Set up restoration variables
   ansible.builtin.set_fact:
@@ -76,25 +44,25 @@
 - name: Check if existing docker-compose.yml exists
   become: true
   ansible.builtin.stat:
-    path: "{{ current_backup_dir }}/setup/docker-compose.yml"
+    path: "{{ forgejo_backup_dir }}/docker-compose.yml"
   register: compose_backup_file
 
 - name: Check if existing secrets directory exists
   become: true
   ansible.builtin.stat:
-    path: "{{ current_backup_dir }}/setup/secrets"
+    path: "{{ forgejo_backup_dir }}/secrets"
   register: secrets_backup_dir
 
 - name: Check if PostgreSQL backup file exists
   become: true
   ansible.builtin.stat:
-    path: "{{ current_backup_dir }}/{{ postgres_backup_filename }}"
+    path: "{{ forgejo_backup_dir }}/{{ postgres_backup_filename }}"
   register: postgres_backup_file
 
 - name: Check if Forgejo backup file exists
   become: true
   ansible.builtin.stat:
-    path: "{{ current_backup_dir }}/{{ forgejo_backup_filename }}"
+    path: "{{ forgejo_backup_dir }}/{{ forgejo_backup_filename }}"
   register: forgejo_backup_file
 
 - name: Verify both backup files exist
@@ -104,7 +72,7 @@
       - forgejo_backup_file.stat.exists
       - compose_backup_file.stat.exists
       - secrets_backup_dir.stat.exists
-    fail_msg: "Missing required backup files in {{ current_backup_dir }}."
+    fail_msg: "Missing required backup files in {{ forgejo_backup_dir }}."
 
 #################################################
 # Project Files Backup and Restoration
@@ -166,7 +134,7 @@
         - name: Copy docker-compose.yml from backup
           become: true
           ansible.builtin.copy:
-            src: "{{ current_backup_dir }}/setup/docker-compose.yml"
+            src: "{{ forgejo_backup_dir }}/docker-compose.yml"
             dest: "{{ service_project_src }}/docker-compose.yml"
             remote_src: true
             owner: "{{ ansible_user }}"
@@ -178,7 +146,7 @@
         - name: Copy secrets directory from backup
           become: true
           ansible.builtin.copy:
-            src: "{{ current_backup_dir }}/setup/secrets"
+            src: "{{ forgejo_backup_dir }}/secrets"
             dest: "{{ service_project_src }}"
             remote_src: true
             owner: "{{ forgejo_user_id }}"
@@ -192,7 +160,7 @@
 
 - name: Set restore directory variable
   ansible.builtin.set_fact:
-    current_restore_dir: "{{ current_backup_dir }}/restore"
+    current_restore_dir: "{{ forgejo_backup_dir }}/restore"
 
 - name: Create restore workspace directory
   become: true
@@ -383,7 +351,7 @@
 
     - name: Set PostgreSQL container restore filepath
       ansible.builtin.set_fact:
-        postgres_backup_filepath: "{{ current_backup_dir }}/{{ postgres_backup_filename }}"
+        postgres_backup_filepath: "{{ forgejo_backup_dir }}/{{ postgres_backup_filename }}"
 
     - name: Verify restore file exists
       become: true
@@ -425,7 +393,7 @@
 
 - name: Set overall restoration success status
   ansible.builtin.set_fact:
-    restore_report_path: "{{ current_backup_dir }}/restore/RESTORE_REPORT_{{ restore_timestamp }}.md"
+    restore_report_path: "{{ forgejo_backup_dir }}/restore/RESTORE_REPORT_{{ restore_timestamp }}.md"
     restore_succeeded: "{{ ((postgres_backup_file.stat.exists and postgres_restore_succeeded) or not postgres_backup_file.stat.exists) and ((forgejo_backup_file.stat.exists and forgejo_restore_succeeded) or not forgejo_backup_file.stat.exists) }}"
 
 - name: Create restoration report
@@ -439,7 +407,7 @@
       # Forgejo Restoration Report
 
       **Timestamp:** {{ restore_timestamp }}
-      **Backup Source:** {{ current_backup_dir }}
+      **Backup Source:** {{ forgejo_backup_dir }}
       **Project Directory:** {{ service_project_src }}
 
       ## Components Status
@@ -489,7 +457,7 @@
     - name: Clean up temporary restore folders
       become: true
       ansible.builtin.file:
-        path: "{{ current_backup_dir }}/restore/temp"
+        path: "{{ forgejo_backup_dir }}/restore/temp"
         state: absent
 
     - name: Find most recent backup directory

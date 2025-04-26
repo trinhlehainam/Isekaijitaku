@@ -1,3 +1,11 @@
+---
+- name: Verify kopia variables are defined
+  ansible.builtin.assert:
+    that:
+      - kopia_forgejo_backup_dir is defined
+      - kopia_repo_password is defined
+    fail_msg: "Required variable kopia_forgejo_backup_dir or kopia_repo_password is not defined. Please specify the path to the backup directory or the repository password."
+
 - name: Setup kopia project source path
   ansible.builtin.set_fact:
     kopia_project_src: "{{ kopia_project_src|default(ansible_user_dir + '/Docker/kopia') }}"

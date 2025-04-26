@@ -329,13 +329,6 @@
       {% endif %}
   when: postgres_backup_succeeded or forgejo_backup_succeeded or config_backup_succeeded|default(false)
 
-#################################################
-# Kopia Backup
-#################################################
-
-- name: Include kopia tasks
-  ansible.builtin.include_tasks: kopia.yml
-  when: backup_succeeded|bool and use_kopia|bool
 
 #################################################
 # Cleanup and Service Restoration
@@ -348,23 +341,6 @@
   changed_when: true
   notify: Rollback services
   
-- name: Show final backup status
-  vars:
-    msg: |
-      Backup {{ 'SUCCEEDED ✅' if backup_succeeded else 'FAILED ❌' }}.
-      PostgreSQL: {{ 'OK ✅' if postgres_backup_succeeded else 'FAILED ❌' }}{% if postgres_backup_error is defined and not postgres_backup_succeeded %} ({{ postgres_backup_error }}){% endif %}.
-      Forgejo: {{ 'OK ✅' if forgejo_backup_succeeded else 'FAILED ❌' }}{% if forgejo_backup_error is defined and not forgejo_backup_succeeded %} ({{ forgejo_backup_error }}){% endif %}.
-      Project Setup: {{ 'OK ✅' if config_backup_succeeded|default(false) else 'FAILED ❌' }}{% if config_backup_error is defined and not config_backup_succeeded|default(false) %} ({{ config_backup_error }}){% endif %}.
-      {% if kopia_snapshot_result is defined and kopia_snapshot_result is success %}
-      Kopia: {{ 'OK ✅' if kopia_snapshot_result.rc is defined and kopia_snapshot_result.rc == 0 else 'FAILED ❌' }}
-        {% if kopia_snapshot_result.rc is defined and kopia_snapshot_result.rc != 0 %} 
-        {{ kopia_snapshot_result.stderr|default('') }}
-        {% endif %}.
-      {% endif %}
-      Services state will be ROLLED BACK.
-  ansible.builtin.debug:
-    msg: "{{ msg.split('\n') }}"
-      
 - name: Check if rollback directory exists
   become: true
   ansible.builtin.stat:
@@ -389,24 +365,58 @@
             cmd: "mv {{ item.path }} {{ forgejo_backup_dir }}/"
           loop: "{{ rollback_items.files }}"
           loop_control:
-            label: "{{ item.path | basename }}"
+            label: "{{ item.path|basename }}"
 
     - name: Remove empty rollback directory
       ansible.builtin.file:
         path: "{{ forgejo_backup_dir }}/rollback"
         state: absent
 
-- name: Clean up backup files and restore rollback files
+- name: Clean up backup files if backup failed
   when: not backup_succeeded
-  block:
-    - name: Clean up backup files if backup failed
-      ansible.builtin.file:
-        path: "{{ forgejo_backup_dir }}/{{ item }}"
-        state: absent
-      loop:
-        - "{{ forgejo_backup_filename }}"
-        - "{{ postgres_backup_filename }}"
+  ansible.builtin.file:
+    path: "{{ forgejo_backup_dir }}/{{ item }}"
+    state: absent
+  loop:
+    - "{{ forgejo_backup_filename }}"
+    - "{{ postgres_backup_filename }}"
 
-    - name: Fail task if backup failed
-      ansible.builtin.fail:
-        msg: "Backup failed: {{ backup_timestamp }}"
+#################################################
+# Kopia Backup
+#################################################
+
+- name: Kopia backup
+  when: backup_succeeded|bool and use_kopia|bool
+  block:
+    - name: Include kopia tasks
+      ansible.builtin.include_tasks: kopia.yml
+  rescue:
+    - name: Record kopia backup failure
+      ansible.builtin.set_fact:
+        kopia_snapshot_result: { rc: 1 }
+        kopia_error_task: "{{ ansible_failed_task.name|default('Unknown error') }}"
+
+#################################################
+# Final Backup Status
+#################################################
+
+- name: Show final backup status
+  vars:
+    msg: |
+      Backup {{ 'SUCCEEDED ✅' if backup_succeeded else 'FAILED ❌' }}.
+      PostgreSQL: {{ 'OK ✅' if postgres_backup_succeeded else 'FAILED ❌' }}{% if postgres_backup_error is defined and not postgres_backup_succeeded %} ({{ postgres_backup_error }}){% endif %}.
+      Forgejo: {{ 'OK ✅' if forgejo_backup_succeeded else 'FAILED ❌' }}{% if forgejo_backup_error is defined and not forgejo_backup_succeeded %} ({{ forgejo_backup_error }}){% endif %}.
+      Project Setup: {{ 'OK ✅' if config_backup_succeeded|default(false) else 'FAILED ❌' }}{% if config_backup_error is defined and not config_backup_succeeded|default(false) %} ({{ config_backup_error }}){% endif %}.
+      {% if kopia_snapshot_result is defined and kopia_snapshot_result is success %}
+      Kopia: {{ 'OK ✅' if kopia_snapshot_result.rc is defined and kopia_snapshot_result.rc == 0 else 'FAILED ❌' }}
+        {% if kopia_snapshot_result.rc is defined and kopia_snapshot_result.rc != 0 %} 
+          Error task: {{ kopia_error_task }}
+        {% endif %}.
+      {% endif %}
+  ansible.builtin.debug:
+    msg: "{{ msg.split('\n') }}"
+
+- name: Fail task if backup failed
+  when: not backup_succeeded
+  ansible.builtin.fail:
+    msg: "Backup failed: {{ backup_timestamp }}"
