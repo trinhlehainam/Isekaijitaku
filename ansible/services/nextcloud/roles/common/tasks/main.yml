@@ -25,8 +25,8 @@
   ansible.builtin.set_fact:
     nextcloud_trusted_domains: "{{ nextcloud_trusted_domains|default([]) + [item.domain] }}" 
   loop:
-    - { exists: "{{ use_traefik|default(false) and private_apex_domain is defined }}", domain: "{{ service_name|default('nextcloud') }}.{{ private_apex_domain }}" }
-    - { exists: "{{ use_traefik|default(false) and public_apex_domain is defined }}", domain: "{{ service_name|default('nextcloud') }}.{{ public_apex_domain }}" }
+    - { exists: "{{ use_traefik|default(false) and private_apex_domain is defined }}", domain: "{{ service_name|default('nextcloud') }}.{{ private_apex_domain|default('') }}" }
+    - { exists: "{{ use_traefik|default(false) and public_apex_domain is defined }}", domain: "{{ service_name|default('nextcloud') }}.{{ public_apex_domain|default('') }}" }
     - { exists: "{{ not use_traefik|default(false) }}", domain: "{{ ansible_host }}" }
   when: item.exists
 

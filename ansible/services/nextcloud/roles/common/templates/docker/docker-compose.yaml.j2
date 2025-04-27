@@ -68,8 +68,9 @@ services:
       {% if use_traefik|default(false) and use_traefik_router_private|default(false) and private_apex_domain|default(false) %}
       OVERWRITECLIURL: https://{{ service_name|default('nextcloud') }}.{{ private_apex_domain }}
       {% endif %}
-
+      {% if use_traefik|default(false) and (use_traefik_router_private|default(false) or use_traefik_router_public|default(false)) %}
       OVERWRITEPROTOCOL: https
+      {% endif %}
       TRUSTED_PROXIES: 172.16.0.0/12 192.168.0.0/16 10.0.0.0/8 fc00::/7 fe80::/10 2001:db8::/32
     entrypoint:
       - /bin/sh
@@ -136,6 +137,7 @@ services:
       - "traefik.http.middlewares.nextcloud-dav.redirectregex.replacement=https://$${1}/remote.php/dav/"
 {% endif %}
       
+{#
   # https://github.com/nextcloud/whiteboard
   nextcloud-whiteboard:
     # https://github.com/nextcloud-releases/whiteboard/pkgs/container/whiteboard
@@ -277,7 +279,8 @@ services:
       timeout: 30s
       retries: 3
       start_period: 30s
-    restart: always
+    restart: always 
+#}
 
   nextcloud-postgres:
     # https://docs.nextcloud.com/server/latest/admin_manual/configuration_database/linux_database_configuration.html#postgresql-database
