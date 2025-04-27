@@ -2,46 +2,67 @@
 # Service Status Verification
 ##############################################################################
 
-- name: Check for existing Kopia service
+- name: Check for existing {{ project_name|capitalize }} service
   vars:
     project_src: "{{ service_project_src }}"
+    files_list: "{{ nextcloud_files_list }}"
   ansible.builtin.include_tasks: check.yml
 
 - name: Set service existence flag
   ansible.builtin.set_fact:
-    kopia_service_exists: "{{ check_result is defined and check_result.services is defined and check_result.services | length > 0 }}"
+    nextcloud_service_exists: "{{ check_result is defined and check_result.services is defined and 'nextcloud' in (check_result.services | map(attribute='name')) }}"
 
 - name: Display service status
   ansible.builtin.debug:
-    msg: "Kopia service already running - skipping deployment"
-  when: kopia_service_exists
+    msg: "{{ project_name|capitalize }} service already running - skipping deployment"
+  when: nextcloud_service_exists
   
-- name: End play if kopia service already exists and running
+- name: End play if {{ project_name|capitalize }} service already exists and running
   meta: end_host
-  when: kopia_service_exists
+  when: nextcloud_service_exists
 
 ##############################################################################
 # Service Deployment
 ##############################################################################
 
-- name: Validate Kopia credentials and bind mount directories
+- name: Validate {{ project_name|capitalize }} variables
   ansible.builtin.assert:
     that:
-      - "kopia_username is defined"
-      - "kopia_password is defined"
-      - "kopia_repo_password is defined"
-      - "kopia_repository_dir is defined"
-    fail_msg: "Kopia credentials and bind mount directories are not defined"
+      # Directories
+      - nextcloud_html_dir is defined
+      - nextcloud_custom_apps_dir is defined
+      - nextcloud_config_dir is defined
+      - nextcloud_data_dir is defined
+      # Secrets (Check variables holding the secrets)
+      - nextcloud_db_password is defined
+      - nextcloud_redis_password is defined
+      - collabora_password is defined
+      - collabora_username is defined
+      - nextcloud_admin_user is defined
+      - nextcloud_admin_password is defined
+      - nextcloud_whiteboard_jwt_secret is defined
+      # Env Vars (Typically defined elsewhere, e.g., host/group vars)
+      - postgres_db is defined
+      - postgres_user is defined
+      # System IDs
+      - nextcloud_user_id is defined
+      - nextcloud_group_id is defined
+    fail_msg: "Required Nextcloud variables are not defined. Check directories, secrets, env vars (postgres_db, postgres_user), and system IDs (nextcloud_user_id, nextcloud_group_id)."
     
-- name: Ensure kopia repository directory exists
+- name: Ensure {{ project_name|capitalize }} directories exist
   become: true
   ansible.builtin.file:
-    path: "{{ kopia_repository_dir }}"
+    path: "{{ item }}"
     state: directory
     mode: '0755'
+    owner: "{{ nextcloud_user_id }}"
+    group: "{{ nextcloud_group_id }}"
+  loop:
+    - "{{ nextcloud_html_dir }}"
+    - "{{ nextcloud_custom_apps_dir }}"
+    - "{{ nextcloud_config_dir }}"
+    - "{{ nextcloud_data_dir }}"
     
-# TODO: improve checking kopia_repository_dir parent directory permissions
-
 - name: Create directory for docker-compose files
   ansible.builtin.file:
     path: "{{ service_project_src }}"
@@ -49,59 +70,84 @@
     mode: '0755'
 
 - name: Create secrets directory for storing sensitive information
-  become: true
   ansible.builtin.file:
     path: "{{ service_project_src }}/secrets"
     state: directory
-    mode: '0700'
+    mode: '0700' # Restrict access to secrets
 
-- name: Create kopia username file
+- name: Create {{ project_name|capitalize }} secret files
   become: true
   ansible.builtin.copy:
-    content: "{{ kopia_username }}"
-    dest: "{{ service_project_src }}/secrets/kopia_username"
-    mode: '0600'
+    content: "{{ item.content }}"
+    dest: "{{ service_project_src }}/secrets/{{ item.name }}"
+    mode: '0600' # Restrict read access to secrets
+    owner: "{{ nextcloud_user_id }}"
+    group: "{{ nextcloud_group_id }}"
+  loop:
+    - name: db_password
+      content: "{{ nextcloud_db_password }}"
+    - name: redis_password
+      content: "{{ nextcloud_redis_password }}"
+    - name: nextcloud_admin_user
+      content: "{{ nextcloud_admin_user }}"
+    - name: nextcloud_password
+      content: "{{ nextcloud_admin_password }}"
+    - name: nextcloud_whiteboard_jwt_secret
+      content: "{{ nextcloud_whiteboard_jwt_secret }}"
+    - name: collabora_password
+      content: "{{ collabora_password }}"
+    - name: collabora_username
+      content: "{{ collabora_username }}"
+  no_log: true # Avoid logging secret content
 
-- name: Create kopia password file
+- name: Set fact for opcache config path
+  ansible.builtin.set_fact:
+    nextcloud_opcache_recommended_ini: "{{ service_project_src }}/config/opcache-recommended.ini"
+    
+- name: Create config directory for storing configuration files
   become: true
-  ansible.builtin.copy:
-    content: "{{ kopia_password }}"
-    dest: "{{ service_project_src }}/secrets/kopia_password"
-    mode: '0600'
+  ansible.builtin.file:
+    path: "{{ service_project_src }}/config"
+    state: directory
+    mode: '0755'
+    owner: "{{ nextcloud_user_id }}"
+    group: "{{ nextcloud_group_id }}"
 
-- name: Create kopia repository password file
+- name: Copy opcache recommended settings template
   become: true
-  ansible.builtin.copy:
-    content: "{{ kopia_repo_password }}"
-    dest: "{{ service_project_src }}/secrets/kopia_repo_password"
-    mode: '0600'
+  ansible.builtin.template:
+    src: "docker/opcache-recommended.ini.j2"
+    dest: "{{ nextcloud_opcache_recommended_ini }}"
+    mode: '0644'
+    owner: "{{ nextcloud_user_id }}"
+    group: "{{ nextcloud_group_id }}"
 
 - name: Copy docker-compose file
   ansible.builtin.template:
-    src: "docker-compose.yml.j2"
+    src: "docker/docker-compose.yaml.j2" # Use yaml extension for consistency
     dest: "{{ service_project_src }}/docker-compose.yml"
     mode: '0644'
   
-- name: Start Kopia container
+- name: Start {{ project_name|capitalize }} services
   community.docker.docker_compose_v2:
     project_src: "{{ service_project_src }}"
     state: present
   register: output
 
-- name: Display Kopia connection info
+- name: Display {{ project_name|capitalize }} connection info
   vars:
     msg: |
-      ===== KOPIA ACCESS INFORMATION =====
+      ===== {{ project_name|capitalize }} ACCESS INFORMATION =====
       {% if use_traefik|default(false) %}
       Access via Traefik:
         {% if use_traefik_router_public|default(false) and public_apex_domain|default(false) %}
-        - Public: https://{{ service_name|default('kopia') }}.{{ public_apex_domain }}
+        - Public: https://{{ service_name|default('nextcloud') }}.{{ public_apex_domain }} 
         {% endif %}
         {% if use_traefik_router_private|default(false) and private_apex_domain|default(false) %}
-        - Private: https://{{ service_name|default('kopia') }}.{{ private_apex_domain }}
+        - Private: https://{{ service_name|default('nextcloud') }}.{{ private_apex_domain }}
         {% endif %}
       {% else %}
-      Direct access: http://{{ ansible_host }}:51515
+      Direct access: http://{{ ansible_host }}
       {% endif %}
       =============================================
   ansible.builtin.debug:

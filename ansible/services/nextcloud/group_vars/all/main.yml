@@ -1,0 +1,9 @@
+project_name: "nextcloud"
+
+# PostgreSQL
+postgres_user: "nextcloud"
+postgres_db: "nextcloud"
+
+# Nextcloud system (www-data) id
+nextcloud_user_id: "33"
+nextcloud_group_id: "33"
