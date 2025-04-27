@@ -1,0 +1,48 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |config|
+  # Use ubuntu/jammy64 box
+  # https://portal.cloud.hashicorp.com/vagrant/discover/ubuntu/jammy64
+  config.vm.box = "ubuntu/jammy64"
+  config.vm.box_version = "20241002.0.0"
+  config.vm.boot_timeout = 300
+  config.ssh.insert_key = false
+  config.vm.synced_folder '.', '/vagrant', disabled: true
+  
+  config.vm.provider :virtualbox do |v|
+    v.memory = 1024
+    v.cpus = 2
+    v.linked_clone = true
+    # https://github.com/joelhandwell/ubuntu_vagrant_boxes/issues/1#issuecomment-292370353
+    v.customize ["modifyvm", :id, "--uartmode1", "disconnected"]
+
+    # https://stackoverflow.com/a/54481502
+    v.customize ["modifyvm", :id, "--cableconnected1", "on"]
+  end
+
+  config.vm.define "ubuntu" do |node|
+    node.vm.hostname = "ubuntu"
+    node.vm.network "private_network", ip: "192.168.56.11"
+    
+    node.vm.provision "shell", inline: <<-SHELL
+      # Enable password authentication for ubuntu1
+      sed -i 's/^#*PasswordAuthentication .*/PasswordAuthentication yes/' /etc/ssh/sshd_config
+      sed -i 's/^#*PasswordAuthentication .*/PasswordAuthentication yes/' /etc/ssh/sshd_config.d/60-cloudimg-settings.conf
+      sed -i 's/^#*PubkeyAuthentication .*/PubkeyAuthentication no/' /etc/ssh/sshd_config
+
+      # Create dummy user with sudo access but requires password
+      useradd -m -s /bin/bash dummy
+      echo "dummy:dummy" | chpasswd
+      # Add dummy to sudo group
+      usermod -aG sudo dummy
+
+      # Restart SSH service
+      systemctl restart sshd
+
+      # Restore task dependencies
+      apt-get install unzip -y
+    SHELL
+  end
+
+end

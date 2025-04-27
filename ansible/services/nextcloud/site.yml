@@ -1,0 +1,29 @@
+---
+- name: Ensure Docker is installed and running
+  hosts: all
+  become: true
+  gather_facts: true
+  tags: [never, deploy]
+  roles:
+    - role: geerlingguy.docker
+      vars:
+        docker_users:
+          - "{{ ansible_user }}"
+
+- name: Deploy Nextcloud services
+  hosts: all
+  gather_facts: true
+  tags: [never, deploy]
+  roles:
+    - role: common
+      vars:
+        operation_mode: deploy
+        
+- name: Check Nextcloud services status
+  hosts: all
+  gather_facts: true
+  tags: [never, check]
+  roles:
+    - role: common
+      vars:
+        operation_mode: check

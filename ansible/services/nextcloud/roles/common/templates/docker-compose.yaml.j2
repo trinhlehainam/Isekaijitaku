@@ -27,20 +27,20 @@ services:
       nextcloud-redis:
         condition: service_healthy
         restart: true
-    # ports:
-    #   - 80:80
     volumes:
-      - ./nextcloud/html:/var/www/html
-      - ./nextcloud/custom_apps:/var/www/html/custom_apps
-      - ./nextcloud/config:/var/www/html/config
-      - ./nextcloud/data:/var/www/html/data
+      - {{ nextcloud_html_dir }}:/var/www/html
+      - {{ nextcloud_custom_apps_dir }}:/var/www/html/custom_apps
+      - {{ nextcloud_config_dir }}:/var/www/html/config
+      - {{ nextcloud_data_dir }}:/var/www/html/data
       # NOTE: enable OPcache
       # https://github.com/nextcloud/docker/issues/2184#issuecomment-2082845207
-      - ./config/opcache-recommended.ini:/usr/local/etc/php/conf.d/opcache-recommended.ini
+      - {{ nextcloud_opcache_recommended_ini }}:/usr/local/etc/php/conf.d/opcache-recommended.ini
+{% if has_private_services_root_ca|default(false) %}
       # NOTE: import self-signed certificates in nextcloud
       # make sure root_ca.crt can be read by user www-data: `sudo chmod 644 /path/to/step/certs/root_ca.crt`
       # `docker compose exec -it -u 33 nextcloud php occ security:certificates:import /certs/step-ca/root_ca.crt`
-      - /path/to/step/certs/root_ca.crt:/certs/step-ca/root_ca.crt:ro
+      - {{ private_services_root_ca_path }}:/certs/step-ca/root_ca.crt:ro
+{% endif %}
     secrets:
       - db_password
       - redis_password
@@ -59,11 +59,15 @@ services:
       # PHP
       # https://github.com/nextcloud/docker?tab=readme-ov-file#php-configuration
       PHP_MEMORY_LIMIT: 1024M
+      {% if nextcloud_trusted_domains is defined %}
       # Nextcloud
       # NOTE: if Nextcloud already installed, modify config.php
       # https://help.nextcloud.com/t/howto-individual-themes-per-domain/27585/22
-      NEXTCLOUD_TRUSTED_DOMAINS: nextcloud.yourdomain.local,nextcloud.yourdomain
-      OVERWRITECLIURL: https://nextcloud.yourdomain.local
+      NEXTCLOUD_TRUSTED_DOMAINS: {{ nextcloud_trusted_domains }}
+      {% endif %}
+      {% if use_traefik|default(false) and use_traefik_router_private|default(false) and private_apex_domain|default(false) %}
+      OVERWRITECLIURL: https://{{ service_name|default('nextcloud') }}.{{ private_apex_domain }}
+      {% endif %}
       OVERWRITEPROTOCOL: https
       TRUSTED_PROXIES: 172.16.0.0/12 192.168.0.0/16 10.0.0.0/8 fc00::/7 fe80::/10 2001:db8::/32
     entrypoint:
@@ -73,14 +77,17 @@ services:
         export NEXTCLOUD_ADMIN_USER=$$(cat /run/secrets/nextcloud_admin_user)
         export NEXTCLOUD_ADMIN_PASSWORD=$$(cat /run/secrets/nextcloud_password)
         exec /entrypoint.sh apache2-foreground
-    networks:
-      - nextcloud
-      - proxy
+{% if use_local_dns|default(false) %}
     dns:
       # NOTE: need to access local dns server to resolve Collabora server local domain
-      - 192.168.x.y
+      - {{ local_dns_ip }}
       - 1.1.1.1
       - 1.0.0.1
+{% endif %}
+    networks:
+      - nextcloud
+{% if use_traefik|default(false) %}
+      - proxy
     labels:
       # https://docs.nextcloud.com/server/21/admin_manual/issues/general_troubleshooting.html#service-discovery
       - "traefik.enable=true"
@@ -89,21 +96,25 @@ services:
       - "traefik.http.services.nextcloud.loadbalancer.passhostheader=true"
       ## Router
       ### Private
-      - "traefik.http.routers.nextcloud-local.rule=Host(`nextcloud.yourdomain.local`)"
+      {% if use_traefik_router_private|default(false) and private_apex_domain|default(false) %}
+      - "traefik.http.routers.nextcloud-local.rule=Host(`{{ service_name|default('nextcloud') }}.{{ private_apex_domain }}`)"
       - "traefik.http.routers.nextcloud-local.entrypoints=websecure"
       - "traefik.http.routers.nextcloud-local.tls.certresolver=stepca"
       - "traefik.http.routers.nextcloud-local.middlewares=nextcloud-dav,nextcloud-headers"
+      {% endif %}
       ### Public
-      - "traefik.http.routers.nextcloud.rule=Host(`nextcloud.yourdomain`)"
+      {% if use_traefik_router_public|default(false) and public_apex_domain|default(false) %}
+      - "traefik.http.routers.nextcloud.rule=Host(`{{ service_name|default('nextcloud') }}.{{ public_apex_domain }}`)"
       - "traefik.http.routers.nextcloud.entrypoints=websecure"
       - "traefik.http.routers.nextcloud.tls.certresolver=cloudflare"
       - "traefik.http.routers.nextcloud.middlewares=nextcloud-dav,nextcloud-headers"
       #### Block Username/Password Login
-      - "traefik.http.routers.nextcloud-password-login.rule=Host(`nextcloud.yourdomain`) && PathPrefix(`/login`) && Query(`noredir`, `1`)"
+      - "traefik.http.routers.nextcloud-password-login.rule=Host(`{{ service_name|default('nextcloud') }}.{{ public_apex_domain }}`) && PathPrefix(`/login`) && Query(`noredir`, `1`)"
       - "traefik.http.routers.nextcloud-password-login.entrypoints=websecure"
       - "traefik.http.routers.nextcloud-password-login.tls.certresolver=cloudflare"
       - "traefik.http.routers.nextcloud-password-login.service=noop@internal"
       - "traefik.http.routers.nextcloud-password-login.middlewares=nextcloud-headers"
+      {% endif %}
       ## Middlewares
       ### Security Headers
       - 'traefik.http.middlewares.nextcloud-headers.headers.referrerPolicy=no-referrer'
@@ -118,24 +129,38 @@ services:
       - "traefik.http.middlewares.nextcloud-dav.redirectregex.permanent=true"
       - "traefik.http.middlewares.nextcloud-dav.redirectregex.regex=https?://([^/]*)/.well-known/(card|cal)dav"
       - "traefik.http.middlewares.nextcloud-dav.redirectregex.replacement=https://$${1}/remote.php/dav/"
+{% endif %}
       
   # https://github.com/nextcloud/whiteboard
   nextcloud-whiteboard:
     # https://github.com/nextcloud-releases/whiteboard/pkgs/container/whiteboard
     image: ghcr.io/nextcloud-releases/whiteboard:v1.0.5
     container_name: nextcloud-whiteboard
+    secrets:
+      - nextcloud_whiteboard_jwt_secret
     environment:
-      - NEXTCLOUD_URL=https://nextcloud.vice.local
-      - JWT_SECRET_KEY=FIXME
+{% if use_local_dns|default(false) and private_apex_domain|default(false) %}
+      NEXTCLOUD_URL: https://{{ service_name|default('nextcloud') }}.{{ private_apex_domain }}
+{% endif %}
+    # https://github.com/nextcloud/whiteboard/blob/main/Dockerfile
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        export JWT_SECRET_KEY=$$(cat /run/secrets/nextcloud_whiteboard_jwt_secret)
+        exec npm run server:start
     # ports:
     #   - 3002:3002
     restart: always
-    networks:
-      - proxy
+{% if use_local_dns|default(false) %}
     dns:
-      - 192.168.x.y
+      - {{ local_dns_ip }}
       - 1.1.1.1
       - 1.0.0.1
+{% endif %}
+{% if use_traefik|default(false) %}
+    networks:
+      - proxy
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=proxy"
@@ -145,15 +170,20 @@ services:
       - "traefik.http.middlewares.nextcloud-strip-whiteboard.stripprefix.prefixes=/whiteboard"
       ## Router
       ### Private
-      - "traefik.http.routers.nextcloud-whiteboard-local.rule=Host(`nextcloud-whiteboard.yourdomain.local`) && PathPrefix(`/whiteboard`)"
+      {% if use_traefik_router_private|default(false) and private_apex_domain|default(false) %}
+      - "traefik.http.routers.nextcloud-whiteboard-local.rule=Host(`{{ whiteboard_service_name|default('nextcloud-whiteboard') }}.{{ private_apex_domain }}`) && PathPrefix(`/whiteboard`)"
       - "traefik.http.routers.nextcloud-whiteboard-local.middlewares=nextcloud-strip-whiteboard"
       - "traefik.http.routers.nextcloud-whiteboard-local.entrypoints=websecure"
       - "traefik.http.routers.nextcloud-whiteboard-local.tls.certresolver=stepca"
+      {% endif %}
       ### Public
-      - "traefik.http.routers.nextcloud-whiteboard.rule=Host(`nextcloud-whiteboard.yourdomain`) && PathPrefix(`/whiteboard`)"
+      {% if use_traefik_router_public|default(false) and public_apex_domain|default(false) %}
+      - "traefik.http.routers.nextcloud-whiteboard.rule=Host(`{{ whiteboard_service_name|default('nextcloud-whiteboard') }}.{{ public_apex_domain }}`) && PathPrefix(`/whiteboard`)"
       - "traefik.http.routers.nextcloud-whiteboard.middlewares=nextcloud-strip-whiteboard"
       - "traefik.http.routers.nextcloud-whiteboard.entrypoints=websecure"
       - "traefik.http.routers.nextcloud-whiteboard.tls.certresolver=cloudflare"
+      {% endif %}
+{% endif %}
       
   # https://sdk.collaboraonline.com/docs/installation/CODE_Docker_image.html#how-to-configure-docker-image
   # https://forum.collaboraonline.com/t/docker-compose-file-example-needed/2976/4
@@ -168,8 +198,12 @@ services:
       - TZ=Asia/Tokyo
       # NOTE: Allow multiple nextcloud domains
       # https://help.nextcloud.com/t/important-changes-regarding-cool-code-docker-versions-from-v21-11-3-6-on-multiple-domains-setup/137867/2
-      - aliasgroup1=https://nextcloud.yourdomain.local
-      - aliasgroup2=https://nextcloud.yourdomain
+{% if use_traefik|default(false) and use_traefik_router_private|default(false) and private_apex_domain|default(false) %}
+      - aliasgroup1=https://{{ service_name|default('nextcloud') }}.{{ private_apex_domain }}
+{% endif %}
+{% if use_traefik|default(false) and use_traefik_router_public|default(false) and public_apex_domain|default(false) %}
+      - aliasgroup2=https://{{ service_name|default('nextcloud') }}.{{ public_apex_domain }}
+{% endif %}
       # - dictionaries=en_US,de_DE
       # https://github.com/CollaboraOnline/online/issues/2801
       - "extra_params=--o:ssl.enable=false --o:ssl.termination=true"
@@ -190,35 +224,40 @@ services:
         export username=$$(cat /run/secrets/collabora_username)
         export password=$$(cat /run/secrets/collabora_password)
         exec /start-collabora-online.sh
-    # ports:
-    #   - "9980:9980"
-    networks:
-      - nextcloud
-      - proxy
+{% if use_local_dns|default(false) %}
     dns:
       # NOTE: need to access local dns server to resolve Nextcloud server local domain
-      - 192.168.x.y
+      - {{ local_dns_ip }}
       - 1.1.1.1
       - 1.0.0.1
+{% endif %}
+    networks:
+      - nextcloud
+{% if use_traefik|default(false) %}
+      - proxy
     labels:
       - 'traefik.enable=true'
       - 'traefik.docker.network=proxy'
       - 'traefik.http.services.collabora.loadbalancer.server.port=9980'
       ## Router
       ### Private
-      - 'traefik.http.routers.collabora-local.rule=Host(`collabora.mydomain.local`)'
+      {% if use_traefik_router_private|default(false) and private_apex_domain|default(false) %}
+      - 'traefik.http.routers.collabora-local.rule=Host(`{{ collabora_service_name|default('collabora') }}.{{ private_apex_domain }}`)'
       - 'traefik.http.routers.collabora-local.entrypoints=websecure'
       - 'traefik.http.routers.collabora-local.tls.certresolver=stepca'
       - 'traefik.http.routers.collabora-local.middlewares=collabora-headers'
       #### Admin Console
-      - 'traefik.http.routers.collabora-admin-local.rule=Host(`collabora.mydomain.local`) && PathPrefix(`/browser/dist/admin`)'
+      - 'traefik.http.routers.collabora-admin-local.rule=Host(`{{ collabora_service_name|default('collabora') }}.{{ private_apex_domain }}`) && PathPrefix(`/browser/dist/admin`)'
       - 'traefik.http.routers.collabora-admin-local.entrypoints=websecure'
       - 'traefik.http.routers.collabora-admin-local.tls.certresolver=stepca'
       - 'traefik.http.routers.collabora-admin-local.middlewares=collabora-headers,oauth2@file,oauth2-admin@file'
+      {% endif %}
       ### Public
-      - 'traefik.http.routers.collabora.rule=Host(`collabora.mydomain`)'
+      {% if use_traefik_router_public|default(false) and public_apex_domain|default(false) %}
+      - 'traefik.http.routers.collabora.rule=Host(`{{ collabora_service_name|default('collabora') }}.{{ public_apex_domain }}`)'
       - 'traefik.http.routers.collabora.entrypoints=websecure'
       - 'traefik.http.routers.collabora.tls.certresolver=cloudflare'
+      {% endif %}
       ## Middleware
       - 'traefik.http.middlewares.collabora-headers.headers.referrerPolicy=no-referrer'
       - 'traefik.http.middlewares.collabora-headers.headers.stsSeconds=15552000'
@@ -227,6 +266,7 @@ services:
       - 'traefik.http.middlewares.collabora-headers.headers.stsIncludeSubdomains=true'
       - 'traefik.http.middlewares.collabora-headers.headers.browserXssFilter=true'
       - 'traefik.http.middlewares.collabora-headers.headers.customRequestHeaders.X-Forwarded-Proto=https'
+{% endif %}
     healthcheck:
       # https://stackoverflow.com/questions/47722898/how-can-i-make-a-docker-healthcheck-with-wget-instead-of-curl
       test: curl --fail http://localhost:9980 || exit 1
@@ -242,7 +282,7 @@ services:
     image: postgres:16.6-alpine3.21
     container_name: nextcloud-postgres
     volumes:
-      - ./postgres:/var/lib/postgresql/data
+      - {{ postgres_data_dir }}:/var/lib/postgresql/data
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
@@ -270,7 +310,7 @@ services:
         --port 6379 \
         --requirepass $(cat /run/secrets/redis_password)
     volumes:
-      - ./redis:/data
+      - {{ redis_data_dir }}:/data
     secrets:
       - redis_password
     networks:
@@ -285,8 +325,10 @@ services:
 networks:
   nextcloud:
     driver: bridge
+{% if use_traefik|default(false) %}
   proxy:
     external: true
+{% endif %}
 
 secrets:
   db_password:
@@ -301,3 +343,5 @@ secrets:
     file: ./secrets/collabora_username
   collabora_password:
     file: ./secrets/collabora_password
+  nextcloud_whiteboard_jwt_secret:
+    file: ./secrets/nextcloud_whiteboard_jwt_secret

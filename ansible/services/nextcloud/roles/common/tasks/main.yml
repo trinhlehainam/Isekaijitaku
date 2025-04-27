@@ -1,0 +1,74 @@
+---
+- name: Setup service project source path
+  ansible.builtin.set_fact:
+    service_project_src: "{{ service_project_src|default(ansible_user_dir + '/Docker/' + project_name) }}"
+
+- name: Check service bind mount variables
+  ansible.builtin.set_fact:
+    nextcloud_data_dir: "{{ nextcloud_data_dir if nextcloud_data_dir is defined and (nextcloud_data_dir.startswith('/') or nextcloud_data_dir.startswith('./')) else './nextcloud/data' }}"
+    nextcloud_html_dir: "{{ nextcloud_html_dir if nextcloud_html_dir is defined and (nextcloud_html_dir.startswith('/') or nextcloud_html_dir.startswith('./')) else './nextcloud/html' }}"
+    nextcloud_custom_apps_dir: "{{ nextcloud_custom_apps_dir if nextcloud_custom_apps_dir is defined and (nextcloud_custom_apps_dir.startswith('/') or nextcloud_custom_apps_dir.startswith('./')) else './nextcloud/custom_apps' }}"
+    nextcloud_config_dir: "{{ nextcloud_config_dir if nextcloud_config_dir is defined and (nextcloud_config_dir.startswith('/') or nextcloud_config_dir.startswith('./')) else './nextcloud/config' }}"
+    postgres_data_dir: "{{ postgres_data_dir if postgres_data_dir is defined and (postgres_data_dir.startswith('/') or postgres_data_dir.startswith('./')) else './postgres' }}"
+    redis_data_dir: "{{ redis_data_dir if redis_data_dir is defined and (redis_data_dir.startswith('/') or redis_data_dir.startswith('./')) else './redis' }}"
+
+- name: Resolve service bind mount from relative paths to absolute paths
+  ansible.builtin.set_fact:
+    nextcloud_data_dir: "{{ nextcloud_data_dir.replace('./', service_project_src + '/') }}"
+    nextcloud_html_dir: "{{ nextcloud_html_dir.replace('./', service_project_src + '/') }}"
+    nextcloud_custom_apps_dir: "{{ nextcloud_custom_apps_dir.replace('./', service_project_src + '/') }}"
+    nextcloud_config_dir: "{{ nextcloud_config_dir.replace('./', service_project_src + '/') }}"
+    postgres_data_dir: "{{ postgres_data_dir.replace('./', service_project_src + '/') }}"
+    redis_data_dir: "{{ redis_data_dir.replace('./', service_project_src + '/') }}"
+
+- name: Set default operation mode if not defined
+  ansible.builtin.set_fact:
+    operation_mode: "{{ operation_mode|default('check') }}"
+
+- name: Set up files list need to check
+  ansible.builtin.set_fact:
+    nextcloud_files_list:
+      - { id: "docker_compose",   path: "{{ service_project_src }}/docker-compose.yml",   name: "Docker Compose File" }
+      - { id: "project_secrets",  path: "{{ service_project_src }}/secrets",              name: "Project Secrets Directory" }
+      - { id: "nextcloud_data",   path: "{{ nextcloud_data_dir|trim }}",                  name: "Nextcloud Data Directory" }
+      - { id: "nextcloud_html",   path: "{{ nextcloud_html_dir|trim }}",                  name: "Nextcloud HTML Directory" }
+      - { id: "nextcloud_custom_apps", path: "{{ nextcloud_custom_apps_dir|trim }}",      name: "Nextcloud Custom Apps Directory" }
+      - { id: "nextcloud_config", path: "{{ nextcloud_config_dir|trim }}",                  name: "Nextcloud Configuration Directory" }
+      - { id: "postgres_data",    path: "{{ postgres_data_dir|trim }}",                   name: "PostgreSQL Data Directory" }
+      - { id: "redis_data",       path: "{{ redis_data_dir|trim }}",                      name: "Redis Data Directory" }
+
+- name: Verify service project source path and bind mount paths are defined
+  ansible.builtin.assert:
+    that:
+      - service_project_src is defined
+      - nextcloud_data_dir is defined
+      - nextcloud_html_dir is defined
+      - nextcloud_custom_apps_dir is defined
+      - nextcloud_config_dir is defined
+      - postgres_data_dir is defined
+      - redis_data_dir is defined
+    fail_msg: "Required variables are not defined. Please specify the paths to the service project directory and bind mount directories."
+  when: operation_mode == 'deploy' or operation_mode == 'upgrade'
+    
+- name: Set default operation mode if not defined
+  ansible.builtin.set_fact:
+    operation_mode: "{{ operation_mode | default('check') }}"
+
+- name: Include check tasks
+  vars:
+    project_src: "{{ service_project_src }}"
+    files_list: "{{ nextcloud_files_list }}"
+  ansible.builtin.include_tasks: check.yml
+  when: operation_mode == 'check'
+
+- name: Include deploy tasks
+  ansible.builtin.include_tasks: deploy.yml
+  when: operation_mode == 'deploy'
+
+- name: Include destroy tasks
+  ansible.builtin.include_tasks: destroy.yml
+  when: operation_mode == 'destroy'
+
+- name: Include upgrade tasks
+  ansible.builtin.include_tasks: upgrade.yml
+  when: operation_mode == 'upgrade'

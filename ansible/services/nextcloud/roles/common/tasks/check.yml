@@ -1,0 +1,5 @@
+---
+- name: Include docker_helper check tasks
+  ansible.builtin.include_role:
+    name: docker_helpers
+    tasks_from: check.yml

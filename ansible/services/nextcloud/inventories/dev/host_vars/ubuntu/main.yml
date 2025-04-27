@@ -1,0 +1,31 @@
+---
+ansible_host: 192.168.56.11
+ansible_user: dummy
+ansible_password: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          33316631366532643461326631626635633364343966633539646532346464316137616530386535
+          6330643466323832366332633764303130346330626636630a316366343764613231666136616363
+          39306338393864396265613033373461353436343763316331316436343662313766346236383837
+          3431616363393435660a623235346132373733303434663134313831353932353235333137626335
+          6537
+ansible_become_password: !vault |
+          $ANSIBLE_VAULT;1.1;AES256
+          63346130613331653162373339383666333533393234643264623330373131373765326263623563
+          6536383265346165643562363965383265353662393464640a343233356331653933346362656434
+          39613638383065323132323635663233663662383432363465326261383430356239356332656434
+          3031373063386662330a633130373435353736313137636466626364643935623566393337396334
+          3864
+
+# Nextcloud data and configuration directories
+nextcloud_backup_dir: "/home/vagrant/backup/docker/nextcloud"
+nextcloud_data_dir: "/home/vagrant/appdata/docker/nextcloud/data"
+nextcloud_html_dir: "/home/vagrant/appdata/docker/nextcloud/html"
+nextcloud_custom_apps_dir: "/home/vagrant/appdata/docker/nextcloud/custom_apps"
+nextcloud_config_dir: "/home/vagrant/appdata/docker/nextcloud/config"
+postgres_data_dir: "./postgres"
+redis_data_dir: "./redis"
+
+# Kopia variables
+use_kopia: true
+kopia_backup_data_dir: "/data"
+kopia_forgejo_backup_dir: "{{kopia_backup_data_dir}}/{{ forgejo_backup_dir }}"
