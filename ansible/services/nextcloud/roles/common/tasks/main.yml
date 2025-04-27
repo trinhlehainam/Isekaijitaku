@@ -21,6 +21,15 @@
     postgres_data_dir: "{{ postgres_data_dir.replace('./', service_project_src + '/') }}"
     redis_data_dir: "{{ redis_data_dir.replace('./', service_project_src + '/') }}"
 
+- name: Set nextcloud_trusted_domains based on configuration
+  ansible.builtin.set_fact:
+    nextcloud_trusted_domains: "{{ nextcloud_trusted_domains|default([]) + [item.domain] }}" 
+  loop:
+    - { exists: "{{ use_traefik|default(false) and private_apex_domain is defined }}", domain: "{{ service_name|default('nextcloud') }}.{{ private_apex_domain }}" }
+    - { exists: "{{ use_traefik|default(false) and public_apex_domain is defined }}", domain: "{{ service_name|default('nextcloud') }}.{{ public_apex_domain }}" }
+    - { exists: "{{ not use_traefik|default(false) }}", domain: "{{ ansible_host }}" }
+  when: item.exists
+
 - name: Set default operation mode if not defined
   ansible.builtin.set_fact:
     operation_mode: "{{ operation_mode|default('check') }}"

@@ -59,11 +59,11 @@ services:
       # PHP
       # https://github.com/nextcloud/docker?tab=readme-ov-file#php-configuration
       PHP_MEMORY_LIMIT: 1024M
-      {% if nextcloud_trusted_domains is defined %}
+      {% if nextcloud_trusted_domains is defined and nextcloud_trusted_domains|length > 0 %}
       # Nextcloud
       # NOTE: if Nextcloud already installed, modify config.php
       # https://help.nextcloud.com/t/howto-individual-themes-per-domain/27585/22
-      NEXTCLOUD_TRUSTED_DOMAINS: {{ nextcloud_trusted_domains }}
+      NEXTCLOUD_TRUSTED_DOMAINS: {{ nextcloud_trusted_domains|join(',') }}
       {% endif %}
       {% if use_traefik|default(false) and use_traefik_router_private|default(false) and private_apex_domain|default(false) %}
       OVERWRITECLIURL: https://{{ service_name|default('nextcloud') }}.{{ private_apex_domain }}
