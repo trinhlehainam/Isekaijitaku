@@ -4,8 +4,6 @@
 set -euo pipefail
 
 # Configuration
-HEALTHCHECKS_BASE_URL="https://healthchecks.yourdomain"
-HEALTHCHECKS_UUID=""
 CONTAINER_NAME="nextcloud"
 LOG_FILE="/var/log/docker-nextcloud-cron.log"
 exit_code=0
@@ -27,39 +25,16 @@ check_container() {
     return 0
 }
 
-# Healthchecks ping function
-send_healthcheck() {
-    local status=$1
-    local message="${2:-}"
-    if [ -n "$HEALTHCHECKS_UUID" ] && [ -n "$HEALTHCHECKS_BASE_URL" ]; then
-        if [ "$status" = "start" ]; then
-            log_message "INFO: Starting Healthchecks ping"
-            curl -fsS -m 10 --retry 5 -o /dev/null "$HEALTHCHECKS_BASE_URL/ping/$HEALTHCHECKS_UUID/start" || log_message "WARNING: Failed to send start ping"
-        else
-            log_message "INFO: Sending result to Healthchecks"
-            if [ -n "$message" ]; then
-                curl -fsS -m 10 --retry 5 -o /dev/null --data-raw "$message" "$HEALTHCHECKS_BASE_URL/ping/$HEALTHCHECKS_UUID/$status" || log_message "WARNING: Failed to send result ping"
-            else
-                curl -fsS -m 10 --retry 5 -o /dev/null "$HEALTHCHECKS_BASE_URL/ping/$HEALTHCHECKS_UUID/$status" || log_message "WARNING: Failed to send result ping"
-            fi
-        fi
-    fi
-}
-
 main() {
     # Create log directory if it doesn't exist
     mkdir -p "$(dirname "$LOG_FILE")"
     
     log_message "INFO: Starting Nextcloud container cron job"
     
-    # Send start ping to Healthchecks
-    send_healthcheck "start"
-    
     # Check container status
     if ! check_container; then
         exit_code=1
         log="ERROR: Nextcloud container '${CONTAINER_NAME}' is not running"
-        send_healthcheck "$exit_code" "$log"
         exit "$exit_code"
     fi
     
@@ -70,9 +45,6 @@ main() {
     fi
     
     log_message "INFO: Nextcloud container's cron job completed successfully"
-
-    # Send result to Healthchecks
-    send_healthcheck "$exit_code" "$log"
     
     # Output final log message
     [ -n "$log" ] && log_message "$log"
