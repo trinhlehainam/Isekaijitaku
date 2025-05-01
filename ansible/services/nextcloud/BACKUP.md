@@ -31,11 +31,6 @@ To handle potential failures and ensure atomicity, existing contents of the `nex
 Before executing the backup playbook, ensure the following setup is complete:
 
 *   **Kopia Snapshot Source Directory:** The directory specified by the `kopia_service_backup_dir` variable in your inventory **must exist on the host system**. This directory is the root path that Kopia will use as the source for creating snapshots. The Kopia service container requires appropriate access (typically via a volume mount) to this path. Failure to ensure this directory exists and is accessible will cause the Kopia snapshot task to fail.
-*   **Kopia Snapshot Policies (Ignore, Retention, Compression):** It is essential to configure Kopia snapshot policies for the `kopia_service_backup_dir` path *before* running this backup playbook. This includes setting:
-    *   An **ignore rule** for the `html` subdirectory (e.g., `kopia policy set /path/to/kopia_service_backup_dir --add-ignore html`). This prevents backing up the application code.
-    *   Desired retention schedules (e.g., daily, weekly, monthly snapshots to keep).
-    *   Compression settings.
-    These policies **must be configured manually** directly via Kopia (UI or CLI) before the first backup. This Ansible role *does not* manage Kopia policies.
 
 ## Configuration Variables
 
