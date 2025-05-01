@@ -27,3 +27,12 @@
     - role: common
       vars:
         operation_mode: check
+
+- name: Backup Nextcloud services
+  hosts: all
+  gather_facts: true
+  tags: [never, backup]
+  roles:
+    - role: common
+      vars:
+        operation_mode: backup

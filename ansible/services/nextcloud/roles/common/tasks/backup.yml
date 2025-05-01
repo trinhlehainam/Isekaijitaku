@@ -8,7 +8,8 @@
     that:
       - nextcloud_backup_dir is defined
       - nextcloud_opcache_recommended_ini is defined
-    fail_msg: "Required variable nextcloud_backup_dir or nextcloud_opcache_recommended_ini is not defined. Please specify the path to the backup directory."
+      - postgres_user is defined
+      - postgres_db is defined
 
 - name: Check services status
   vars:
@@ -171,29 +172,29 @@
             postgres_container_backup_filepath: "{{ nextcloud_backup_dir }}/{{ postgres_backup_filename }}"
 
         - name: Backup PostgreSQL database using docker compose exec
-          community.docker.docker_compose_v2_exec:
-            project_src: "{{ service_project_src }}"
-            service: nextcloud-db
-            command: pg_dump -Fc -U {{ db_user }} {{ db_name }} > {{ postgres_container_backup_filepath }}
+          become: true
+          ansible.builtin.shell:
+            chdir: "{{ service_project_src }}"
+            cmd: "docker compose exec nextcloud-postgres pg_dump -Fc -U {{ postgres_user }} {{ postgres_db }} > {{ postgres_container_backup_filepath }}"
           register: pg_dump_result
-          
+
         - name: Check if PostgreSQL backup file exists
           become: true
           ansible.builtin.stat:
             path: "{{ nextcloud_backup_dir }}/{{ postgres_backup_filename }}"
           register: postgres_backup_file
-          when: pg_dump_result is success
+          when: pg_dump_result is success and pg_dump_result.rc == 0
 
         - name: Mark PostgreSQL backup as successful
           ansible.builtin.set_fact:
             postgres_backup_succeeded: true
-          when: pg_dump_result is success and postgres_backup_file.stat.exists
+          when: pg_dump_result is success and pg_dump_result.rc == 0 and postgres_backup_file.stat.exists
       rescue:
         - name: Record PostgreSQL backup failure
           ansible.builtin.set_fact:
             postgres_backup_succeeded: false
             postgres_backup_error: "{{ ansible_failed_task.name|default('Unknown error') }}"
-            
+
         - name: Fail task to propagate error to parent block
           ansible.builtin.fail:
             msg: "PostgreSQL backup component failed: {{ ansible_failed_task.name|default('Unknown error') }}"
@@ -260,7 +261,7 @@
           ansible.builtin.find:
             paths: "{{ nextcloud_backup_dir }}/rollback"
             hidden: true
-            register: rollback_items
+          register: rollback_items
 
         - name: Move items from rollback to main backup directory
           ansible.builtin.command:
