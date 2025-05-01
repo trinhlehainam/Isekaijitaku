@@ -1,3 +1,4 @@
+{#
 # https://chrisgrime.medium.com/deploy-nextcloud-with-docker-compose-935a76a5eb78
 # https://www.smarthomebeginner.com/traefik-docker-nextcloud/
 # https://github.com/heyvaldemar/nextcloud-traefik-letsencrypt-docker-compose
@@ -11,8 +12,10 @@
 # https://github.com/nextcloud/backup
 
 # TODO: Nextcloud Office empty Global templates cause below error on Collabora
-# ERR  Failed to get the realpath of [/opt/cool/child-roots/1-f41af7e4/tmp/sharedpresets/template]
+# - ERR: Failed to get the realpath of [/opt/cool/child-roots/1-f41af7e4/tmp/sharedpresets/template]
+#}
 
+name: {{ project_name }}
 services:
   nextcloud:
     # Upgrade to a newer version: https://github.com/nextcloud/docker?tab=readme-ov-file#update-to-a-newer-version

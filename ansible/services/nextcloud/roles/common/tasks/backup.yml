@@ -1,0 +1,302 @@
+---
+#################################################
+# Service Control
+#################################################
+
+- name: Verify required variables are defined
+  ansible.builtin.assert:
+    that:
+      - nextcloud_backup_dir is defined
+      - nextcloud_opcache_recommended_ini is defined
+    fail_msg: "Required variable nextcloud_backup_dir or nextcloud_opcache_recommended_ini is not defined. Please specify the path to the backup directory."
+
+- name: Check services status
+  vars:
+    files_list: "{{ nextcloud_files_list }}"
+    project_src: "{{ service_project_src }}"
+  ansible.builtin.include_tasks: check.yml
+
+- name: Get services info
+  ansible.builtin.set_fact:
+    nextcloud_services_check_result: "{{ check_result }}"
+
+#################################################
+# Initialization and Setup
+#################################################
+
+- name: Set up backup variables
+  ansible.builtin.set_fact:
+    backup_timestamp: "{{ ansible_date_time.iso8601 }}"
+    backup_succeeded: false
+    postgres_backup_succeeded: false
+    postgres_backup_filename: "nextcloud-db-backup.dump"
+    config_backup_succeeded: false
+    kopia_snapshot_succeeded: false
+
+- name: Create base backup directory if it doesn't exist
+  become: true
+  ansible.builtin.file:
+    path: "{{ nextcloud_backup_dir }}"
+    state: directory
+    mode: '0755'
+    
+- name: Show backup mode
+  ansible.builtin.debug:
+    msg: "Running in BACKUP mode - services state will be ROLLED BACK after backup"
+
+#################################################
+# Pre-Execution
+#################################################
+
+- name: Prepare for rollback by managing existing content
+  become: true
+  block:
+    - name: Find existing items in backup directory
+      ansible.builtin.find:
+        paths: "{{ nextcloud_backup_dir }}"
+        recurse: false
+        hidden: true
+      register: existing_backup_items
+
+    - name: Set has existing backup
+      ansible.builtin.set_fact:
+        has_existing_backup: existing_backup_items.examined is defined and existing_backup_items.examined > 0
+
+    - name: Ensure rollback directory exists
+      ansible.builtin.file:
+        path: "{{ nextcloud_backup_dir }}/rollback"
+        state: directory
+        mode: '0755'
+        owner: "{{ ansible_user }}"
+        group: "{{ ansible_user }}"
+      when: has_existing_backup
+
+    - name: Move existing items to rollback directory
+      ansible.builtin.command:
+        cmd: "mv {{ item.path }} {{ nextcloud_backup_dir }}/rollback/"
+      loop: "{{ existing_backup_items.files }}"
+      loop_control:
+        label: "{{ item.path|basename }}"
+      when: has_existing_backup
+
+#################################################
+# Backup Execution
+#################################################
+
+- name: Execute backup processes
+  block:
+    #----- Maintenance Mode ON -----#
+    - name: Enable Nextcloud maintenance mode
+      community.docker.docker_compose_v2_exec:
+        project_src: "{{ service_project_src }}"
+        service: nextcloud
+        user: www-data
+        command: php occ maintenance:mode --on
+      register: maintenance_on_result
+      failed_when: maintenance_on_result.rc != 0 and 'already enabled' not in maintenance_on_result.stderr # Don't fail if already on
+
+    - name: Reset persistent maintenance flag in config.php
+      community.docker.docker_compose_v2_exec:
+        project_src: "{{ service_project_src }}"
+        service: nextcloud
+        user: www-data
+        command: php occ config:system:set maintenance --value=false --type=boolean
+      register: maintenance_reset_result
+      failed_when: maintenance_reset_result.rc != 0
+      when: maintenance_on_result is success # Only run if enabling mode succeeded or was already enabled
+
+    #----- Project Setup Backup - Docker Compose and Secrets -----#
+    - name: Execute Project Setup backup process
+      block:
+        - name: Copy docker-compose.yml to backup location
+          become: true
+          ansible.builtin.copy:
+            src: "{{ service_project_src }}/docker-compose.yml"
+            dest: "{{ nextcloud_backup_dir }}/docker-compose.yml"
+            owner: "{{ ansible_user }}"
+            group: "{{ ansible_user }}"
+            mode: '0644'
+            remote_src: true
+          register: docker_compose_backup_results
+
+        - name: Check if secrets directory exists
+          ansible.builtin.stat:
+            path: "{{ service_project_src }}/secrets"
+          register: secrets_dir
+
+        - name: Copy secrets files to backup location
+          become: true
+          ansible.builtin.copy:
+            src: "{{ service_project_src }}/secrets"
+            dest: "{{ nextcloud_backup_dir }}"
+            owner: "{{ ansible_user }}"
+            group: "{{ ansible_user }}"
+            mode: '0644'
+            remote_src: true
+          when: secrets_dir.stat.exists
+          register: secrets_backup
+          
+        - name: Check if opcache config exists
+          ansible.builtin.stat:
+            path: "{{ nextcloud_opcache_recommended_ini }}"
+          register: opcache_config
+
+        - name: Copy opcache config to backup location
+          become: true
+          ansible.builtin.copy:
+            src: "{{ nextcloud_opcache_recommended_ini }}"
+            dest: "{{ nextcloud_backup_dir }}"
+            owner: "{{ ansible_user }}"
+            group: "{{ ansible_user }}"
+            mode: '0644'
+            remote_src: true
+          when: opcache_config.stat.exists
+          register: opcache_backup
+
+        - name: Mark project setup backup as successful
+          ansible.builtin.set_fact:
+            config_backup_succeeded: true
+          when: docker_compose_backup_results is success and secrets_backup is success and opcache_backup is success 
+      rescue:
+        - name: Record project setup backup failure
+          ansible.builtin.set_fact:
+            config_backup_succeeded: false
+            config_backup_error: "{{ ansible_failed_task.name|default('Unknown error') }}"
+
+    #----- Database Backup - PostgreSQL -----#
+    - name: Execute PostgreSQL backup process
+      block:
+        - name: Setup PostgreSQL container backup filepath
+          ansible.builtin.set_fact:
+            postgres_container_backup_filepath: "{{ nextcloud_backup_dir }}/{{ postgres_backup_filename }}"
+
+        - name: Backup PostgreSQL database using docker compose exec
+          community.docker.docker_compose_v2_exec:
+            project_src: "{{ service_project_src }}"
+            service: nextcloud-db
+            command: pg_dump -Fc -U {{ db_user }} {{ db_name }} > {{ postgres_container_backup_filepath }}
+          register: pg_dump_result
+          
+        - name: Check if PostgreSQL backup file exists
+          become: true
+          ansible.builtin.stat:
+            path: "{{ nextcloud_backup_dir }}/{{ postgres_backup_filename }}"
+          register: postgres_backup_file
+          when: pg_dump_result is success
+
+        - name: Mark PostgreSQL backup as successful
+          ansible.builtin.set_fact:
+            postgres_backup_succeeded: true
+          when: pg_dump_result is success and postgres_backup_file.stat.exists
+      rescue:
+        - name: Record PostgreSQL backup failure
+          ansible.builtin.set_fact:
+            postgres_backup_succeeded: false
+            postgres_backup_error: "{{ ansible_failed_task.name|default('Unknown error') }}"
+            
+        - name: Fail task to propagate error to parent block
+          ansible.builtin.fail:
+            msg: "PostgreSQL backup component failed: {{ ansible_failed_task.name|default('Unknown error') }}"
+
+    #----- Kopia Backup -----#
+    - name: Execute kopia backup
+      block:
+        - name: Include kopia tasks
+          ansible.builtin.include_tasks: kopia.yml
+          
+        - name: Check kopia snapshot result
+          ansible.builtin.set_fact:
+            kopia_snapshot_succeeded: true
+          when: kopia_snapshot_result is success and kopia_snapshot_result.rc == 0
+      rescue:
+        - name: Record kopia backup failure
+          ansible.builtin.set_fact:
+            kopia_snapshot_succeeded: false
+            kopia_snapshot_error: "{{ ansible_failed_task.name|default('Unknown error') }}"
+
+  always:
+    - name: Disable Nextcloud maintenance mode
+      community.docker.docker_compose_v2_exec:
+        project_src: "{{ service_project_src }}"
+        service: nextcloud
+        user: www-data
+        command: php occ maintenance:mode --off
+      register: maintenance_off_result
+      failed_when: maintenance_off_result.rc != 0 and 'already disabled' not in maintenance_off_result.stderr # Don't fail if already off
+      when: maintenance_on_result is defined # Only attempt if we tried to turn it on
+
+  rescue:
+    - name: Record overall backup failure
+      ansible.builtin.set_fact:
+        backup_failure_reason: "{{ ansible_failed_task.name|default('Unknown error in backup process') }}"
+        backup_succeeded: false
+
+#################################################
+# Backup Status and Reporting
+#################################################
+
+- name: Set overall backup success status
+  ansible.builtin.set_fact:
+    backup_succeeded: "{{ config_backup_succeeded and postgres_backup_succeeded and kopia_snapshot_succeeded }}"
+    
+#################################################
+# Cleanup and Service Restoration
+#################################################
+
+- name: Check if rollback directory exists
+  become: true
+  ansible.builtin.stat:
+    path: "{{ nextcloud_backup_dir }}/rollback"
+  register: rollback_dir_stat
+
+- name: Clean up rollback directory
+  become: true
+  when: rollback_dir_stat.stat.exists and rollback_dir_stat.stat.isdir
+  block:
+    - name: Restore files from rollback directory
+      when: not backup_succeeded
+      block:
+        - name: Find items in rollback directory
+          ansible.builtin.find:
+            paths: "{{ nextcloud_backup_dir }}/rollback"
+            hidden: true
+            register: rollback_items
+
+        - name: Move items from rollback to main backup directory
+          ansible.builtin.command:
+            cmd: "mv {{ item.path }} {{ nextcloud_backup_dir }}/"
+          loop: "{{ rollback_items.files }}"
+          loop_control:
+            label: "{{ item.path|basename }}"
+
+    - name: Remove empty rollback directory
+      ansible.builtin.file:
+        path: "{{ nextcloud_backup_dir }}/rollback"
+        state: absent
+
+- name: Clean up backup files if backup failed
+  when: not backup_succeeded
+  ansible.builtin.file:
+    path: "{{ nextcloud_backup_dir }}/{{ item }}"
+    state: absent
+  loop:
+    - "{{ postgres_backup_filename }}"
+
+#################################################
+# Final Backup Status
+#################################################
+
+- name: Show final backup status
+  vars:
+    msg: |
+      Nextcloud backup {{ 'SUCCEEDED ✅' if backup_succeeded else 'FAILED ❌' }}.
+      Config Files: {{ 'OK ✅' if config_backup_succeeded|default(false) else 'FAILED ❌' }}{% if config_backup_error is defined and not config_backup_succeeded|default(false) %} ({{ config_backup_error }}){% endif %}.
+      PostgreSQL DB: {{ 'OK ✅' if postgres_backup_succeeded else 'FAILED ❌' }}{% if postgres_backup_error is defined and not postgres_backup_succeeded %} ({{ postgres_backup_error }}){% endif %}.
+      Kopia Snapshot: {{ 'OK ✅' if kopia_snapshot_succeeded else 'FAILED ❌' }}{% if kopia_snapshot_error is defined and not kopia_snapshot_succeeded %} ({{ kopia_snapshot_error }}){% endif %}.
+  ansible.builtin.debug:
+    msg: "{{ msg.split('\n') }}"
+
+- name: Fail task if backup failed
+  when: not backup_succeeded
+  ansible.builtin.fail:
+    msg: "Backup failed: {{ backup_timestamp }}"

@@ -3,6 +3,10 @@
   ansible.builtin.set_fact:
     service_project_src: "{{ service_project_src|default(ansible_user_dir + '/Docker/' + project_name) }}"
 
+- name: Set fact for opcache config path
+  ansible.builtin.set_fact:
+    nextcloud_opcache_recommended_ini: "{{ service_project_src }}/config/opcache-recommended.ini"
+
 - name: Check service bind mount variables
   ansible.builtin.set_fact:
     nextcloud_data_dir: "{{ nextcloud_data_dir if nextcloud_data_dir is defined and (nextcloud_data_dir.startswith('/') or nextcloud_data_dir.startswith('./')) else './nextcloud/data' }}"

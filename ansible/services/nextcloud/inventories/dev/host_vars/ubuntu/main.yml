@@ -15,21 +15,6 @@ ansible_become_password: !vault |
           39613638383065323132323635663233663662383432363465326261383430356239356332656434
           3031373063386662330a633130373435353736313137636466626364643935623566393337396334
           3864
-
-# Nextcloud data and configuration directories
-nextcloud_backup_dir: "/home/vagrant/backup/docker/nextcloud"
-nextcloud_data_dir: "/home/vagrant/appdata/docker/nextcloud/data"
-nextcloud_html_dir: "/home/vagrant/appdata/docker/nextcloud/html"
-nextcloud_custom_apps_dir: "/home/vagrant/appdata/docker/nextcloud/custom_apps"
-nextcloud_config_dir: "/home/vagrant/appdata/docker/nextcloud/config"
-postgres_data_dir: "./postgres"
-redis_data_dir: "./redis"
-
-# Kopia variables
-use_kopia: true
-kopia_backup_data_dir: "/data"
-kopia_nextcloud_backup_dir: "{{kopia_backup_data_dir}}/{{ nextcloud_backup_dir }}"
-
 # Nextcloud Secrets (Encrypted)
 nextcloud_admin_user: !vault |
           $ANSIBLE_VAULT;1.1;AES256
@@ -82,3 +67,17 @@ collabora_password: !vault |
           6161383831653532390a626632616263303530643433333834663730613538313534643335646361
           63626565333538633535613262613566646161306362653962343062303931353531643834623263
           3033323061663938313362663836353835373639383335343462
+
+# Nextcloud data and configuration directories
+nextcloud_dir: "/home/vagrant/backup/docker/nextcloud"
+nextcloud_backup_dir: "{{ nextcloud_dir }}/backup"
+nextcloud_data_dir: "{{ nextcloud_dir }}/data"
+nextcloud_html_dir: "{{ nextcloud_dir }}/html"
+nextcloud_custom_apps_dir: "{{ nextcloud_dir }}/custom_apps"
+nextcloud_config_dir: "{{ nextcloud_dir }}/config"
+postgres_data_dir: "./postgres"
+redis_data_dir: "./redis"
+
+# Kopia variables
+kopia_backup_data_dir: "/data"
+kopia_service_backup_dir: "{{kopia_backup_data_dir}}/{{ nextcloud_dir }}"

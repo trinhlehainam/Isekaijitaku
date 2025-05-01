@@ -26,6 +26,6 @@
   community.docker.docker_compose_v2_exec:
     project_src: "{{ kopia_project_src }}"
     service: kopia
-    command: kopia snapshot create {{ kopia_forgejo_backup_dir }} --password {{ kopia_repo_password }}
+    command: kopia snapshot create {{ kopia_service_backup_dir }} --password {{ kopia_repo_password }}
   register: kopia_snapshot_result
   when: kopia_container_exists

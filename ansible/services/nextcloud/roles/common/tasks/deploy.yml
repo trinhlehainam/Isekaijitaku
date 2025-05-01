@@ -33,6 +33,7 @@
       - nextcloud_custom_apps_dir is defined
       - nextcloud_config_dir is defined
       - nextcloud_data_dir is defined
+      - nextcloud_opcache_recommended_ini is defined
       # Secrets (Check variables holding the secrets)
       - nextcloud_db_password is defined
       - nextcloud_redis_password is defined
@@ -99,10 +100,6 @@
     - name: collabora_username
       content: "{{ collabora_username }}"
   no_log: true # Avoid logging secret content
-
-- name: Set fact for opcache config path
-  ansible.builtin.set_fact:
-    nextcloud_opcache_recommended_ini: "{{ service_project_src }}/config/opcache-recommended.ini"
     
 - name: Create config directory for storing configuration files
   become: true
