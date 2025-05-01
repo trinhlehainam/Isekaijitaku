@@ -61,7 +61,16 @@
     - name: admin_token
       content: "{{ vaultwarden_admin_token }}"
   no_log: true # Avoid logging secret content
-    
+
+- name: Create smtp_password secret file if mailer is enabled
+  become: true
+  ansible.builtin.copy:
+    content: "{{ vaultwarden_smtp_password }}"
+    dest: "{{ service_project_src }}/secrets/smtp_password"
+    mode: '0600' # Restrict read access to secrets
+  when: use_vaultwarden_mailer is defined and use_vaultwarden_mailer|bool
+  no_log: true # Avoid logging secret content
+
 - name: Create config directory for storing configuration files
   become: true
   ansible.builtin.file:

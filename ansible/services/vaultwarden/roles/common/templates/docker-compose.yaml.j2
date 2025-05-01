@@ -29,11 +29,11 @@ services:
 {% if use_vaultwarden_mailer %}
       # Enable SMTP
       # https://github.com/dani-garcia/vaultwarden/wiki/SMTP-Configuration
-      SMTP_HOST: smtp.domain.tld
-      SMTP_SECURITY: force_tls
-      SMTP_PORT: 465
-      SMTP_USERNAME: yourusername
-      SMTP_FROM: yourname@domain.tld
+      SMTP_HOST: {{ vaultwarden_smtp_host }}
+      SMTP_SECURITY: {{ vaultwarden_smtp_security }}
+      SMTP_PORT: {{ vaultwarden_smtp_port }}
+      SMTP_USERNAME: {{ vaultwarden_smtp_username }}
+      SMTP_FROM: {{ vaultwarden_smtp_from }}
 {% endif %}
     volumes:
       - {{ vaultwarden_data_dir }}:/data/

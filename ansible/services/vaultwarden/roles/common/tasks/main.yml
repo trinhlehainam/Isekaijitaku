@@ -33,6 +33,17 @@
       - postgres_data_dir is defined
     fail_msg: "Required variables are not defined. Please specify the paths to the service project directory and bind mount directories."
   when: operation_mode == 'deploy' or operation_mode == 'upgrade'
+
+- name: Verify vaultwarden mailer variables are defined
+  ansible.builtin.assert:
+    that:
+      - vaultwarden_smtp_host is defined
+      - vaultwarden_smtp_security is defined
+      - vaultwarden_smtp_port is defined
+      - vaultwarden_smtp_username is defined
+      - vaultwarden_smtp_from is defined
+    fail_msg: "Required variables are not defined. Please specify the vaultwarden mailer variables."
+  when: use_vaultwarden_mailer and (operation_mode == 'deploy' or operation_mode == 'upgrade')
     
 - name: Set default operation mode if not defined
   ansible.builtin.set_fact:
