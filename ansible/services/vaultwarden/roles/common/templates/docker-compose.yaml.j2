@@ -21,9 +21,12 @@ services:
         export ADMIN_TOKEN=$$(cat /run/secrets/admin_token)
         export POSTGRES_PASSWORD=$$(cat /run/secrets/db_password)
         export DATABASE_URL=postgresql://${POSTGRES_USER}:$$POSTGRES_PASSWORD@vaultwarden-postgres:5432/${POSTGRES_DB}
+{% if use_vaultwarden_mailer %}
         export STMP_PASSWORD=$$(cat /run/secrets/smtp_password)
+{% endif %}
         exec /start.sh
     environment:
+{% if use_vaultwarden_mailer %}
       # Enable SMTP
       # https://github.com/dani-garcia/vaultwarden/wiki/SMTP-Configuration
       SMTP_HOST: smtp.domain.tld
@@ -31,64 +34,77 @@ services:
       SMTP_PORT: 465
       SMTP_USERNAME: yourusername
       SMTP_FROM: yourname@domain.tld
-    # ports:
-    #   - '80:80'
+{% endif %}
     volumes:
-      - ./data:/data/
+      - {{ vaultwarden_data_dir }}:/data/
     secrets:
       - admin_token
       - db_password
+{% if use_vaultwarden_mailer %}
       - smtp_password
+{% endif %}
+{% if not use_traefik|default(false) %}
+    ports:
+      - '80:80'
+{% endif %}
     networks:
       - vaultwarden
+{% if use_traefik|default(false) %}
       - proxy
     labels:
       - "traefik.enable=true"
       - "traefik.docker.network=proxy"
       - "traefik.http.services.vaultwarden.loadbalancer.server.port=80"
+  {% if use_traefik_router_private|default(false) and private_apex_domain|default(false) %}
       # Main router for vaultwarden
-      - "traefik.http.routers.vaultwarden-local.rule=Host(`vaultwarden.yourdomain.local`)"
+      - "traefik.http.routers.vaultwarden-local.rule=Host(`{{ service_name|default('vaultwarden') }}.{{ private_apex_domain }}`)"
       - "traefik.http.routers.vaultwarden-local.entrypoints=websecure"
       - "traefik.http.routers.vaultwarden-local.tls.certresolver=stepca"
       # Enable admin page
       # https://github.com/dani-garcia/vaultwarden/wiki/Enabling-admin-page
       # Admin path with OAuth2 protection
-      - "traefik.http.routers.vaultwarden-admin-local.rule=Host(`vaultwarden.yourdomain.local`) && PathPrefix(`/admin`)"
+      - "traefik.http.routers.vaultwarden-admin-local.rule=Host(`{{ service_name|default('vaultwarden') }}.{{ private_apex_domain }}`) && PathPrefix(`/admin`)"
       - "traefik.http.routers.vaultwarden-admin-local.entrypoints=websecure"
       - "traefik.http.routers.vaultwarden-admin-local.tls.certresolver=stepca"
       - "traefik.http.routers.vaultwarden-admin-local.middlewares=oauth2@file,oauth2-admin@file"
+  {% endif %}
+{% endif %}
 
   vaultwarden-postgres:
     # https://hub.docker.com/_/postgres/tags
     image: postgres:16.6-alpine3.21
     container_name: vaultwarden-postgres
     volumes:
-      - ./postgres:/var/lib/postgresql/data
+      - {{ postgres_data_dir }}:/var/lib/postgresql/data
     environment:
-      POSTGRES_DB: ${POSTGRES_DB}
-      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_DB: {{ postgres_db }}
+      POSTGRES_USER: {{ postgres_user }}
       POSTGRES_PASSWORD_FILE: "/run/secrets/db_password"
     networks:
       - vaultwarden
     secrets:
       - db_password
     healthcheck:
-      test: [ "CMD", "pg_isready", "-q", "-d", "${POSTGRES_DB}", "-U", "${POSTGRES_USER}" ]
+      test: [ "CMD", "pg_isready", "-q", "-d", "{{ postgres_db }}", "-U", "{{ postgres_user }}" ]
       interval: 10s
       timeout: 5s
       retries: 3
     restart: unless-stopped
 
 networks:
-  proxy:
-    external: true
   vaultwarden:
     driver: bridge
+{% if use_traefik|default(false) %}
+    proxy:
+      external: true
+{% endif %}
 
 secrets:
   admin_token:
     file: ./secrets/admin_token
   db_password:
     file: ./secrets/db_password
+{% if use_vaultwarden_mailer %}
   smtp_password:
     file: ./secrets/smtp_password
+{% endif %}

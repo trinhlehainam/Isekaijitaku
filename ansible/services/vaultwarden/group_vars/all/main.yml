@@ -1,0 +1,5 @@
+project_name: "vaultwarden"
+
+# PostgreSQL
+postgres_user: "vaultwarden"
+postgres_db: "vaultwarden"
