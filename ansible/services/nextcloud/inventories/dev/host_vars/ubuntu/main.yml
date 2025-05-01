@@ -69,7 +69,7 @@ collabora_password: !vault |
           3033323061663938313362663836353835373639383335343462
 
 # Nextcloud data and configuration directories
-nextcloud_dir: "/home/vagrant/backup/docker/nextcloud"
+nextcloud_dir: "/home/vagrant/docker/nextcloud"
 nextcloud_backup_dir: "{{ nextcloud_dir }}/backup"
 nextcloud_data_dir: "{{ nextcloud_dir }}/data"
 nextcloud_html_dir: "{{ nextcloud_dir }}/html"
@@ -80,4 +80,4 @@ redis_data_dir: "./redis"
 
 # Kopia variables
 kopia_backup_data_dir: "/data"
-kopia_service_backup_dir: "{{kopia_backup_data_dir}}/{{ nextcloud_dir }}"
+kopia_service_backup_dir: "{{kopia_backup_data_dir}}{{ nextcloud_dir }}"

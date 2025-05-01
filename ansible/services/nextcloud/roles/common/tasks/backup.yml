@@ -91,19 +91,19 @@
       community.docker.docker_compose_v2_exec:
         project_src: "{{ service_project_src }}"
         service: nextcloud
-        user: www-data
+        user: 33 # www-data
         command: php occ maintenance:mode --on
       register: maintenance_on_result
       failed_when: maintenance_on_result.rc != 0 and 'already enabled' not in maintenance_on_result.stderr # Don't fail if already on
 
-    - name: Reset persistent maintenance flag in config.php
+    - name: Set persistent maintenance flag in config.php
       community.docker.docker_compose_v2_exec:
         project_src: "{{ service_project_src }}"
         service: nextcloud
-        user: www-data
-        command: php occ config:system:set maintenance --value=false --type=boolean
-      register: maintenance_reset_result
-      failed_when: maintenance_reset_result.rc != 0
+        user: 33 # www-data
+        command: php occ config:system:set maintenance --value=true --type=boolean
+      register: set_maintenance_config_result
+      failed_when: set_maintenance_config_result.rc != 0
       when: maintenance_on_result is success # Only run if enabling mode succeeded or was already enabled
 
     #----- Project Setup Backup - Docker Compose and Secrets -----#
@@ -220,11 +220,21 @@
       community.docker.docker_compose_v2_exec:
         project_src: "{{ service_project_src }}"
         service: nextcloud
-        user: www-data
+        user: 33 # www-data
         command: php occ maintenance:mode --off
       register: maintenance_off_result
       failed_when: maintenance_off_result.rc != 0 and 'already disabled' not in maintenance_off_result.stderr # Don't fail if already off
       when: maintenance_on_result is defined # Only attempt if we tried to turn it on
+
+    - name: Set persistent maintenance flag in config.php
+      community.docker.docker_compose_v2_exec:
+        project_src: "{{ service_project_src }}"
+        service: nextcloud
+        user: 33 # www-data
+        command: php occ config:system:set maintenance --value=false --type=boolean
+      register: set_maintenance_config_result
+      failed_when: set_maintenance_config_result.rc != 0
+      when: maintenance_off_result is success # Only run if enabling mode succeeded or was already disabled
 
   rescue:
     - name: Record overall backup failure
