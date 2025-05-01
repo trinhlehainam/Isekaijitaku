@@ -20,11 +20,22 @@ A PostgreSQL database dump is generated using `pg_dump`. The `community.docker.d
 
 ### Kopia Snapshot Integration
 
-Following the successful backup of configuration and the database dump to the local `nextcloud_backup_dir`, the `roles/common/tasks/kopia.yml` task list is included. This task is responsible for initiating a Kopia snapshot of the backup directory, ensuring the captured state is preserved according to Kopia's policies and repository configuration.
+Following the successful backup of configuration and the database dump to the local `nextcloud_backup_dir`, the `roles/common/tasks/kopia.yml` task list is included. This task is responsible for initiating a Kopia snapshot of the configured backup source directory (`{{ kopia_service_backup_dir }}`), ensuring the captured state is preserved according to Kopia's pre-defined policies and repository configuration.
 
 ### Rollback and Cleanup
 
 To handle potential failures and ensure atomicity, existing contents of the `nextcloud_backup_dir` are moved to a temporary `rollback` subdirectory before the backup starts. If the overall backup process (config, database, and Kopia) fails, the original contents are moved back from the `rollback` directory, and any newly created backup artifacts (like the database dump) are removed. If the backup succeeds, the `rollback` directory is simply removed.
+
+## Prerequisites
+
+Before executing the backup playbook, ensure the following setup is complete:
+
+*   **Kopia Snapshot Source Directory:** The directory specified by the `kopia_service_backup_dir` variable in your inventory **must exist on the host system**. This directory is the root path that Kopia will use as the source for creating snapshots. The Kopia service container requires appropriate access (typically via a volume mount) to this path. Failure to ensure this directory exists and is accessible will cause the Kopia snapshot task to fail.
+*   **Kopia Snapshot Policies (Ignore, Retention, Compression):** It is essential to configure Kopia snapshot policies for the `kopia_service_backup_dir` path *before* running this backup playbook. This includes setting:
+    *   An **ignore rule** for the `html` subdirectory (e.g., `kopia policy set /path/to/kopia_service_backup_dir --add-ignore html`). This prevents backing up the application code.
+    *   Desired retention schedules (e.g., daily, weekly, monthly snapshots to keep).
+    *   Compression settings.
+    These policies **must be configured manually** directly via Kopia (UI or CLI) before the first backup. This Ansible role *does not* manage Kopia policies.
 
 ## Configuration Variables
 
