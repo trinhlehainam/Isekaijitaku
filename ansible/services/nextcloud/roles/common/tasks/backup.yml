@@ -199,6 +199,21 @@
           ansible.builtin.fail:
             msg: "PostgreSQL backup component failed: {{ ansible_failed_task.name|default('Unknown error') }}"
 
+    #----- Remove rollback directory -----#
+    - name: Execute cleanup rollback directory
+      become: true
+      block:
+        - name: Check if rollback directory exists
+          ansible.builtin.stat:
+            path: "{{ nextcloud_backup_dir }}/rollback"
+          register: rollback_dir_stat
+
+        - name: Remove rollback directory
+          ansible.builtin.file:
+            path: "{{ nextcloud_backup_dir }}/rollback"
+            state: absent
+          when: rollback_dir_stat.stat.exists and rollback_dir_stat.stat.isdir
+
     #----- Kopia Backup -----#
     - name: Execute kopia backup
       block:
@@ -249,10 +264,19 @@
 - name: Set overall backup success status
   ansible.builtin.set_fact:
     backup_succeeded: "{{ config_backup_succeeded and postgres_backup_succeeded and kopia_snapshot_succeeded }}"
+    rollback_required: "{{ not config_backup_succeeded or not postgres_backup_succeeded }}"
     
 #################################################
 # Cleanup and Service Restoration
 #################################################
+
+- name: Clean up backup files if backup failed
+  when: rollback_required
+  ansible.builtin.file:
+    path: "{{ nextcloud_backup_dir }}/{{ item }}"
+    state: absent
+  loop:
+    - "{{ postgres_backup_filename }}"
 
 - name: Check if rollback directory exists
   become: true
@@ -265,7 +289,7 @@
   when: rollback_dir_stat.stat.exists and rollback_dir_stat.stat.isdir
   block:
     - name: Restore files from rollback directory
-      when: not backup_succeeded
+      when: rollback_required
       block:
         - name: Find items in rollback directory
           ansible.builtin.find:
@@ -284,14 +308,6 @@
       ansible.builtin.file:
         path: "{{ nextcloud_backup_dir }}/rollback"
         state: absent
-
-- name: Clean up backup files if backup failed
-  when: not backup_succeeded
-  ansible.builtin.file:
-    path: "{{ nextcloud_backup_dir }}/{{ item }}"
-    state: absent
-  loop:
-    - "{{ postgres_backup_filename }}"
 
 #################################################
 # Final Backup Status

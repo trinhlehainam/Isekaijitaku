@@ -46,7 +46,7 @@ ansible-playbook playbook.yml -i inventories/dev --tags backup
 ```
 
 ## References
-
 *   Ansible Role Task: `roles/common/tasks/backup.yml`
 *   Nextcloud Backup Documentation: [https://docs.nextcloud.com/server/latest/admin_manual/maintenance/backup.html](https://docs.nextcloud.com/server/latest/admin_manual/maintenance/backup.html)
 *   Nextcloud occ Commands: [https://docs.nextcloud.com/server/latest/admin_manual/configuration_server/occ_command.html](https://docs.nextcloud.com/server/latest/admin_manual/configuration_server/occ_command.html)
+*   Nextcloud Backup: [https://help.nextcloud.com/t/101-backup-what-and-why-not-how/217496](https://help.nextcloud.com/t/101-backup-what-and-why-not-how/217496)
