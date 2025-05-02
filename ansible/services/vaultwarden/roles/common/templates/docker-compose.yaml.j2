@@ -21,12 +21,12 @@ services:
         export ADMIN_TOKEN=$$(cat /run/secrets/admin_token)
         export POSTGRES_PASSWORD=$$(cat /run/secrets/db_password)
         export DATABASE_URL=postgresql://${POSTGRES_USER}:$$POSTGRES_PASSWORD@vaultwarden-postgres:5432/${POSTGRES_DB}
-{% if use_vaultwarden_mailer %}
+{% if use_vaultwarden_mailer|default(false) %}
         export STMP_PASSWORD=$$(cat /run/secrets/smtp_password)
 {% endif %}
         exec /start.sh
+{% if use_vaultwarden_mailer|default(false) %}
     environment:
-{% if use_vaultwarden_mailer %}
       # Enable SMTP
       # https://github.com/dani-garcia/vaultwarden/wiki/SMTP-Configuration
       SMTP_HOST: {{ vaultwarden_smtp_host }}
@@ -40,7 +40,7 @@ services:
     secrets:
       - admin_token
       - db_password
-{% if use_vaultwarden_mailer %}
+{% if use_vaultwarden_mailer|default(false) %}
       - smtp_password
 {% endif %}
 {% if not use_traefik|default(false) %}
@@ -104,7 +104,7 @@ secrets:
     file: ./secrets/admin_token
   db_password:
     file: ./secrets/db_password
-{% if use_vaultwarden_mailer %}
+{% if use_vaultwarden_mailer|default(false) %}
   smtp_password:
     file: ./secrets/smtp_password
 {% endif %}

@@ -43,7 +43,7 @@
       - vaultwarden_smtp_username is defined
       - vaultwarden_smtp_from is defined
     fail_msg: "Required variables are not defined. Please specify the vaultwarden mailer variables."
-  when: use_vaultwarden_mailer and (operation_mode == 'deploy' or operation_mode == 'upgrade')
+  when: use_vaultwarden_mailer|default(false) and (operation_mode == 'deploy' or operation_mode == 'upgrade')
     
 - name: Set default operation mode if not defined
   ansible.builtin.set_fact:
