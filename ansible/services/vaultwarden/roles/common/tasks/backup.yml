@@ -1,0 +1,186 @@
+---
+#################################################
+# Service Control
+#################################################
+
+- name: Verify required variables are defined
+  ansible.builtin.assert:
+    that:
+      - vaultwarden_backup_dir is defined
+      - kopia_backup_data_dir is defined
+      - postgres_user is defined
+      - postgres_db is defined
+
+- name: Set default backup directory if not defined
+  ansible.builtin.set_fact:
+    vaultwarden_backup_dir: "{{ vaultwarden_backup_dir if vaultwarden_backup_dir is defined and (vaultwarden_backup_dir.startswith('/') or vaultwarden_backup_dir.startswith('./')) else './vaultwarden/data' }}"
+
+- name: Set vaultwarden backup directory
+  ansible.builtin.set_fact:
+    vaultwarden_backup_dir: "{{ vaultwarden_backup_dir.replace('./', service_project_src + '/') }}"
+    
+- name: Set kopia services backup directory
+  ansible.builtin.set_fact:
+    kopia_service_backup_dir: "{{ kopia_backup_data_dir}}{{ vaultwarden_backup_dir }}"
+
+- name: Check services status
+  vars:
+    files_list: "{{ vaultwarden_files_list }}"
+    project_src: "{{ service_project_src }}"
+  ansible.builtin.include_tasks: check.yml
+
+- name: Get services info
+  ansible.builtin.set_fact:
+    vaultwarden_services_check_result: "{{ check_result }}"
+
+#################################################
+# Initialization and Setup
+#################################################
+
+- name: Set up backup variables
+  ansible.builtin.set_fact:
+    backup_timestamp: "{{ ansible_date_time.iso8601 }}"
+    backup_succeeded: false
+    postgres_backup_succeeded: false
+    postgres_backup_filename: "vaultwarden-db-backup.dump"
+    kopia_snapshot_succeeded: false
+
+- name: Create base backup directory if it doesn't exist
+  become: true
+  ansible.builtin.file:
+    path: "{{ vaultwarden_backup_dir }}"
+    state: directory
+    mode: '0755'
+    
+#################################################
+# Backup Execution
+#################################################
+
+- name: Execute backup processes
+  block:
+    #----- Check Vaultwarden Initial State -----#
+    - name: Execute stop vaultwarden service
+      block:
+        - name: Get vaultwarden service info
+          ansible.builtin.set_fact:
+            vaultwarden_service_info: "{{ vaultwarden_services_check_result.services | selectattr('service', 'equalto', 'vaultwarden') | list }}"
+          failed_when: vaultwarden_service_info | length != 1 # Ensure exactly one vaultwarden service is found
+
+        - name: Check initial state of Vaultwarden service
+          ansible.builtin.set_fact:
+            vaultwarden_initial_state_is_running: "{{ vaultwarden_service_info | selectattr('state', 'equalto', 'running') | list | length > 0 }}"
+
+        - name: Stop Vaultwarden service if it is running
+          community.docker.docker_compose_v2:
+            project_src: "{{ service_project_src }}"
+            services:
+              - vaultwarden
+            state: stopped
+          register: vaultwarden_stop_result
+          when: vaultwarden_initial_state_is_running|default(false)
+
+    #----- Database Backup - PostgreSQL -----#
+    - name: Execute PostgreSQL backup process
+      block:
+        - name: Setup PostgreSQL container backup filepath
+          ansible.builtin.set_fact:
+            postgres_container_backup_filepath: "{{ vaultwarden_backup_dir }}/{{ postgres_backup_filename }}"
+
+        - name: Backup PostgreSQL database using docker compose exec
+          become: true
+          ansible.builtin.shell:
+            chdir: "{{ service_project_src }}"
+            cmd: "docker compose exec vaultwarden-postgres pg_dump -Fc -U {{ postgres_user }} {{ postgres_db }} > {{ postgres_container_backup_filepath }}"
+          register: pg_dump_result
+
+        - name: Check if PostgreSQL backup file exists
+          become: true
+          ansible.builtin.stat:
+            path: "{{ vaultwarden_backup_dir }}/{{ postgres_backup_filename }}"
+          register: postgres_backup_file
+          when: pg_dump_result is success and pg_dump_result.rc == 0
+
+        - name: Mark PostgreSQL backup as successful
+          ansible.builtin.set_fact:
+            postgres_backup_succeeded: true
+          when: pg_dump_result is success and pg_dump_result.rc == 0 and postgres_backup_file.stat.exists
+      rescue:
+        - name: Record PostgreSQL backup failure
+          ansible.builtin.set_fact:
+            postgres_backup_succeeded: false
+            postgres_backup_error: "{{ ansible_failed_task.name|default('Unknown error') }}"
+
+        - name: Fail task to propagate error to parent block
+          ansible.builtin.fail:
+            msg: "PostgreSQL backup component failed: {{ ansible_failed_task.name|default('Unknown error') }}"
+
+    #----- Kopia Backup -----#
+    - name: Execute kopia backup
+      block:
+        - name: Include kopia tasks
+          ansible.builtin.include_tasks: kopia.yml
+          
+        - name: Check kopia snapshot result
+          ansible.builtin.set_fact:
+            kopia_snapshot_succeeded: true
+          when: kopia_snapshot_result is success and kopia_snapshot_result.rc == 0
+      rescue:
+        - name: Record kopia backup failure
+          ansible.builtin.set_fact:
+            kopia_snapshot_succeeded: false
+            kopia_snapshot_error: "{{ ansible_failed_task.name|default('Unknown error') }}"
+
+  rescue:
+    - name: Record overall backup failure
+      ansible.builtin.set_fact:
+        backup_failure_reason: "{{ ansible_failed_task.name|default('Unknown error in backup process') }}"
+        backup_succeeded: false
+  always:
+    - name: Start Vaultwarden service if it was running initially and stopped by this task
+      community.docker.docker_compose_v2:
+        project_src: "{{ service_project_src }}"
+        services:
+          - vaultwarden
+        state: present
+      when:
+        - vaultwarden_initial_state_is_running|default(false)
+        - vaultwarden_stop_result is defined
+        - vaultwarden_stop_result.changed
+
+#################################################
+# Backup Status and Reporting
+#################################################
+
+- name: Set overall backup success status
+  ansible.builtin.set_fact:
+    backup_succeeded: "{{ postgres_backup_succeeded and kopia_snapshot_succeeded }}"
+    
+#################################################
+# Cleanup and Service Restoration
+#################################################
+
+- name: Clean up backup files
+  become: true
+  ansible.builtin.file:
+    path: "{{ vaultwarden_backup_dir }}/{{ item }}"
+    state: absent
+  loop:
+    - "{{ postgres_backup_filename }}"
+
+#################################################
+# Final Backup Status
+#################################################
+
+- name: Show final backup status
+  vars:
+    msg: |
+      Vaultwarden backup {{ 'SUCCEEDED ✅' if backup_succeeded else 'FAILED ❌' }}.
+      PostgreSQL DB: {{ 'OK ✅' if postgres_backup_succeeded else 'FAILED ❌' }}{% if postgres_backup_error is defined and not postgres_backup_succeeded %} ({{ postgres_backup_error }}){% endif %}.
+      Kopia Snapshot: {{ 'OK ✅' if kopia_snapshot_succeeded else 'FAILED ❌' }}{% if kopia_snapshot_error is defined and not kopia_snapshot_succeeded %} ({{ kopia_snapshot_error }}){% endif %}.
+  ansible.builtin.debug:
+    msg: "{{ msg.split('\n') }}"
+
+- name: Fail task if backup failed
+  when: not backup_succeeded
+  ansible.builtin.fail:
+    msg: "Backup failed: {{ backup_timestamp }}"

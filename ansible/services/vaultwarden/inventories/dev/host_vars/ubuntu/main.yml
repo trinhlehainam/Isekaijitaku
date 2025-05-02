@@ -29,6 +29,7 @@ vaultwarden_db_password: !vault |
 # Vaultwarden data and configuration directories
 vaultwarden_data_dir: "./data"
 postgres_data_dir: "./postgres"
+vaultwarden_backup_dir: "./"
 
 # Kopia variables
 kopia_backup_data_dir: "/data"
