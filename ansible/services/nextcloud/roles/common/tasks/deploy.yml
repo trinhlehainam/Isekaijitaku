@@ -119,6 +119,13 @@
     owner: "{{ nextcloud_user_id }}"
     group: "{{ nextcloud_group_id }}"
 
+- name: Copy .env template file
+  become: true
+  ansible.builtin.template:
+    src: "docker/.env.j2"
+    dest: "{{ service_project_src }}/.env"
+    mode: '0644'
+
 - name: Copy docker-compose file
   ansible.builtin.template:
     src: "docker/docker-compose.yaml.j2" # Use yaml extension for consistency

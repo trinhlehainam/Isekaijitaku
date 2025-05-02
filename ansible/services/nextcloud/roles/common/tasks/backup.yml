@@ -41,10 +41,6 @@
     state: directory
     mode: '0755'
     
-- name: Show backup mode
-  ansible.builtin.debug:
-    msg: "Running in BACKUP mode - services state will be ROLLED BACK after backup"
-
 #################################################
 # Pre-Execution
 #################################################
@@ -101,7 +97,7 @@
         project_src: "{{ service_project_src }}"
         service: nextcloud
         user: 33 # www-data
-        command: php occ config:system:set maintenance --value=true --type=boolean
+        command: php occ config:system:set maintenance --type=boolean --value=true
       register: set_maintenance_config_result
       failed_when: set_maintenance_config_result.rc != 0
       when: maintenance_on_result is success # Only run if enabling mode succeeded or was already enabled
@@ -246,7 +242,7 @@
         project_src: "{{ service_project_src }}"
         service: nextcloud
         user: 33 # www-data
-        command: php occ config:system:set maintenance --value=false --type=boolean
+        command: php occ config:system:set maintenance --type=boolean --value=false
       register: set_maintenance_config_result
       failed_when: set_maintenance_config_result.rc != 0
       when: maintenance_off_result is success # Only run if enabling mode succeeded or was already disabled

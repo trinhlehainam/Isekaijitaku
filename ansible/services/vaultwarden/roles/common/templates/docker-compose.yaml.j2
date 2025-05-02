@@ -77,15 +77,15 @@ services:
     volumes:
       - {{ postgres_data_dir }}:/var/lib/postgresql/data
     environment:
-      POSTGRES_DB: {{ postgres_db }}
-      POSTGRES_USER: {{ postgres_user }}
+      POSTGRES_DB: "$POSTGRES_DB"
+      POSTGRES_USER: "$POSTGRES_USER"
       POSTGRES_PASSWORD_FILE: "/run/secrets/db_password"
     networks:
       - vaultwarden
     secrets:
       - db_password
     healthcheck:
-      test: [ "CMD", "pg_isready", "-q", "-d", "{{ postgres_db }}", "-U", "{{ postgres_user }}" ]
+      test: [ "CMD", "pg_isready", "-q", "-d", "$POSTGRES_DB", "-U", "$POSTGRES_USER" ]
       interval: 10s
       timeout: 5s
       retries: 3
