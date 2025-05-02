@@ -72,13 +72,6 @@
   when: use_vaultwarden_mailer|default(false)
   no_log: true # Avoid logging secret content
 
-- name: Create config directory for storing configuration files
-  become: true
-  ansible.builtin.file:
-    path: "{{ service_project_src }}/config"
-    state: directory
-    mode: '0755'
-
 - name: Copy .env template file
   become: true
   ansible.builtin.template:
