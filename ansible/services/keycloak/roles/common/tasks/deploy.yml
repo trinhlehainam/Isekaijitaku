@@ -1,0 +1,107 @@
+##############################################################################
+# Service Status Verification
+##############################################################################
+
+- name: Check for existing {{ project_name|capitalize }} service
+  vars:
+    project_src: "{{ service_project_src }}"
+    files_list: "{{ keycloak_files_list }}"
+  ansible.builtin.include_tasks: check.yml
+
+- name: Set service existence flag
+  ansible.builtin.set_fact:
+    keycloak_service_exists: "{{ check_result is defined and check_result.services is defined and 'vaultwarden' in (check_result.services | map(attribute='name')) }}"
+
+- name: Display service status
+  ansible.builtin.debug:
+    msg: "{{ project_name|capitalize }} service already running - skipping deployment"
+  when: keycloak_service_exists
+  
+- name: End play if {{ project_name|capitalize }} service already exists and running
+  meta: end_host
+  when: keycloak_service_exists
+
+##############################################################################
+# Service Deployment
+##############################################################################
+
+- name: Validate {{ project_name|capitalize }} variables
+  ansible.builtin.assert:
+    that:
+      # Secrets (Check variables holding the secrets)
+      - keycloak_db_password is defined
+      - keycloak_admin_user is defined
+      - keycloak_admin_password is defined
+      # Env Vars (Typically defined elsewhere, e.g., host/group vars)
+      - postgres_db is defined
+      - postgres_user is defined
+    fail_msg: "Required {{ project_name|capitalize }} variables are not defined. Check directories, secrets, env vars (postgres_db, postgres_user), and system IDs (nextcloud_user_id, nextcloud_group_id)."
+    
+- name: Create directory for docker-compose files
+  ansible.builtin.file:
+    path: "{{ service_project_src }}"
+    state: directory
+    mode: '0755'
+
+- name: Create secrets directory for storing sensitive information
+  ansible.builtin.file:
+    path: "{{ service_project_src }}/secrets"
+    state: directory
+    mode: '0700' # Restrict access to secrets
+
+- name: Create {{ project_name|capitalize }} secret files
+  become: true
+  ansible.builtin.copy:
+    content: "{{ item.content }}"
+    dest: "{{ service_project_src }}/secrets/{{ item.name }}"
+    mode: '0600' # Restrict read access to secrets
+    owner: "{{ item.owner }}"
+  loop:
+    - name: db_password
+      content: "{{ keycloak_db_password }}"
+      owner: "root"
+    - name: keycloak_admin
+      content: "{{ keycloak_admin_user }}"
+      owner: "{{ keycloak_user_id }}"
+    - name: keycloak_admin_password
+      content: "{{ keycloak_admin_password }}"
+      owner: "{{ keycloak_user_id }}"
+  no_log: true # Avoid logging secret content
+
+- name: Copy .env template file
+  become: true
+  ansible.builtin.template:
+    src: ".env.j2"
+    dest: "{{ service_project_src }}/.env"
+    mode: '0644'
+
+- name: Copy docker-compose file
+  ansible.builtin.template:
+    src: "docker-compose.yaml.j2" # Use yaml extension for consistency
+    dest: "{{ service_project_src }}/docker-compose.yml"
+    mode: '0644'
+  
+- name: Start {{ project_name|capitalize }} services
+  community.docker.docker_compose_v2:
+    project_src: "{{ service_project_src }}"
+    state: present
+  register: output
+
+- name: Display {{ project_name|capitalize }} connection info
+  vars:
+    msg: |
+      ===== {{ project_name|capitalize }} ACCESS INFORMATION =====
+      {% if use_traefik|default(false) %}
+      Access via Traefik:
+        {% if use_traefik_router_public|default(false) and public_apex_domain|default(false) %}
+        - Public: https://{{ service_name|default('vaultwarden') }}.{{ public_apex_domain }} 
+        {% endif %}
+        {% if use_traefik_router_private|default(false) and private_apex_domain|default(false) %}
+        - Private: https://{{ service_name|default('vaultwarden') }}.{{ private_apex_domain }}
+        {% endif %}
+      {% else %}
+      Direct access: http://{{ ansible_host }}:8080
+      {% endif %}
+      =============================================
+  ansible.builtin.debug:
+    msg: "{{ msg.split('\n') }}"

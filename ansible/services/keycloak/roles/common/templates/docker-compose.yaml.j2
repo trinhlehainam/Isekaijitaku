@@ -1,0 +1,152 @@
+{#
+# https://github.com/heyvaldemar/keycloak-traefik-letsencrypt-docker-compose
+# https://www.keycloak.org/server/containers
+# https://medium.com/@disa2aka/docker-deployments-for-keycloak-and-postgresql-e75707b155e5
+#
+# NOTE: CPU does not support x86-64-v2 error on Proxmox VM
+# https://github.com/keycloak/keycloak/issues/17290
+#
+# NOTE: setup permanent admin in Keyloack
+# https://github.com/keycloak/keycloak/discussions/33803#discussioncomment-10921141
+# 
+# NOTE: Configuring email for a realm
+# https://www.keycloak.org/docs/latest/server_admin/#_email
+#}
+
+services:
+  keycloak:
+    # https://quay.io/repository/keycloak/keycloak?tab=tags
+    image: quay.io/keycloak/keycloak:26.1.0
+    container_name: keycloak
+    # NOTE: how to use docker secrets
+    # https://github.com/keycloak/keycloak/issues/10816
+    # https://github.com/keycloak/keycloak/blob/main/quarkus/container/Dockerfile
+    entrypoint:
+      - /bin/bash
+      - -c
+      - |
+        export KC_DB_PASSWORD=$$(cat /run/secrets/db_password)
+        export KC_BOOTSTRAP_ADMIN_USERNAME=$$(cat /run/secrets/keycloak_admin)
+        export KC_BOOTSTRAP_ADMIN_PASSWORD=$$(cat /run/secrets/keycloak_admin_password)
+        exec /opt/keycloak/bin/kc.sh start
+    # NOTE: keycloak all configuration
+    # https://www.keycloak.org/server/all-config
+    environment:
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://keycloak-postgres:5432/${POSTGRES_DB}
+      KC_DB_USERNAME: ${POSTGRES_USER}
+      # NOTE: hostname configuration
+      # https://www.keycloak.org/server/hostname#_validations
+      # Disable Keycloak hostname because we are using Traefik as reverse proxy to manage the hostname
+      KC_HOSTNAME_STRICT: false
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: false
+      # KC_HOSTNAME: "keycloak.yourdomain.local"
+      # NOTE: tls configuration
+      # https://www.keycloak.org/server/enabletls
+      KC_HTTP_ENABLED: true
+      # NOTE: reverse proxy configuration
+      # https://www.keycloak.org/server/reverseproxy
+      KC_PROXY_HEADERS: 'xforwarded'
+      # NOTE: logging
+      # https://www.keycloak.org/server/logging
+      KC_LOG_LEVEL: info
+      KC_METRICS_ENABLED: true
+      KC_HEALTH_ENABLED: true
+    secrets:
+      - db_password
+      - keycloak_admin
+      - keycloak_admin_password
+    # volumes:
+    #   # https://smallstep.com/docs/tutorials/keycloak-oidc-provisioner/#install-and-run-keycloak--mysql-using-docker-compose
+    #   - /path/to/step-ca/certs:/etc/x509/https:ro
+    depends_on:
+      keycloak-postgres:
+        condition: service_healthy
+        restart: true
+{% if not use_traefik|default(false) %}
+    # NOTE: keycloak default ports
+    # 8443: https admin console
+    # 8080: http admin console "KC_HTTP_ENABLED: true"
+    # 9000: https health check
+    ports:
+      # - "8443:8443"
+      # - "9000:9000"
+      - "8080:8080"
+{% endif %}
+    networks:
+      - keycloak
+{% if use_traefik|default(false) %}
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      # NOTE: specific docker network for Traefik to use
+      # https://doc.traefik.io/traefik/providers/docker/#network
+      - "traefik.docker.network=proxy"
+      # Service definition
+      - "traefik.http.services.keycloak.loadbalancer.server.port=8080"
+      - "traefik.http.services.keycloak.loadbalancer.server.scheme=http"
+      # Router configuration
+  {% if use_traefik_router_private|default(false) and private_apex_domain|default(false) %}
+      # Private
+      - "traefik.http.routers.keycloak-local.rule=Host(`{{ service_name|default('keycloak') }}.{{ private_apex_domain }}`)"
+      - "traefik.http.routers.keycloak-local.service=keycloak"
+      - "traefik.http.routers.keycloak-local.entrypoints=websecure"
+      - "traefik.http.routers.keycloak-local.tls.certresolver=stepca"
+  {% endif %}
+  {% if use_traefik_router_public|default(false) and public_apex_domain|default(false) %}
+      # Public
+      - "traefik.http.routers.keycloak.rule=Host(`{{ service_name|default('keycloak') }}.{{ public_apex_domain }}`)"
+      - "traefik.http.routers.keycloak.service=keycloak"
+      - "traefik.http.routers.keycloak.entrypoints=websecure"
+      - "traefik.http.routers.keycloak.tls.certresolver=cloudflare"
+  {% endif %}
+{% endif %}
+    # https://gist.github.com/sarath-soman/5d9aec06953bbd0990c648605d4dba07?permalink_comment_id=5225953#gistcomment-5225953
+    healthcheck:
+      test:
+        - "CMD-SHELL"
+        - |
+          exec 3<>/dev/tcp/127.0.0.1/9000 &&
+          echo -e 'GET /health/ready HTTP/1.1\r\nHost: localhost\r\nConnection: close\r\n\r\n' >&3 &&
+          cat <&3 | grep -q '\"status\": \"UP\"' && exit 0 || exit 1
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    restart: always
+
+  keycloak-postgres:
+    # https://hub.docker.com/_/postgres/tags
+    image: postgres:16.6-alpine3.21
+    container_name: keycloak-postgres
+    volumes:
+      - ./postgres:/var/lib/postgresql/data
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD_FILE: "/run/secrets/db_password"
+    networks:
+      - keycloak
+    secrets:
+      - db_password
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-q", "-d", "${POSTGRES_DB}", "-U", "${POSTGRES_USER}" ]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    restart: always
+
+secrets:
+  db_password:
+    file: ./secrets/db_password
+  keycloak_admin:
+    file: ./secrets/keycloak_admin
+  keycloak_admin_password:
+    file: ./secrets/keycloak_admin_password
+
+networks:
+  keycloak:
+    driver: bridge
+{% if use_traefik|default(false) %}
+  proxy:
+    external: true
+{% endif %}

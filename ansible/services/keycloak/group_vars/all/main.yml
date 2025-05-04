@@ -1,0 +1,9 @@
+project_name: "keycloak"
+
+# PostgreSQL
+postgres_user: "keycloak"
+postgres_db: "keycloak"
+
+# Keycloak
+keycloak_user_id: 1000
+keycloak_group_id: 1000
