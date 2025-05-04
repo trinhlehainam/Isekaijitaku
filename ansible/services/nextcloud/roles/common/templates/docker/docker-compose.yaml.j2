@@ -20,7 +20,7 @@ services:
   nextcloud:
     # Upgrade to a newer version: https://github.com/nextcloud/docker?tab=readme-ov-file#update-to-a-newer-version
     # https://hub.docker.com/_/nextcloud/tags
-    image: nextcloud:30.0.10-apache
+    image: nextcloud:31.0.4-apache
     container_name: nextcloud
     restart: always
     depends_on:
@@ -140,7 +140,6 @@ services:
       - "traefik.http.middlewares.nextcloud-dav.redirectregex.replacement=https://$${1}/remote.php/dav/"
 {% endif %}
       
-{#
   # https://github.com/nextcloud/whiteboard
   nextcloud-whiteboard:
     # https://github.com/nextcloud-releases/whiteboard/pkgs/container/whiteboard
@@ -199,7 +198,7 @@ services:
   # - https://github.com/CollaboraOnline/online/issues/2800#issuecomment-2684147364
   collabora:
     # https://hub.docker.com/r/collabora/code/tags
-    image: collabora/code:24.04.13.3.1
+    image: collabora/code:25.04.1.1.1
     container_name: collabora
     hostname: collabora
     environment:
@@ -275,15 +274,15 @@ services:
       - 'traefik.http.middlewares.collabora-headers.headers.browserXssFilter=true'
       - 'traefik.http.middlewares.collabora-headers.headers.customRequestHeaders.X-Forwarded-Proto=https'
 {% endif %}
-    healthcheck:
-      # https://stackoverflow.com/questions/47722898/how-can-i-make-a-docker-healthcheck-with-wget-instead-of-curl
-      test: curl --fail http://localhost:9980 || exit 1
-      interval: 10s
-      timeout: 30s
-      retries: 3
-      start_period: 30s
     restart: always 
-#}
+    # NOTE: curl and wget not installed in image from version "collabora/code:25.04.1.1.1"
+    # healthcheck:
+    #   # https://stackoverflow.com/questions/47722898/how-can-i-make-a-docker-healthcheck-with-wget-instead-of-curl
+    #   test: curl --fail http://localhost:9980 || exit 1
+    #   interval: 10s
+    #   timeout: 30s
+    #   retries: 3
+    #   start_period: 30s
 
   nextcloud-postgres:
     # https://docs.nextcloud.com/server/latest/admin_manual/configuration_database/linux_database_configuration.html#postgresql-database
