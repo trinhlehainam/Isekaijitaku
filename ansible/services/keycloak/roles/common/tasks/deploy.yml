@@ -44,6 +44,7 @@
     mode: '0755'
 
 - name: Create secrets directory for storing sensitive information
+  become: true
   ansible.builtin.file:
     path: "{{ service_project_src }}/secrets"
     state: directory
@@ -55,17 +56,14 @@
     content: "{{ item.content }}"
     dest: "{{ service_project_src }}/secrets/{{ item.name }}"
     mode: '0600' # Restrict read access to secrets
-    owner: "{{ item.owner }}"
+    owner: "{{ keycloak_user_id }}"
   loop:
     - name: db_password
       content: "{{ keycloak_db_password }}"
-      owner: "root"
     - name: keycloak_admin
       content: "{{ keycloak_admin_user }}"
-      owner: "{{ keycloak_user_id }}"
     - name: keycloak_admin_password
       content: "{{ keycloak_admin_password }}"
-      owner: "{{ keycloak_user_id }}"
   no_log: true # Avoid logging secret content
 
 - name: Copy .env template file
