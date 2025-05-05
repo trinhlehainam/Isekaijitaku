@@ -1,0 +1,83 @@
+##############################################################################
+# Initialization
+##############################################################################
+
+- name: Set destroy operation timestamp
+  ansible.builtin.set_fact:
+    destroy_start_time: "{{ ansible_date_time.iso8601 }}"
+
+- name: Display destroy operation start message
+  ansible.builtin.debug:
+    msg: |
+      Starting {{ project_name|upper }} service destruction on {{ inventory_hostname }}
+      - Project path: {{ service_project_src }}
+      - Started at: {{ destroy_start_time }}
+
+##############################################################################
+# Service Status Verification
+##############################################################################
+
+- name: Check for existing {{ project_name|upper }} services
+  vars:
+    project_src: "{{ service_project_src }}"
+  ansible.builtin.include_tasks: check.yml
+
+- name: Set service existence flag
+  ansible.builtin.set_fact:
+    service_exists: "{{ check_result is defined and check_result.services is defined and check_result.services | length > 0 }}"
+
+- name: Display service status
+  ansible.builtin.debug:
+    msg: "{{ 'Found existing services to remove' if service_exists else 'No services found - proceeding with directory cleanup only' }}"
+
+##############################################################################
+# Service Removal
+##############################################################################
+
+- name: Stop and remove {{ project_name|upper }} containers
+  community.docker.docker_compose_v2:
+    project_src: "{{ service_project_src }}"
+    state: absent
+    remove_orphans: true
+    remove_volumes: true
+  when: service_exists
+  register: compose_down_result
+
+- name: Display container removal results
+  ansible.builtin.debug:
+    msg: "Successfully stopped and removed containers"
+  when: service_exists and compose_down_result is success
+
+##############################################################################
+# File System Cleanup
+##############################################################################
+
+- name: Remove {{ project_name|upper }} docker-compose file
+  ansible.builtin.file:
+    path: "{{ service_project_src }}/docker-compose.yml"
+    state: absent
+
+- name: Remove {{ project_name|upper }} project directory
+  become: true
+  ansible.builtin.file:
+    path: "{{ service_project_src }}"
+    state: absent
+
+##############################################################################
+# Cleanup Confirmation
+##############################################################################
+
+- name: Verify successful cleanup
+  ansible.builtin.stat:
+    path: "{{ service_project_src }}"
+  register: dir_check
+
+- name: Display cleanup status
+  vars:
+    msg: |
+      {{ project_name|upper }} services destruction completed on {{ inventory_hostname }}
+      - Started at: {{ destroy_start_time }}
+      - Finished at: {{ ansible_date_time.iso8601 }}
+      - Project directory removed: {{ not dir_check.stat.exists }}
+  ansible.builtin.debug:
+    msg: "{{ msg.split('\n') }}"

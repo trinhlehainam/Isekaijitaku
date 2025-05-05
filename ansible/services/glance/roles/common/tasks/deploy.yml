@@ -1,0 +1,57 @@
+##############################################################################
+# Service Status Verification
+##############################################################################
+
+- name: Check for existing {{ project_name|upper }} service
+  vars:
+    project_src: "{{ service_project_src }}"
+  ansible.builtin.include_tasks: check.yml
+
+- name: Set service existence flag
+  ansible.builtin.set_fact:
+    service_exists: "{{ check_result is defined and check_result.services is defined and check_result.services | length > 0 }}"
+
+- name: End play if service already exists and running
+  meta: end_host
+  when: service_exists
+
+##############################################################################
+# Service Deployment
+##############################################################################
+
+- name: Create directory for {{ project_name|upper }} docker-compose files
+  ansible.builtin.file:
+    path: "{{ service_project_src }}"
+    state: directory
+    mode: '0755'
+
+- name: Copy {{ project_name|upper }} docker-compose file
+  ansible.builtin.template:
+    src: "docker-compose.yml.j2"
+    dest: "{{ service_project_src }}/docker-compose.yml"
+    mode: '0644'
+  
+- name: Start {{ project_name|upper }} container
+  community.docker.docker_compose_v2:
+    project_src: "{{ service_project_src }}"
+    state: present
+  register: output
+
+- name: Display {{ project_name|upper }} connection info
+  vars:
+    msg: |
+      ===== {{ project_name|upper }} ACCESS INFORMATION =====
+      {% if use_traefik|default(false) %}
+      Access via Traefik:
+        {% if use_traefik_router_public|default(false) and public_apex_domain|default(false) %}
+        - Public: https://{{ service_name|default('it-tools') }}.{{ public_apex_domain }}
+        {% endif %}
+        {% if use_traefik_router_private|default(false) and private_apex_domain|default(false) %}
+        - Private: https://{{ service_name|default('it-tools') }}.{{ private_apex_domain }}
+        {% endif %}
+      {% else %}
+      Direct access: http://{{ ansible_host }}:8080
+      {% endif %}
+      =============================================
+  ansible.builtin.debug:
+    msg: "{{ msg.split('\n') }}"

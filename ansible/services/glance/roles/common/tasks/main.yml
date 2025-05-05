@@ -1,0 +1,44 @@
+---
+- name: Set up {{ project_name|upper }} project source path
+  ansible.builtin.set_fact:
+    service_project_src: "{{ service_project_src|default(ansible_user_dir + '/Docker/' + project_name) }}"
+    
+- name: Set up {{ project_name|upper }} bind mount variables
+  ansible.builtin.set_fact:
+    glance_config_dir: "{{ glance_config_dir if glance_config_dir is defined and (glance_config_dir.startswith('/') or glance_config_dir.startswith('./')) else './config' }}"
+    glance_assets_dir: "{{ glance_assets_dir if glance_assets_dir is defined and (glance_assets_dir.startswith('/') or glance_assets_dir.startswith('./')) else './assets' }}"
+
+- name: Resolve {{ project_name|upper }} bind mount from relative paths to absolute paths
+  ansible.builtin.set_fact:
+    glance_config_dir: "{{ glance_config_dir.replace('./', service_project_src + '/') }}"
+    glance_assets_dir: "{{ glance_assets_dir.replace('./', service_project_src + '/') }}"
+
+- name: Set up {{ project_name|upper }} files list
+  ansible.builtin.set_fact:
+    files_list:
+      - { id: "docker_compose",   path: "{{ service_project_src }}/docker-compose.yml",   name: "Docker Compose File" }
+      - { id: "env",            path: "{{ service_project_src }}/.env",                 name: "Environment Variables File" }
+      - { id: "config",         path: "{{ glance_config_dir }}",               name: "Glance Configuration Directory" }
+      - { id: "assets",         path: "{{ glance_assets_dir }}",               name: "Glance Assets Directory" }
+
+- name: Set default operation mode if not defined
+  ansible.builtin.set_fact:
+    operation_mode: "{{ operation_mode | default('check') }}"
+
+- name: Include check tasks
+  vars:
+    project_src: "{{ service_project_src }}"
+  ansible.builtin.include_tasks: check.yml
+  when: operation_mode == 'check'
+
+- name: Include deploy tasks
+  ansible.builtin.include_tasks: deploy.yml
+  when: operation_mode == 'deploy'
+
+- name: Include destroy tasks
+  ansible.builtin.include_tasks: destroy.yml
+  when: operation_mode == 'destroy'
+
+- name: Include upgrade tasks
+  ansible.builtin.include_tasks: upgrade.yml
+  when: operation_mode == 'upgrade'

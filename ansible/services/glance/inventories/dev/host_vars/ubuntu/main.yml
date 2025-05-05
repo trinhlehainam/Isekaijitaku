@@ -1,0 +1,5 @@
+ansible_host: 192.168.56.11
+
+# Glance data and configuration directories
+glance_config_dir: "./config"
+glance_assets_dir: "./assets"
