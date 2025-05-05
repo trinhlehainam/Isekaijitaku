@@ -19,8 +19,8 @@
   
 - name: Extract current running {{ project_name|upper }} image information
   ansible.builtin.set_fact:
-    current_service: "{{ check_result.services | selectattr('service', 'equalto', 'omni-tools') | first }}"
-  when: check_result.services | selectattr('service', 'equalto', 'omni-tools') | length > 0
+    current_service: "{{ check_result.services | selectattr('service', 'equalto', 'glance') | first }}"
+  when: check_result.services | selectattr('service', 'equalto', 'glance') | length > 0
 
 - name: Define docker-compose path
   ansible.builtin.set_fact:
@@ -45,7 +45,7 @@
 
 - name: Extract current {{ project_name|upper }} version using regex
   ansible.builtin.set_fact:
-    current_image_match: "{{ (current_docker_compose.content | b64decode | from_yaml).services['omni-tools'].image | regex_search('^\"?(?P<depName>[^\\s:@\"]+)(?::(?P<currentValue>[-a-zA-Z0-9.]+))?(?:@(?P<currentDigest>sha256:[a-zA-Z0-9]+))?\"?$', '\\1', '\\2', '\\3') }}"
+    current_image_match: "{{ (current_docker_compose.content | b64decode | from_yaml).services['glance'].image | regex_search('^\"?(?P<depName>[^\\s:@\"]+)(?::(?P<currentValue>[-a-zA-Z0-9.]+))?(?:@(?P<currentDigest>sha256:[a-zA-Z0-9]+))?\"?$', '\\1', '\\2', '\\3') }}"
     current_image_tag: omit # Explicitly omit first
   when: current_docker_compose is defined and current_docker_compose.content is defined
 
@@ -69,7 +69,7 @@
 
 - name: Set target image details
   ansible.builtin.set_fact:
-    target_image: "{{ (lookup('template', 'docker-compose.yml.j2') | from_yaml).services['omni-tools'].image }}"
+    target_image: "{{ (lookup('template', 'docker-compose.yml.j2') | from_yaml).services['glance'].image }}"
 
 - name: Initialize version comparison flags
   ansible.builtin.set_fact:
@@ -126,8 +126,8 @@
 
     - name: Extract current running {{ project_name|upper }} image information
       ansible.builtin.set_fact:
-        current_service: "{{ check_result.services | selectattr('service', 'equalto', 'omni-tools') | first }}"
-      when: check_result.services | selectattr('service', 'equalto', 'omni-tools') | length > 0
+        current_service: "{{ check_result.services | selectattr('service', 'equalto', 'glance') | first }}"
+      when: check_result.services | selectattr('service', 'equalto', 'glance') | length > 0
 
     - name: Verify container is running with the target version (only if checked)
       ansible.builtin.assert:
@@ -136,7 +136,7 @@
           - current_service.state == 'running'
           - current_service.image is search(target_image_tag)
         fail_msg: |
-          Service omni-tools failed to reach healthy state after upgrade or new version '{{ target_image_tag }}' was not applied correctly.
+          Service glance failed to reach healthy state after upgrade or new version '{{ target_image_tag }}' was not applied correctly.
           Container State: {{ current_service.state|default('Unknown') }}
           Expected Image Tag: {{ target_image_tag }}
           Actual Image: {{ current_service.image|default('Not Found') }}

@@ -1,3 +1,7 @@
+server:
+  # https://github.com/glanceapp/glance/blob/main/docs/configuration.md#assets-path
+  assets-path: /app/assets
+
 # https://github.com/glanceapp/glance/blob/main/docs/themes.md
 theme:
   background-color: 240 21 15
@@ -44,7 +48,7 @@ pages:
             sites:
               - title: Beszel
                 url: "#"
-                icon: si:beszel
+                icon: /assets/icons/beszel.png
               - title: Dozzle
                 url: "https://google.com"
                 icon: di:dozzle
