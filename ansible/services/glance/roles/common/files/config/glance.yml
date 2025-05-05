@@ -34,40 +34,67 @@ pages:
             cache: 1m
             sites:
               - title: Nextcloud
-                url: https://yourdomain.com/
-                icon: si:jellyfin
+                url: "https://github.com/nextcloud/server"
+                icon: di:nextcloud
               - title: Forgejo
-                url: https://yourdomain.com/
-                icon: si:forgejo
+                url: "https://codeberg.org/forgejo/forgejo"
+                icon: di:forgejo
               - title: Vaultwarden
-                url: https://yourdomain.com/
-                icon: si:vaultwarden
+                url: "https://github.com/dani-garcia/vaultwarden"
+                icon: di:vaultwarden
+              - title: IT Tools
+                url: "https://github.com/CorentinTh/it-tools"
+                icon: /assets/icons/it-tools.png
+              - title: Omni Tools
+                url: https://github.com/iib0011/omni-tools
+                icon: /assets/icons/omni-tools.svg
+              - title: Hedgedoc
+                url: "https://github.com/hedgedoc/hedgedoc"
+                icon: /assets/icons/hedgedoc.png
+              - title: Open WebUI
+                url: "https://github.com/open-webui/open-webui"
+                icon: /assets/icons/open-webui.png
           - type: monitor
             title: Monitoring
             cache: 1m
             sites:
               - title: Beszel
-                url: "#"
+                url: "https://github.com/henrygd/beszel"
                 icon: /assets/icons/beszel.png
               - title: Dozzle
-                url: "https://google.com"
+                url: "https://github.com/amir20/dozzle"
                 icon: di:dozzle
               - title: Uptime Kuma
-                url: "#"
-                icon: si:uptimekuma
+                url: "https://github.com/louislam/uptime-kuma"
+                icon: /assets/icons/uptime-kuma.png
+              - title: Gotify
+                url: "https://github.com/gotify/server"
+                icon: di:gotify
+              - title: GoAcess
+                url: "https://github.com/xavier-hernandez/goaccess-for-nginxproxymanager"
+                icon: /assets/icons/goaccess.svg
           - type: monitor
             title: Server Management
             cache: 1m
             sites:
               - title: Proxmox
-                url: "#"
-                icon: si:proxmox
+                url: "https://github.com/proxmox"
+                icon: di:proxmox
               - title: Portainer
-                url: "#"
-                icon: si:portainer
+                url: "https://github.com/portainer/portainer"
+                icon: di:portainer
+              - title: Keycloak
+                url: "https://github.com/keycloak/keycloak"
+                icon: di:keycloak
+              - title: Semaphore UI
+                url: https://github.com/semaphoreui/semaphore
+                icon: /assets/icons/semaphore-ui.png
               - title: Kopia
-                url: "#"
+                url: "https://github.com/kopia/kopia"
                 icon: di:kopia
+              - title: Traefik
+                url: "https://github.com/traefik/traefik"
+                icon: /assets/icons/traefik.png
               - title: AdGuard Home
-                url: https://yourdomain.com/
-                icon: si:adguard
+                url: "https://github.com/AdguardTeam/AdGuardHome"
+                icon: /assets/icons/adguardhome.png
