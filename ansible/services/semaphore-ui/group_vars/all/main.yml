@@ -1,0 +1,9 @@
+project_name: "semaphore"
+
+# PostgreSQL
+postgres_user: "semaphore"
+postgres_db: "semaphore"
+
+# Semaphore
+# https://github.com/semaphoreui/semaphore/blob/develop/deployment/docker/server/Dockerfile
+semaphore_user_id: 1001

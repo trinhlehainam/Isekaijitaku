@@ -1,0 +1,111 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |config|
+  config.vm.boot_timeout = 300
+  config.ssh.insert_key = false
+  config.vm.synced_folder '.', '/vagrant', disabled: true
+
+  config.vm.define "ubuntu" do |node|
+    # https://portal.cloud.hashicorp.com/vagrant/discover/ubuntu/jammy64
+    node.vm.box = "ubuntu/jammy64"
+    node.vm.box_version = "20241002.0.0"
+    node.vm.hostname = "ubuntu"
+    node.vm.network "private_network", ip: "192.168.56.11"
+    node.vm.provider :virtualbox do |vb|
+      vb.memory = 2048
+      vb.cpus = 4
+      vb.linked_clone = true
+      # https://github.com/joelhandwell/ubuntu_vagrant_boxes/issues/1#issuecomment-292370353
+      vb.customize ["modifyvm", :id, "--uartmode1", "disconnected"]
+      
+      # https://stackoverflow.com/a/54481502
+      vb.customize ["modifyvm", :id, "--cableconnected1", "on"]
+    end
+    node.vm.provision "shell", inline: <<-SHELL
+      # Enable password authentication for ubuntu1
+      sed -i 's/^#*PasswordAuthentication .*/PasswordAuthentication yes/' /etc/ssh/sshd_config
+      sed -i 's/^#*PasswordAuthentication .*/PasswordAuthentication yes/' /etc/ssh/sshd_config.d/60-cloudimg-settings.conf
+      sed -i 's/^#*PubkeyAuthentication .*/PubkeyAuthentication no/' /etc/ssh/sshd_config
+
+      # Create dummy user with sudo access but requires password
+      useradd -m -s /bin/bash dummy
+      echo "dummy:dummy" | chpasswd
+      # Add dummy to sudo group
+      usermod -aG sudo dummy
+
+      # Restart SSH service
+      systemctl restart sshd
+
+      # Restore task dependencies
+      apt-get install unzip -y
+    SHELL
+  end
+  
+  config.vm.define "windows" do |node|
+    # https://portal.cloud.hashicorp.com/vagrant/discover/gusztavvargadr/windows-server-2022-standard-core
+    node.vm.box = "gusztavvargadr/windows-server-2022-standard-core"
+    node.vm.box_version = "2102.0.2503"
+    node.vm.hostname = "windows"
+    node.vm.network "private_network", ip: "192.168.56.12"
+
+    node.vm.boot_timeout = 1800 # 30 minutes
+    node.vm.guest = :windows
+
+    # https://github.com/hashicorp/vagrant/issues/3651
+    # Port forward WinRM and RDP
+    node.vm.network :forwarded_port, guest: 3389, host: 3389, id: "winrm", auto_correct: true
+    node.vm.network :forwarded_port, guest: 5985, host: 5985, id: "winrm", auto_correct: true
+
+    # Vagrant needs WinRM to configure Windows VMs as the guest communicator
+    # SSH doesn't work when using Windows as the guest OS
+    # https://github.com/hashicorp/vagrant/commit/8bb9d1826036aaeddd6e305ea5656c660c5edb2d
+    node.vm.communicator = "winrm"
+    # use the plaintext WinRM transport and force it to use basic authentication.
+    # NB this is needed because the default negotiate transport stops working
+    #    after the domain controller is installed.
+    #    see https://groups.google.com/forum/#!topic/vagrant-up/sZantuCM0q4
+    node.winrm.transport = :plaintext
+    node.winrm.basic_auth_only = true
+    
+    # https://stackoverflow.com/a/69482241
+    node.winrm.max_tries = 100 # default is 20
+    node.winrm.retry_delay = 2 #seconds. This is the defaul value and just here for documentation
+    node.winrm.timeout = 1800 # 30 minutes
+
+    node.vm.provider :virtualbox do |vb|
+      # https://github.com/splitbrain/vagrant-active-directory/blob/master/Vagrantfile
+      vb.gui = false
+      vb.memory = 1024
+      vb.cpus = 4
+      vb.customize ["modifyvm", :id, "--vram", "16"]
+      vb.customize ["modifyvm", :id, "--clipboard", "bidirectional"]
+      vb.customize ["setextradata", "global", "GUI/SuppressMessages", "all" ]
+      vb.customize ["modifyvm", :id, "--macaddress1", "auto"]
+      vb.customize ["modifyvm", :id, "--macaddress2", "auto"]
+    end
+
+    node.vm.provision "shell", inline: <<-SHELL
+      # Allow ICMPv4 In (Ping) - Idempotent
+      if (-Not (Get-NetFirewallRule -Name "Allow_ICMPv4_In" -ErrorAction SilentlyContinue)) {
+        New-NetFirewallRule -Name "Allow_ICMPv4_In" -DisplayName "Allow ICMPv4 In" -Protocol ICMPv4 -IcmpType 8 -Direction Inbound -Action Allow -Profile Any
+      } else {
+        Set-NetFirewallRule -Name "Allow_ICMPv4_In" -Enabled True
+      }
+
+      # Create Test Directory if it doesn't exist
+      $TestPath = "C:\\Test"
+      if (-Not (Test-Path -Path $TestPath)) {
+        New-Item -ItemType Directory -Path $TestPath -Force
+      }
+
+      # Create SMB Share 'Test' if it doesn't exist
+      if (-Not (Get-SmbShare -Name "Test" -ErrorAction SilentlyContinue)) {
+          New-SmbShare -Name "Test" -Path $TestPath -FullAccess "vagrant"
+      }
+
+      # Enable File and Printer Sharing for Any Profile
+      Set-NetFirewallRule -DisplayGroup "File And Printer Sharing" -Profile Any -Enabled True
+    SHELL
+  end
+end
