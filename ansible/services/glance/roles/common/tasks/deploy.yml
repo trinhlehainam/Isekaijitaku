@@ -18,19 +18,52 @@
 ##############################################################################
 # Service Deployment
 ##############################################################################
+#
+- name: Validate {{ project_name|capitalize }} variables
+  ansible.builtin.assert:
+    that:
+      # Secrets (Check variables holding the secrets)
+      - glance_config_dir is defined
+      - glance_assets_dir is defined
+      - glance_secret_token is defined
+    fail_msg: "Required {{ project_name|capitalize }} variables are not defined. Check directories, secrets, env vars (glance_config_dir, glance_assets_dir)."
 
 - name: Create directory for {{ project_name|upper }} docker-compose files
   ansible.builtin.file:
-    path: "{{ service_project_src }}"
+    path: "{{ item.path }}"
     state: directory
     mode: '0755'
+  loop:
+    - { id: "service_project_src", path: "{{ service_project_src }}" }
+    - { id: "glance_config_dir", path: "{{ glance_config_dir }}" }
+    - { id: "glance_assets_dir", path: "{{ glance_assets_dir }}" }
+  loop_control:
+    label: "{{ item.id }}"
 
 - name: Copy {{ project_name|upper }} docker-compose file
   ansible.builtin.template:
     src: "docker-compose.yml.j2"
     dest: "{{ service_project_src }}/docker-compose.yml"
     mode: '0644'
-  
+
+- name: Copy .env template file
+  ansible.builtin.template:
+    src: ".env.j2"
+    dest: "{{ service_project_src }}/.env"
+    mode: '0644'
+    
+- name: Copy glance config file
+  ansible.builtin.copy:
+    src: "config/glance.yml"
+    dest: "{{ glance_config_dir }}/glance.yml"
+    mode: '0644'
+    
+- name: Copy Glance assets
+  ansible.builtin.copy:
+    src: "assets/"
+    dest: "{{ glance_assets_dir }}"
+    mode: '0644'
+    
 - name: Start {{ project_name|upper }} container
   community.docker.docker_compose_v2:
     project_src: "{{ service_project_src }}"
