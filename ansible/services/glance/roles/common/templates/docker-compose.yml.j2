@@ -10,6 +10,8 @@ services:
     volumes:
       - {{ glance_config_dir }}:/app/config
       - {{ glance_assets_dir }}:/app/assets
+      - /etc/timezone:/etc/timezone:ro
+      - /etc/localtime:/etc/localtime:ro
 {% if use_local_dns|default(false) and local_dns|default(false) %}
     dns:
       - {{ local_dns }}
