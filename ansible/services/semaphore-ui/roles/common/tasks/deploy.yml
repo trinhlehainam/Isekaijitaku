@@ -101,7 +101,7 @@
       
     - name: Build docker image
       community.docker.docker_image:
-        name: "myorg/semaphore-ui-tailscale"
+        name: "{{ organization_name }}/semaphore-ui-tailscale"
         tag: latest
         path: "{{ service_project_src }}"
         build:

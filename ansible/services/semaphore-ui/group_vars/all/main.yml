@@ -1,5 +1,7 @@
 project_name: "semaphore"
 
+organization_name: "myorg"
+
 # PostgreSQL
 postgres_user: "semaphore"
 postgres_db: "semaphore"

@@ -41,7 +41,7 @@ services:
     restart: always
 
   semaphore:
-    image: myorg/semaphore-ui-tailscale:latest
+    image: {{ organization_name }}/semaphore-ui-tailscale:latest
     build:
       context: .
       dockerfile: Dockerfile
