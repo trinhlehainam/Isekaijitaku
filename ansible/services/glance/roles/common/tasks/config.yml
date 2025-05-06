@@ -2,24 +2,28 @@
 # Service Status Verification
 ##############################################################################
 
-- name: Check for existing {{ project_name|upper }} service
+- name: "Check for existing  service"
   vars:
     project_src: "{{ service_project_src }}"
   ansible.builtin.include_tasks: check.yml
 
-- name: Set service existence flag
+- name: "Set service existence flag"
   ansible.builtin.set_fact:
     service_exists: "{{ check_result is defined and check_result.services is defined and check_result.services | length > 0 }}"
 
-- name: End play if service already exists and running
+- name: "End play if service does not exist"
   meta: end_host
-  when: service_exists
+  when: not service_exists
 
 ##############################################################################
 # Service Deployment
 ##############################################################################
-#
-- name: Validate {{ project_name|capitalize }} variables
+
+- name: "Display start message for configuration update"
+  ansible.builtin.debug:
+    msg: "Starting configuration update for {{ project_name|upper }}..."
+
+- name: "Validate {{ project_name|capitalize }} variables"
   ansible.builtin.assert:
     that:
       # Secrets (Check variables holding the secrets)
@@ -28,63 +32,52 @@
       - glance_secret_token is defined
     fail_msg: "Required {{ project_name|capitalize }} variables are not defined. Check directories, secrets, env vars (glance_config_dir, glance_assets_dir)."
 
-- name: Create directory for {{ project_name|upper }} docker-compose files
+- name: Ensure directory for configuration files
   ansible.builtin.file:
     path: "{{ item.path }}"
     state: directory
     mode: '0755'
   loop:
-    - { id: "service_project_src", path: "{{ service_project_src }}" }
     - { id: "glance_config_dir", path: "{{ glance_config_dir }}" }
     - { id: "glance_assets_dir", path: "{{ glance_assets_dir }}" }
   loop_control:
     label: "{{ item.id }}"
 
-- name: Copy {{ project_name|upper }} docker-compose file
+- name: "Copy docker-compose file"
   ansible.builtin.template:
     src: "docker-compose.yml.j2"
     dest: "{{ service_project_src }}/docker-compose.yml"
     mode: '0644'
 
-- name: Copy .env template file
+- name: "Copy .env template file"
   ansible.builtin.template:
     src: ".env.j2"
     dest: "{{ service_project_src }}/.env"
     mode: '0644'
     
-- name: Copy glance config file
+- name: "Copy glance config file"
   ansible.builtin.copy:
     src: "config/glance.yml"
     dest: "{{ glance_config_dir }}/glance.yml"
     mode: '0644'
     
-- name: Copy Glance assets
+- name: "Copy Glance assets"
   ansible.builtin.copy:
     src: "assets/"
     dest: "{{ glance_assets_dir }}"
     mode: '0644'
     
-- name: Start {{ project_name|upper }} container
+- name: "Display file copy completion message"
+  ansible.builtin.debug:
+    msg: "Configuration files and assets copied for {{ project_name|upper }}. Restarting service..."
+  
+- name: "Restart container"
   community.docker.docker_compose_v2:
     project_src: "{{ service_project_src }}"
-    state: present
+    state: restarted
   register: output
 
-- name: Display {{ project_name|upper }} connection info
-  vars:
-    msg: |
-      ===== {{ project_name|upper }} ACCESS INFORMATION =====
-      {% if use_traefik|default(false) %}
-      Access via Traefik:
-        {% if use_traefik_router_public|default(false) and public_apex_domain|default(false) %}
-        - Public: https://{{ service_name|default('glance') }}.{{ public_apex_domain }}
-        {% endif %}
-        {% if use_traefik_router_private|default(false) and private_apex_domain|default(false) %}
-        - Private: https://{{ service_name|default('glance') }}.{{ private_apex_domain }}
-        {% endif %}
-      {% else %}
-      Direct access: http://{{ ansible_host }}:8080
-      {% endif %}
-      =============================================
+- name: "Display restart completion message"
   ansible.builtin.debug:
-    msg: "{{ msg.split('\n') }}"
+    msg: "{{ project_name|upper }} service restarted successfully."
+  when: output is defined and not output.failed

@@ -28,6 +28,15 @@
       vars:
         operation_mode: check
 
+- name: Update configuration of {{ project_name|upper }} services
+  hosts: all
+  gather_facts: true
+  tags: [never, config]
+  roles:
+    - role: common
+      vars:
+        operation_mode: config
+
 - name: Destroy {{ project_name|upper }} services
   hosts: all
   gather_facts: true

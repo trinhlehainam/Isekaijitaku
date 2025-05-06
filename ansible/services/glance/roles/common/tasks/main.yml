@@ -42,3 +42,7 @@
 - name: Include upgrade tasks
   ansible.builtin.include_tasks: upgrade.yml
   when: operation_mode == 'upgrade'
+  
+- name: Include config tasks
+  ansible.builtin.include_tasks: config.yml
+  when: operation_mode == 'config'
