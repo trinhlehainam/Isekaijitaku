@@ -27,9 +27,12 @@ pages:
             location: Fukuoka, Japan
 
       # NOTE: timeout bug when using local dns in current glance version (v0.7.13), will be fixed in v0.8.0
+      # QUICK FIX: https://github.com/glanceapp/glance/issues/290#issuecomment-2667828295
       # REF: https://github.com/glanceapp/glance/issues/557
+      # TODO: remove this note when v0.8.0 is released
       
       # Right Column (takes remaining space)
+      # https://github.com/glanceapp/glance/blob/main/docs/configuration.md#sites
       - size: full
         widgets:
           - type: monitor
