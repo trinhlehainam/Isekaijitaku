@@ -26,6 +26,9 @@ pages:
           - type: weather
             location: Fukuoka, Japan
 
+      # NOTE: timeout bug when using local dns in current glance version (v0.7.13), will be fixed in v0.8.0
+      # REF: https://github.com/glanceapp/glance/issues/557
+      
       # Right Column (takes remaining space)
       - size: full
         widgets:

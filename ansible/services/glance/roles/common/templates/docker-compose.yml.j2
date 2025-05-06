@@ -28,7 +28,7 @@ services:
     labels:
       - "traefik.enable=true"
       - 'traefik.docker.network=proxy'
-      - 'traefik.http.services.glance.loadbalancer.server.port=80'
+      - 'traefik.http.services.glance.loadbalancer.server.port=8080'
   {% if use_traefik_router_private|default(false) and private_apex_domain|default(false) %}
       ## Private
       - "traefik.http.routers.glance-local.rule=Host(`{{ service_name|default('glance') }}.{{ private_apex_domain }}`)"
