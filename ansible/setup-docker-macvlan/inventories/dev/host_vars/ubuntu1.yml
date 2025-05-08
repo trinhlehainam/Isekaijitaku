@@ -18,8 +18,8 @@ ansible_become_password: !vault |
 
 # Host-specific Docker macvlan configurations for ubuntu1
 docker_macvlan_setups:
-  - name: "general_lan"
-    parent_interface: "eth0" # Assumed to be the Vagrant private network interface
+  - file_name: "general_lan"
+    parent_interface: "enp0s8" # Assumed to be the Vagrant private network interface
     host_ip: "192.168.56.11"
     macvlan_interface_name: "mv-genlan"
     container_cidrs:

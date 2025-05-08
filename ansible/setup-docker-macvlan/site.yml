@@ -3,7 +3,6 @@
   hosts: all
   become: true
   gather_facts: true
-  tags: [never, deploy]
   roles:
     - role: geerlingguy.docker
       vars:

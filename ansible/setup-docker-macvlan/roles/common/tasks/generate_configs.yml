@@ -2,36 +2,36 @@
 # tasks file for managing a single Docker macvlan instance
 # This file is included in a loop from main.yml for each item in docker_macvlan_host_setups
 
-- name: "Validate parameters for macvlan instance '{{ config.name }}'"
+- name: "Validate parameters for macvlan instance '{{ config.file_name }}'"
   ansible.builtin.assert:
     that:
-      - config.name is defined
-      - config.name is string
+      - config.file_name is defined
+      - config.file_name is string
       - config.parent_interface is defined
       - config.parent_interface is string
       - config.host_ip is defined
       - config.host_ip is string
       # Ensure host_ip is a valid IP, basic check, does not check for CIDR presence
-      - config.host_ip | ansible.netcommon.ipaddr
+      - config.host_ip | ansible.utils.ipaddr
       - config.macvlan_interface_name is defined
       - config.macvlan_interface_name is string
       - config.container_cidrs is defined
-      - config.container_cidrs is list
-    fail_msg: "Validation failed for macvlan instance '{{ config.name }}'. Please check definition."
+      - config.container_cidrs | type_debug == 'list'
+    fail_msg: "Validation failed for macvlan instance '{{ config.file_name }}'. Please check definition."
     quiet: true
 
-- name: "Generate macvlan config for '{{ config.name }}'"
+- name: "Generate macvlan config for '{{ config.file_name }}'"
+  vars:
+    file_name: "{{ config.file_name }}"
+    parent_interface: "{{ config.parent_interface }}"
+    host_ip: "{{ config.host_ip }}" # Should be IP only, script adds /32
+    macvlan_interface_name: "{{ config.macvlan_interface_name }}"
+    container_cidrs: "{{ config.container_cidrs }}"
   ansible.builtin.template:
     src: docker-macvlan.conf.j2 # Located in roles/common/templates/
-    dest: "/etc/docker-macvlan.d/{{ config.name }}.conf"
+    dest: "/etc/docker-macvlan.d/{{ file_name }}.conf"
     owner: root
     group: root
     mode: '0644'
-    vars:
-      name: "{{ config.name }}"
-      parent_interface: "{{ config.parent_interface }}"
-      host_ip: "{{ config.host_ip }}" # Should be IP only, script adds /32
-      macvlan_interface_name: "{{ config.macvlan_interface_name }}"
-      container_cidrs: "{{ config.container_cidrs }}"
   notify:
     - Restart docker-macvlans service

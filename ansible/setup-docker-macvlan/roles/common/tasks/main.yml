@@ -10,16 +10,16 @@
 
 - name: Copy macvlan setup script to host
   ansible.builtin.copy:
-    src: docker-macvlan-systemd-setup.sh # Expected in roles/common/files/
-    dest: /usr/local/bin/docker-macvlan-systemd-setup.sh
+    src: docker-macvlans-setup.sh # Expected in roles/common/files/
+    dest: /usr/local/bin/docker-macvlans-setup.sh
     mode: '0755'
     owner: root
     group: root
 
 - name: Copy macvlan cleanup script to host
   ansible.builtin.copy:
-    src: docker-macvlan-systemd-cleanup.sh # Expected in roles/common/files/
-    dest: /usr/local/bin/docker-macvlan-systemd-cleanup.sh
+    src: docker-macvlans-cleanup.sh # Expected in roles/common/files/
+    dest: /usr/local/bin/docker-macvlans-cleanup.sh
     mode: '0755'
     owner: root
     group: root
@@ -37,7 +37,7 @@
   ansible.builtin.include_tasks: tasks/generate_configs.yml # Path relative to role's root or tasks/ dir
   loop: "{{ docker_macvlan_setups }}"
   loop_control:
-    label: "{{ item.name }}"
+    label: "{{ config.file_name }}"
     loop_var: config
   when: docker_macvlan_setups is defined and docker_macvlan_setups | length > 0
 

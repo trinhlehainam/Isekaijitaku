@@ -3,15 +3,15 @@ ansible_host: 192.168.56.12
 
 # Host-specific Docker macvlan configurations for ubuntu2
 docker_macvlan_setups:
-  - name: "dmz_lan"
-    parent_interface: "eth0"   # Assumed to be the Vagrant private network interface
+  - file_name: "dmz_lan"
+    parent_interface: "enp0s8"   # Assumed to be the Vagrant private network interface
     host_ip: "192.168.56.12"
     macvlan_interface_name: "mv-dmz"
     container_cidrs:
       - "192.168.56.120/29" # Range: 192.168.56.120 - 192.168.56.127 (gateway .121, broadcast .127, usable .120 & .122-.126)
 
-  - name: "iot_lan"
-    parent_interface: "eth0"    # Using eth0, consistent with the private network
+  - file_name: "iot_lan"
+    parent_interface: "enp0s8"    # Using enp0s8, consistent with the private network
     host_ip: "192.168.56.12"
     macvlan_interface_name: "mv-iot"
     container_cidrs:

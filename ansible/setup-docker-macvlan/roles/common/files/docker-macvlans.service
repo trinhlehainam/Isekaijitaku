@@ -13,9 +13,9 @@ RemainAfterExit=yes
 # Define the path to your configuration directory
 Environment="CONFIG_PATH=/etc/docker-macvlan.d"
 # Directly call the setup script
-ExecStart=/usr/local/bin/docker-macvlan-systemd-setup.sh
+ExecStart=/usr/local/bin/docker-macvlans--setup.sh
 # Directly call the cleanup script
-ExecStop=/usr/local/bin/docker-macvlan-systemd-cleanup.sh
+ExecStop=/usr/local/bin/docker-macvlans-cleanup.sh
 StandardOutput=journal
 StandardError=journal
 
