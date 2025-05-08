@@ -1,0 +1,76 @@
+---
+# Tasks for setting up Docker macvlan host communication interfaces
+- name: Ensure prerequisite directories exist for macvlan configs
+  ansible.builtin.file:
+    path: "{{ item }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - /etc/docker-macvlan.d # For instance configuration files
+
+- name: Copy macvlan setup script to host
+  ansible.builtin.copy:
+    src: docker-macvlan-systemd-setup.sh # Expected in roles/common/files/
+    dest: /usr/local/bin/docker-macvlan-systemd-setup.sh
+    mode: '0755'
+    owner: root
+    group: root
+
+- name: Copy macvlan cleanup script to host
+  ansible.builtin.copy:
+    src: docker-macvlan-systemd-cleanup.sh # Expected in roles/common/files/
+    dest: /usr/local/bin/docker-macvlan-systemd-cleanup.sh
+    mode: '0755'
+    owner: root
+    group: root
+
+- name: Copy macvlan systemd service unit file
+  ansible.builtin.copy:
+    src: docker-macvlans.service # Expected in roles/common/files/
+    dest: /etc/systemd/system/docker-macvlans.service
+    mode: '0644'
+    owner: root
+    group: root
+  notify: Reload systemd daemon
+
+- name: Configure and manage each macvlan host interface setup
+  ansible.builtin.include_tasks: tasks/generate_configs.yml # Path relative to role's root or tasks/ dir
+  loop: "{{ docker_macvlan_setups }}"
+  loop_control:
+    label: "{{ item.name }}"
+    loop_var: config
+  when: docker_macvlan_setups is defined and docker_macvlan_setups | length > 0
+
+# Flush handlers to ensure systemd is reloaded and service is restarted (if notified)
+# before we try to ensure it's started or check its logs.
+- name: Flush handlers
+  ansible.builtin.meta: flush_handlers
+
+- name: Ensure docker-macvlans service is enabled and started
+  ansible.builtin.systemd_service:
+    name: docker-macvlans
+    state: started
+    enabled: true
+  when: docker_macvlan_setups is defined and docker_macvlan_setups | length > 0
+
+# Task to check service logs after setup/restart attempts
+- name: Check docker-macvlans service status and recent logs
+  ansible.builtin.command:
+    cmd: journalctl -u docker-macvlans.service -n 20 --no-pager
+  register: macvlan_service_log
+  changed_when: false
+  failed_when: false # Don't fail the playbook if logs are empty or service just started
+
+- name: Display docker-macvlans service log output
+  ansible.builtin.debug:
+    msg:
+      - "STDOUT from docker-macvlans.service logs:"
+      - "{{ macvlan_service_log.stdout_lines | join('\n') }}"
+      - "STDERR from docker-macvlans.service logs (if any):"
+      - "{{ macvlan_service_log.stderr_lines | join('\n') }}"
+  when: macvlan_service_log.stdout_lines or macvlan_service_log.stderr_lines
+
+- name: Display message if no macvlan setups are defined
+  ansible.builtin.debug:
+    msg: "No macvlan setups defined in 'docker_macvlan_setups'. Skipping macvlan host interface configuration."
+  when: not (docker_macvlan_setups is defined and docker_macvlan_setups | length > 0)

@@ -2,7 +2,7 @@
 ansible_host: 192.168.56.12
 
 # Host-specific Docker macvlan configurations for ubuntu2
-docker_macvlan_host_setups:
+docker_macvlan_setups:
   - name: "dmz_lan"
     parent_interface: "eth0"   # Assumed to be the Vagrant private network interface
     host_ip: "192.168.56.12"

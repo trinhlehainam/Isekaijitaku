@@ -1,0 +1,13 @@
+---
+# Handlers for the common role
+
+- name: Reload systemd daemon
+  ansible.builtin.systemd_service:
+    daemon_reload: true
+  listen: "Reload systemd daemon"
+
+- name: Restart docker-macvlans service
+  ansible.builtin.systemd_service:
+    name: docker-macvlans
+    state: restarted
+  listen: "Restart docker-macvlans service"
