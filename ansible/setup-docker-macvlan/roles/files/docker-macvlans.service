@@ -1,0 +1,23 @@
+[Unit]
+Description=Docker Host Macvlan (docker-macvlan)
+# Ensures this runs after network is online and before Docker starts, 
+# and also that Docker waits for this service to complete its setup.
+After=network-online.target
+Wants=network-online.target
+Before=docker.service
+Requires=docker.service 
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+# Define the path to your configuration directory
+Environment="CONFIG_PATH=/etc/docker-macvlan.d"
+# Directly call the setup script
+ExecStart=/usr/local/bin/docker-macvlan-systemd-setup.sh
+# Directly call the cleanup script
+ExecStop=/usr/local/bin/docker-macvlan-systemd-cleanup.sh
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=multi-user.target

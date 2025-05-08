@@ -1,0 +1,71 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant.configure("2") do |config|
+  # Use ubuntu/jammy64 box
+  # https://portal.cloud.hashicorp.com/vagrant/discover/ubuntu/jammy64
+  config.vm.box = "ubuntu/jammy64"
+  config.vm.box_version = "20241002.0.0"
+  config.vm.boot_timeout = 300
+  config.ssh.insert_key = false
+  config.vm.synced_folder '.', '/vagrant', disabled: true
+  
+  config.vm.provider :virtualbox do |v|
+    v.memory = 512
+    v.cpus = 1
+    v.linked_clone = true
+    # https://gist.github.com/travelhawk/b9c1b6b7a9cd35cf3898fcb33cdae72d#verr_path_not_found-when-using-vagrant-up
+    # https://github.com/joelhandwell/ubuntu_vagrant_boxes/issues/1#issuecomment-292370353
+    v.customize ["modifyvm", :id, "--uartmode1", "disconnected"]
+    
+    # https://stackoverflow.com/a/54481502
+    v.customize ["modifyvm", :id, "--cableconnected1", "on"]
+  end
+
+  # Define three Ubuntu test machines
+  (1..2).each do |i|
+    config.vm.define "ubuntu#{i}" do |node|
+      node.vm.hostname = "ubuntu#{i}"
+      node.vm.network "private_network", ip: "192.168.56.#{10+i}"
+
+      # Common provisioning for both VMs
+      node.vm.provision "shell", inline: <<-SHELL
+        # Configure SSH based on hostname
+        if [ "$(hostname)" = "ubuntu1" ]; then
+          # Enable password authentication for ubuntu1
+          sed -i 's/^#*PasswordAuthentication .*/PasswordAuthentication yes/' /etc/ssh/sshd_config
+          sed -i 's/^#*PasswordAuthentication .*/PasswordAuthentication yes/' /etc/ssh/sshd_config.d/60-cloudimg-settings.conf
+          sed -i 's/^#*PubkeyAuthentication .*/PubkeyAuthentication no/' /etc/ssh/sshd_config
+
+          # Create dummy user with sudo access but requires password
+          useradd -m -s /bin/bash dummy
+          echo "dummy:dummy" | chpasswd
+          # Add dummy to sudo group
+          usermod -aG sudo dummy
+
+          # Restart SSH service
+          systemctl restart sshd
+        fi
+
+        # python and unattended-upgrades are installed by default in "ubuntu/jammy64" image
+
+        curl -fsSL https://deb.nodesource.com/setup_18.x | bash - 
+        apt-get install nodejs -y
+        
+        # Update nodejs DEB repository
+        # https://deb.nodesource.com/
+        curl -fsSL https://deb.nodesource.com/setup_20.x | bash - 
+
+        # Set up reboot requirement for testing
+        echo "Set up a reboot requirement"
+        touch /var/run/reboot-required
+        echo "linux-image-generic" > /var/run/reboot-required.pkgs
+        echo "linux-headers-generic" >> /var/run/reboot-required.pkgs
+        echo "dbus" >> /var/run/reboot-required.pkgs
+      SHELL
+    end
+  end
+
+  # Disable automatic box update checks to avoid issues
+  config.vm.box_check_update = false
+end

@@ -135,10 +135,10 @@ journalctl -t static-routes
    - Scripts check for existing entries before adding new ones
    - To clean up routing rules: `sudo ip rule del to 100.64.0.0/10 priority 2500`
    - To clean up static routes (replace 192.168.0.100 with your subnet router's IP):
-     ```bash
-     sudo ip route del 100.64.0.0/10 via 192.168.0.100
-     sudo ip route del 192.168.1.0/24 via 192.168.0.100
-     ```
+```bash
+sudo ip route del 100.64.0.0/10 via 192.168.0.100
+sudo ip route del 192.168.1.0/24 via 192.168.0.100
+```
 
 ## Notes
 
