@@ -46,22 +46,6 @@ Vagrant.configure("2") do |config|
           # Restart SSH service
           systemctl restart sshd
         fi
-
-        # python and unattended-upgrades are installed by default in "ubuntu/jammy64" image
-
-        curl -fsSL https://deb.nodesource.com/setup_18.x | bash - 
-        apt-get install nodejs -y
-        
-        # Update nodejs DEB repository
-        # https://deb.nodesource.com/
-        curl -fsSL https://deb.nodesource.com/setup_20.x | bash - 
-
-        # Set up reboot requirement for testing
-        echo "Set up a reboot requirement"
-        touch /var/run/reboot-required
-        echo "linux-image-generic" > /var/run/reboot-required.pkgs
-        echo "linux-headers-generic" >> /var/run/reboot-required.pkgs
-        echo "dbus" >> /var/run/reboot-required.pkgs
       SHELL
     end
   end
