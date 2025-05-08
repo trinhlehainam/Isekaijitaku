@@ -62,12 +62,22 @@
   failed_when: false # Don't fail the playbook if logs are empty or service just started
 
 - name: Display docker-macvlans service log output
+  vars:
+    msg: |
+      {% if macvlan_service_log.stdout_lines | length > 0 %}
+      "STDOUT from docker-macvlans.service logs:"
+        {% for line in macvlan_service_log.stdout_lines %}
+          {{ line }}
+        {% endfor %}
+      {% endif %}
+      {% if macvlan_service_log.stderr_lines | length > 0 %}
+      "STDERR from docker-macvlans.service logs (if any):"
+        {% for line in macvlan_service_log.stderr_lines %}
+          {{ line }}
+        {% endfor %}
+      {% endif %}
   ansible.builtin.debug:
-    msg:
-      - "STDOUT from docker-macvlans.service logs:"
-      - "{{ macvlan_service_log.stdout_lines | join('\n') }}"
-      - "STDERR from docker-macvlans.service logs (if any):"
-      - "{{ macvlan_service_log.stderr_lines | join('\n') }}"
+    msg: "{{ msg.split('\n') }}"
   when: macvlan_service_log.stdout_lines or macvlan_service_log.stderr_lines
 
 - name: Display message if no macvlan setups are defined
