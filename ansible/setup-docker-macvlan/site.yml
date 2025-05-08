@@ -1,5 +1,5 @@
 ---
-- name: Ensure Docker is installed and running
+- name: Ensure Docker is installed and Configures Docker macvlan
   hosts: all
   become: true
   gather_facts: true
@@ -9,9 +9,4 @@
         docker_users:
           - "{{ ansible_user }}"
 
-- name: Setup Docker macvlan network
-  hosts: all
-  become: true
-  gather_facts: true
-  roles:
     - role: common

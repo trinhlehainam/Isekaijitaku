@@ -43,7 +43,7 @@
 
 # Flush handlers to ensure systemd is reloaded and service is restarted (if notified)
 # before we try to ensure it's started or check its logs.
-- name: Flush handlers
+- name: Force all notified handlers to run at this point, not waiting for normal sync points
   ansible.builtin.meta: flush_handlers
 
 - name: Ensure docker-macvlans service is enabled and started
