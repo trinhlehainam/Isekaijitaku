@@ -40,22 +40,23 @@ _setup_one_macvlan() {
     ip link set "${macvlan_if_name}" up
 
     # 5. Add routes for container CIDRs for this specific macvlan
-    if [ ${#cidrs_array_ref[@]} -gt 0 ]; then
-        echo "INFO [${macvlan_if_name} SETUP]: Processing ${#cidrs_array_ref[@]} CIDR(s) for route addition: ${cidrs_array_ref[*]}"
-        for cidr_to_route in "${cidrs_array_ref[@]}"; do
-            if [ -z "${cidr_to_route}" ]; then continue; fi
-            if ip route show | grep -q "${cidr_to_route}[[:space:]]dev[[:space:]]${macvlan_if_name}"; then
-                echo "INFO [${macvlan_if_name} SETUP]: Route for ${cidr_to_route} via ${macvlan_if_name} already exists."
-                continue;
-            fi
-            echo "INFO [${macvlan_if_name} SETUP]: Adding route for ${cidr_to_route}..."
-            if ! ip route add "${cidr_to_route}" dev "${macvlan_if_name}"; then
-                echo "ERROR [${macvlan_if_name} SETUP]: Failed to add route for ${cidr_to_route} via ${macvlan_if_name}."
-            fi
-        done
-    else
+    if [ ${#cidrs_array_ref[@]} -eq 0 ]; then
         echo "INFO [${macvlan_if_name} SETUP]: No container CIDRs defined for this entry. Skipping route addition."
+        return 0
     fi
+
+    echo "INFO [${macvlan_if_name} SETUP]: Processing ${#cidrs_array_ref[@]} CIDR(s) for route addition: ${cidrs_array_ref[*]}"
+    for cidr_to_route in "${cidrs_array_ref[@]}"; do
+        if [ -z "${cidr_to_route}" ]; then continue; fi
+        if ip route show | grep -q "${cidr_to_route}[[:space:]]dev[[:space:]]${macvlan_if_name}"; then
+            echo "INFO [${macvlan_if_name} SETUP]: Route for ${cidr_to_route} via ${macvlan_if_name} already exists."
+            continue;
+        fi
+        echo "INFO [${macvlan_if_name} SETUP]: Adding route for ${cidr_to_route}..."
+        if ! ip route add "${cidr_to_route}" dev "${macvlan_if_name}"; then
+            echo "ERROR [${macvlan_if_name} SETUP]: Failed to add route for ${cidr_to_route} via ${macvlan_if_name}."
+        fi
+    done
 
     echo "INFO [${macvlan_if_name} SETUP]: Setup complete."
     return 0 # Success for this specific configuration
