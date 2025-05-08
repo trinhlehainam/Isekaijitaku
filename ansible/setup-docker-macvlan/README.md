@@ -7,6 +7,8 @@ tags:
   - docker
   - macvlan
   - network
+  - ansible
+  - host-communication
   - tutorial
 ---
 
@@ -31,7 +33,7 @@ Avoid IP conflicts by careful planning.
 
 - **LAN CIDR**: Find with `ip a` (e.g., `192.168.1.0/24`).
 - **Router DHCP Range**: Check router settings (e.g., `192.168.1.100-192.168.1.200`).
-- **Macvlan Container IP Range**: Choose a range within your LAN's subnet but *outside* the DHCP range and any static IPs (e.g., `192.168.1.210/28` for IPs `192.168.1.210-192.168.1.222`).
+- **Macvlan Container IP Range**: Choose a range within your LAN's subnet but *outside* the DHCP range and any static IPs (e.g., `192.168.1.210/28` for IPs `192.168.1.210-192.168.1.222`). If you have a specific start and end IP for your container range, you can use an online tool like [ip2cidr.com](https://ip2cidr.com/) (see References) to convert this range into the required CIDR notation (e.g., `192.168.1.210-192.168.1.222` becomes `192.168.1.210/28`).
 
 Key parameters for Docker macvlan network creation:
 - **Subnet**: Your LAN's subnet (e.g., `192.168.1.0/24`).
