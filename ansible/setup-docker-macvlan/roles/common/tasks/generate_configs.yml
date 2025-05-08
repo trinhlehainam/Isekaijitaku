@@ -19,6 +19,18 @@
       - config.container_cidrs | type_debug == 'list'
     fail_msg: "Validation failed for macvlan instance '{{ config.file_name }}'. Please check definition."
     quiet: true
+    
+- name: "Validate CIDR is valid"
+  ansible.builtin.assert:
+    that:
+      - item | ansible.utils.ipaddr
+    fail_msg: "Validation failed for macvlan instance '{{ config.file_name }}'. Please check definition."
+    quiet: true
+  loop: "{{ config.container_cidrs }}"
+  no_log: true
+  
+# TODO: merge CIDRs that are in the same subnet
+# REF: https://docs.ansible.com/ansible/latest/collections/ansible/utils/cidr_merge_filter.html#ansible-collections-ansible-utils-cidr-merge-filter
 
 - name: "Generate macvlan config for '{{ config.file_name }}'"
   vars:

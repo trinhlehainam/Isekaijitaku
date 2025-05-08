@@ -1,4 +1,10 @@
 ---
+# Verify that docker_macvlan_setups is defined and has at least one item
+- name: Fail if no macvlan setups are defined
+  ansible.builtin.fail:
+    msg: "No macvlan setups defined in 'docker_macvlan_setups'."
+  when: not (docker_macvlan_setups is defined and docker_macvlan_setups|length > 0)
+
 # Tasks for setting up Docker macvlan host communication interfaces
 - name: Ensure prerequisite directories exist for macvlan configs
   ansible.builtin.file:
@@ -39,7 +45,6 @@
   loop_control:
     label: "{{ config.file_name }}"
     loop_var: config
-  when: docker_macvlan_setups is defined and docker_macvlan_setups | length > 0
 
 # Flush handlers to ensure systemd is reloaded and service is restarted (if notified)
 # before we try to ensure it's started or check its logs.
@@ -51,7 +56,6 @@
     name: docker-macvlans
     state: started
     enabled: true
-  when: docker_macvlan_setups is defined and docker_macvlan_setups | length > 0
 
 # Task to check service logs after setup/restart attempts
 - name: Check docker-macvlans service status and recent logs
@@ -78,9 +82,3 @@
       {% endif %}
   ansible.builtin.debug:
     msg: "{{ msg.split('\n') }}"
-  when: macvlan_service_log.stdout_lines or macvlan_service_log.stderr_lines
-
-- name: Display message if no macvlan setups are defined
-  ansible.builtin.debug:
-    msg: "No macvlan setups defined in 'docker_macvlan_setups'. Skipping macvlan host interface configuration."
-  when: not (docker_macvlan_setups is defined and docker_macvlan_setups | length > 0)
