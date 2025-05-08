@@ -44,9 +44,13 @@ _setup_one_macvlan() {
         echo "INFO [${macvlan_if_name} SETUP]: Processing ${#cidrs_array_ref[@]} CIDR(s) for route addition: ${cidrs_array_ref[*]}"
         for cidr_to_route in "${cidrs_array_ref[@]}"; do
             if [ -z "${cidr_to_route}" ]; then continue; fi
-            if ! ip route show | grep -q "${cidr_to_route}[[:space:]]dev[[:space:]]${macvlan_if_name}"; then
-                echo "INFO [${macvlan_if_name} SETUP]: Adding route for ${cidr_to_route}..."
-                ip route add "${cidr_to_route}" dev "${macvlan_if_name}"
+            if ip route show | grep -q "${cidr_to_route}[[:space:]]dev[[:space:]]${macvlan_if_name}"; then
+                echo "INFO [${macvlan_if_name} SETUP]: Route for ${cidr_to_route} via ${macvlan_if_name} already exists."
+                continue;
+            fi
+            echo "INFO [${macvlan_if_name} SETUP]: Adding route for ${cidr_to_route}..."
+            if ! ip route add "${cidr_to_route}" dev "${macvlan_if_name}"; then
+                echo "ERROR [${macvlan_if_name} SETUP]: Failed to add route for ${cidr_to_route} via ${macvlan_if_name}."
             fi
         done
     else

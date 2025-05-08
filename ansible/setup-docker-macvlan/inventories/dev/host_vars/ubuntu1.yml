@@ -23,4 +23,4 @@ docker_macvlan_setups:
     host_ip: "192.168.56.11"
     macvlan_interface_name: "mv-genlan"
     container_cidrs:
-      - "192.168.56.100/28" # Range: 192.168.56.96 - 192.168.56.111 (gateway .97, broadcast .111, usable .100-.110)
+      - "192.168.56.96/28" # Range: 192.168.56.96 - 192.168.56.111 (gateway .97, broadcast .111, usable .100-.110)
