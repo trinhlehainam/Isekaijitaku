@@ -1,0 +1,23 @@
+---
+- name: Make sure tailscale is installed
+  vars:
+    tailscale_up_skip: true
+  ansible.builtin.include_role:
+    name: artis3n.tailscale
+
+- name: Ensure common packages are installed
+  ansible.builtin.apt:
+    name:
+      - networkd-dispatcher  # Needed for client routing scripts
+      - iptables-persistent  # Needed for router NAT rules
+    state: present
+
+# Include router-specific tasks
+- name: Include router configuration
+  ansible.builtin.include_tasks: router.yml
+  when: inventory_hostname in groups['tailscale_routers']
+
+# Include client-specific tasks
+- name: Include client configuration
+  ansible.builtin.include_tasks: client.yml
+  when: inventory_hostname in groups['tailscale_clients']

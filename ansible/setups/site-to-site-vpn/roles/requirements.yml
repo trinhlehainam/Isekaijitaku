@@ -1,0 +1,5 @@
+---
+collections:
+  # https://galaxy.ansible.com/ui/repo/published/artis3n/tailscale/
+  - name: artis3n.tailscale
+    version: 1.0.1

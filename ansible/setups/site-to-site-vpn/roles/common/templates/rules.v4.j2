@@ -1,0 +1,8 @@
+*filter
+COMMIT
+*nat
+{% for rule in _nat_rules %}
+# {{rule.description}}
+-A POSTROUTING -s {{rule.source}} -d {{rule.destination}} -o {{rule.interface}} -j MASQUERADE
+{% endfor %}
+COMMIT

@@ -1,0 +1,31 @@
+#!/bin/sh
+
+# This script is triggered by networkd-dispatcher when network state changes
+# Place in /etc/networkd-dispatcher/routable.d/ to run when interfaces become routable
+
+# Configuration
+# Environment variables:
+# TAILSCALE_ROUTER_HOST_IP: The LAN IP of your Tailscale subnet router (example: 192.168.1.100)
+# REMOTE_SUBNETS: List of remote subnets to route (example: ("192.168.1.0/24" "192.168.2.0/24" "10.0.0.0/24"))
+
+TAILSCALE_SUBNET="100.64.0.0/10"
+TAILSCALE_ROUTER_HOST_IP="{{ _tailscale_router_host_ip }}"
+REMOTE_SUBNETS=({% for subnet in _remote_subnets %}"{{ subnet }}" {% endfor %})
+
+# Add small delay to ensure network is stable
+sleep 1
+
+# Add routes if they don't exist
+# Route Tailscale subnet (100.64.0.0/10) through the Tailscale subnet router
+if ! ip route show | grep -q "$TAILSCALE_SUBNET via $TAILSCALE_ROUTER_HOST_IP"; then
+    logger -t static-routes "INFO: Adding Tailscale subnet route through Tailscale subnet router ($TAILSCALE_ROUTER_HOST_IP)..."
+    ip route add $TAILSCALE_SUBNET via $TAILSCALE_ROUTER_HOST_IP
+fi
+
+# Route remote LAN subnets through the Tailscale subnet router
+for subnet in ${REMOTE_SUBNETS[@]}; do
+    if ! ip route show | grep -q "$subnet via $TAILSCALE_ROUTER_HOST_IP"; then
+        logger -t static-routes "INFO: Adding remote LAN route for $subnet through Tailscale subnet router ($TAILSCALE_ROUTER_HOST_IP)..."
+        ip route add "$subnet" via "$TAILSCALE_ROUTER_HOST_IP"
+    fi
+done

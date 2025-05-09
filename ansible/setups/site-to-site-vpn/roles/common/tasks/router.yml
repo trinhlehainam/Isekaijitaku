@@ -1,0 +1,34 @@
+---
+# roles/common/tasks/router.yml
+# Included by main.yml for hosts in groups['tailscale_routers']
+
+- name: Enable IP forwarding in sysctl
+  ansible.posix.sysctl:
+    name: "{{ item.name }}"
+    value: "{{ item.value }}"
+    sysctl_file: /etc/sysctl.d/99-tailscale-forwarding.conf
+    reload: true
+  loop:
+    - { name: 'net.ipv4.ip_forward', value: '1' }
+    - { name: 'net.ipv6.conf.all.forwarding', value: '1' }
+
+- name: Template iptables rules for NAT
+  ansible.builtin.template:
+    src: rules.v4.j2
+    dest: /etc/iptables/rules.v4
+    owner: root
+    group: root
+    mode: '0644'
+  vars:
+    _nat_rules: "{{ nat_rules|default([]) }}"
+
+- name: Bring Tailscale up (Router)
+  ansible.builtin.include_role:
+    name: artis3n.tailscale
+  vars:
+    tailscale_authkey: "{{ tailscale_auth_key }}"
+    tailscale_args: >
+      --ssh
+      --advertise-routes={{ tailscale_advertise_routes|default([])|join(',') }}
+      --snat-subnet-routes={{ tailscale_snat_subnet_routes|default(false) }}
+      --accept-routes={{ tailscale_accept_routes_router|default(true) }}
