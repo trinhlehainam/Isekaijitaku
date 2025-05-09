@@ -1,0 +1,15 @@
+ansible_python_interpreter: /usr/bin/python3
+
+# Traefik configuration
+use_traefik: true
+
+# Router configuration
+traefik_router_public: true
+traefik_router_private: true
+
+# Service name (will be used as subdomain)
+headscale_service_name: "headscale"
+headplane_service_name: "headplane"
+
+public_apex_domain: "yourdomain"
+private_apex_domain: "yourdomain.local"

@@ -1,0 +1,102 @@
+##############################################################################
+# Service Status Verification
+##############################################################################
+
+- name: "Check for existing '{{ project_name|upper }}' service"
+  vars:
+    project_src: "{{ service_project_src }}"
+  ansible.builtin.include_tasks: check.yml
+
+- name: Set service existence flag
+  ansible.builtin.set_fact:
+    service_exists: "{{ check_result is defined and check_result.services is defined and check_result.services | length > 0 }}"
+
+- name: End play if service already exists and running
+  meta: end_host
+  when: service_exists
+
+##############################################################################
+# Service Deployment
+##############################################################################
+
+- name: "Validate '{{ project_name|upper }}' variables"
+  ansible.builtin.assert:
+    that:
+      - headplane_config_dir is defined
+      - headplane_data_dir is defined
+      - headscale_config_dir is defined
+      - headscale_data_dir is defined
+      - headplane_cookie_secret is defined
+    fail_msg: "Required {{ project_name|capitalize }} variables are not defined."
+
+- name: Create directory for {{ project_name|upper }} docker-compose files
+  ansible.builtin.file:
+    path: "{{ item.path }}"
+    state: directory
+    mode: '0755'
+  loop:
+    - { id: "service_project_src", path: "{{ service_project_src }}" }
+    - { id: "headplane_data_dir", path: "{{ headplane_data_dir }}" }
+    - { id: "headscale_config_dir", path: "{{ headscale_config_dir }}" }
+    - { id: "headscale_data_dir", path: "{{ headscale_data_dir }}" }
+  loop_control:
+    label: "{{ item.id }}"
+
+- name: "Create directory for '{{ project_name|upper }}' docker-compose files"
+  ansible.builtin.file:
+    path: "{{ service_project_src }}"
+    state: directory
+    mode: '0755'
+
+- name: "Copy '{{ project_name|upper }}' docker-compose file"
+  ansible.builtin.template:
+    src: "docker-compose.yml.j2"
+    dest: "{{ service_project_src }}/docker-compose.yml"
+    mode: '0644'
+    
+- name: "Copy headplane config file"
+  ansible.builtin.template:
+    src: "config/headplane.yml.j2"
+    dest: "{{ headplane_config_path }}"
+    mode: '0644'
+    
+- name: "Copy headscale config file"
+  ansible.builtin.template:
+    src: "config/headscale.yml.j2"
+    dest: "{{ headscale_config_dir }}/config.yaml"
+    mode: '0644'
+  
+- name: "Start '{{ project_name|upper }}' container"
+  community.docker.docker_compose_v2:
+    project_src: "{{ service_project_src }}"
+    state: present
+  register: output
+
+- name: "Display '{{ project_name|upper }}' connection info"
+  vars:
+    msg: |
+      ===== {{ project_name|upper }} ACCESS INFORMATION =====
+      {% if use_traefik|default(false) %}
+      Access via Traefik:
+        Public:
+        {% if use_traefik_router_public|default(false) and public_apex_domain|default(false) %}
+        - Headplane: https://{{ headplane_service_name|default('headplane') }}.{{ public_apex_domain }}
+        {% endif %}
+        {% if use_traefik_router_public|default(false) and public_apex_domain|default(false) %}
+        - Headscale: https://{{ headscale_service_name|default('headscale') }}.{{ public_apex_domain }}
+        {% endif %}
+        Private:
+        {% if use_traefik_router_private|default(false) and private_apex_domain|default(false) %}
+        - Headplane: https://{{ headplane_service_name|default('headplane') }}.{{ private_apex_domain }}
+        {% endif %}
+        {% if use_traefik_router_private|default(false) and private_apex_domain|default(false) %}
+        - Headscale: https://{{ headscale_service_name|default('headscale') }}.{{ private_apex_domain }}
+        {% endif %}
+      {% else %}
+      Direct access:
+        - Headplane: http://{{ ansible_host }}:3000
+        - Headscale: http://{{ ansible_host }}:8080
+      {% endif %}
+      =============================================
+  ansible.builtin.debug:
+    msg: "{{ msg.split('\n') }}"

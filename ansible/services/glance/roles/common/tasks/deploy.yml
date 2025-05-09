@@ -18,7 +18,7 @@
 ##############################################################################
 # Service Deployment
 ##############################################################################
-#
+
 - name: Validate {{ project_name|capitalize }} variables
   ansible.builtin.assert:
     that:

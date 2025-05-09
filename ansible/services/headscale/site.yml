@@ -1,0 +1,38 @@
+---
+- name: Ensure Docker is installed and running
+  hosts: all
+  become: true
+  gather_facts: true
+  tags: [never, deploy]
+  roles:
+    - role: geerlingguy.docker
+      vars:
+        docker_users:
+          - "{{ ansible_user }}"
+
+- name: "Deploy '{{ project_name|upper }}' services"
+  hosts: all
+  gather_facts: true
+  tags: [never, deploy]
+  roles:
+    - role: common
+      vars:
+        operation_mode: deploy
+        
+- name: "Check '{{ project_name|upper }}' services status"
+  hosts: all
+  gather_facts: true
+  tags: [never, check]
+  roles:
+    - role: common
+      vars:
+        operation_mode: check
+
+- name: "Destroy '{{ project_name|upper }}' services"
+  hosts: all
+  gather_facts: true
+  tags: [never, destroy]
+  roles:
+    - role: common
+      vars:
+        operation_mode: destroy

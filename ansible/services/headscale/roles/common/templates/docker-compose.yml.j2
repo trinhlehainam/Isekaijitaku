@@ -1,0 +1,88 @@
+# https://github.com/tale/headplane/blob/main/docs/Integrated-Mode.md#deployment
+
+name: {{ project_name }}
+services:
+  headplane:
+    # https://github.com/tale/headplane/pkgs/container/headplane
+    image: ghcr.io/tale/headplane:0.5.10
+    container_name: headplane
+    depends_on:
+      forgejo-db:
+        condition: service_healthy
+        restart: true
+    restart: unless-stopped
+    volumes:
+      - '{{ headplane_config_path }}:/etc/headplane/config.yaml'
+      # This should match headscale.config_path in your config.yaml
+      - '{{ headscale_config_dir }}/config.yaml:/etc/headscale/config.yaml'
+      # Headplane stores its data in this directory
+      - '{{ headplane_data_dir }}:/var/lib/headplane'
+      # If you are using the Docker integration, mount the Docker socket
+      - '/var/run/docker.sock:/var/run/docker.sock:ro'
+{% if not use_traefik|default(false) %}
+    ports:
+      - '3000:3000'
+{% endif %}
+    networks:
+      - headscale
+{% if use_traefik|default(false) %}
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - 'traefik.docker.network=proxy'
+      - 'traefik.http.services.headplane.loadbalancer.server.port=3000'
+  {% if use_traefik_router_private|default(false) and private_apex_domain|default(false) %}
+      ## Private
+      - "traefik.http.routers.headplane-local.rule=Host(`{{ headplane_service_name|default('headplane') }}.{{ private_apex_domain }}`)"
+      - "traefik.http.routers.headplane-local.entrypoints=websecure"
+      - "traefik.http.routers.headplane-local.tls.certresolver=stepca"
+  {% endif %}
+  {% if use_traefik_router_public|default(false) and public_apex_domain|default(false) %}
+      ## Public
+      - "traefik.http.routers.headplane.rule=Host(`{{ headscale_service_name|default('headplane') }}.{{ public_apex_domain }}`)"
+      - "traefik.http.routers.headplane.entrypoints=websecure"
+      - "traefik.http.routers.headplane.tls.certresolver=cloudflare"
+  {% endif %}
+
+  # https://headscale.net/stable/setup/install/container/#configure-and-run-headscale
+  headscale:
+    # https://github.com/juanfont/headscale/pkgs/container/headscale
+    image: ghcr.io/juanfont/headscale:0.25.1
+    container_name: headscale
+    restart: unless-stopped
+    command: serve
+    volumes:
+      - '{{ headscale_data_dir }}:/var/lib/headscale'
+      - '{{ headscale_config_dir }}:/etc/headscale'
+{% if not use_traefik|default(false) %}
+    ports:
+      - '8080:8080'
+{% endif %}
+    networks:
+      - headscale
+{% if use_traefik|default(false) %}
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - 'traefik.docker.network=proxy'
+      - 'traefik.http.services.headscale.loadbalancer.server.port=8080'
+  {% if use_traefik_router_private|default(false) and private_apex_domain|default(false) %}
+      ## Private
+      - "traefik.http.routers.headscale-local.rule=Host(`{{ headscale_service_name|default('headscale') }}.{{ private_apex_domain }}`)"
+      - "traefik.http.routers.headscale-local.entrypoints=websecure"
+      - "traefik.http.routers.headscale-local.tls.certresolver=stepca"
+  {% endif %}
+  {% if use_traefik_router_public|default(false) and public_apex_domain|default(false) %}
+      ## Public
+      - "traefik.http.routers.headscale.rule=Host(`{{ headscale_service_name|default('headscale') }}.{{ public_apex_domain }}`)"
+      - "traefik.http.routers.headscale.entrypoints=websecure"
+      - "traefik.http.routers.headscale.tls.certresolver=cloudflare"
+  {% endif %}
+
+networks:
+  headscale:
+    driver: bridge
+{% if use_traefik|default(false) %}
+  proxy:
+    external: true
+{% endif %}

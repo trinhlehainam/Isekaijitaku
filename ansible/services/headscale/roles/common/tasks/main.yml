@@ -1,0 +1,49 @@
+---
+- name: "Set up '{{ project_name|upper }}' project source path"
+  ansible.builtin.set_fact:
+    service_project_src: "{{ service_project_src|default(ansible_user_dir + '/Docker/' + project_name) }}"
+    
+- name: "Set up {{ project_name|upper }} bind mount variables"
+  ansible.builtin.set_fact:
+    headplane_config_path: "{{ headplane_config_dir if headplane_config_dir is defined and (headplane_config_dir.startswith('/') or headplane_config_dir.startswith('./')) else './config' }}"
+    headplane_data_dir: "{{ headplane_data_dir if headplane_data_dir is defined and (headplane_data_dir.startswith('/') or headplane_data_dir.startswith('./')) else './assets' }}"
+    headscale_config_dir: "{{ headscale_config_dir if headscale_config_dir is defined and (headscale_config_dir.startswith('/') or headscale_config_dir.startswith('./')) else './config' }}"
+    headscale_data_dir: "{{ headscale_data_dir if headscale_data_dir is defined and (headscale_data_dir.startswith('/') or headscale_data_dir.startswith('./')) else './assets' }}"
+
+- name: Resolve {{ project_name|upper }} bind mount from relative paths to absolute paths
+  ansible.builtin.set_fact:
+    headplane_config_path: "{{ headplane_config_path.replace('./', service_project_src + '/') }}"
+    headplane_data_dir: "{{ headplane_data_dir.replace('./', service_project_src + '/') }}"
+    headscale_config_dir: "{{ headscale_config_dir.replace('./', service_project_src + '/') }}"
+    headscale_data_dir: "{{ headscale_data_dir.replace('./', service_project_src + '/') }}"
+
+- name: "Set up '{{ project_name|upper }}' files list"
+  ansible.builtin.set_fact:
+    files_list:
+      - { id: "docker_compose",   path: "{{ service_project_src }}/docker-compose.yml",   name: "Docker Compose File" }
+      - { id: "headplane_config", path: "{{ headplane_config_path }}", name: "Headplane Config File" }
+      - { id: "headplane_data",   path: "{{ headplane_data_dir }}",   name: "Headplane Data Directory" }
+      - { id: "headscale_config", path: "{{ headscale_config_dir }}", name: "Headscale Config Directory" }
+      - { id: "headscale_data",   path: "{{ headscale_data_dir }}",   name: "Headscale Data Directory" }
+
+- name: Set default operation mode if not defined
+  ansible.builtin.set_fact:
+    operation_mode: "{{ operation_mode | default('check') }}"
+
+- name: Include check tasks
+  vars:
+    project_src: "{{ service_project_src }}"
+  ansible.builtin.include_tasks: check.yml
+  when: operation_mode == 'check'
+
+- name: Include deploy tasks
+  ansible.builtin.include_tasks: deploy.yml
+  when: operation_mode == 'deploy'
+
+- name: Include destroy tasks
+  ansible.builtin.include_tasks: destroy.yml
+  when: operation_mode == 'destroy'
+
+- name: Include upgrade tasks
+  ansible.builtin.include_tasks: upgrade.yml
+  when: operation_mode == 'upgrade'
