@@ -2,11 +2,12 @@
 # roles/common/tasks/router.yml
 # Included by main.yml for hosts in groups['tailscale_routers']
 
+# https://tailscale.com/kb/1214/site-to-site#ip-address-forwarding
 - name: Enable IP forwarding in sysctl
   ansible.posix.sysctl:
     name: "{{ item.name }}"
     value: "{{ item.value }}"
-    sysctl_file: /etc/sysctl.d/99-tailscale-forwarding.conf
+    sysctl_file: /etc/sysctl.d/99-tailscale.conf
     reload: true
   loop:
     - { name: 'net.ipv4.ip_forward', value: '1' }
