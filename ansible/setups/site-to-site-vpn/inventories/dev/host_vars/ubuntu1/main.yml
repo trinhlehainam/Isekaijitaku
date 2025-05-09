@@ -16,7 +16,7 @@ ansible_become_password: !vault |
           3031373063386662330a633130373435353736313137636466626364643935623566393337396334
           3864
 
-tailscale_auth_key: "tskey-auth-yyyyyyyyyyyyyyyyyyyyyy" # USE VAULT! Replace with actual key for ubuntu1
+tailscale_auth_key: "b5aeac93bcaeb3e09cb9d13ba1c1d4799ddbe264e277bd51"
 
 tailscale_advertise_routes:
   - "192.168.56.0/24"

@@ -1,7 +1,4 @@
 ---
-# roles/common/tasks/router.yml
-# Included by main.yml for hosts in groups['tailscale_routers']
-
 # https://tailscale.com/kb/1214/site-to-site#ip-address-forwarding
 - name: Enable IP forwarding in sysctl
   ansible.posix.sysctl:
@@ -17,15 +14,25 @@
   ansible.builtin.template:
     src: rules.v4.j2
     dest: /etc/iptables/rules.v4
-    owner: root
-    group: root
     mode: '0644'
   vars:
     _nat_rules: "{{ iptables_nat_rules|default([]) }}"
+    
+- name: "Add NAT rules"
+  ansible.builtin.iptables:
+    chain: "POSTROUTING"
+    table: "nat"
+    source: "{{ item.source }}"
+    destination: "{{ item.destination }}"
+    out_interface: "{{ item.interface }}"
+    jump: "MASQUERADE"
+  loop: "{{ iptables_nat_rules|default([]) }}"
+  loop_control:
+    label: "{{ item.description }}"
 
 - name: Bring Tailscale up (Router)
   ansible.builtin.include_role:
-    name: artis3n.tailscale
+    name: artis3n.tailscale.machine
   vars:
     tailscale_authkey: "{{ tailscale_auth_key }}"
     tailscale_args: >

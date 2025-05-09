@@ -1,7 +1,7 @@
 ---
 ansible_host: 192.168.56.12
 
-tailscale_auth_key: "tskey-auth-yyyyyyyyyyyyyyyyyyyyyy" # USE VAULT! Replace with actual key for ubuntu2
+tailscale_auth_key: "b5aeac93bcaeb3e09cb9d13ba1c1d4799ddbe264e277bd51"
 
 # LAN IP of the Tailscale router ('ubuntu1') on the same network segment as ubuntu2
 tailscale_router_host_ip: "192.168.56.11" # Example: LAN IP of 'ubuntu1'

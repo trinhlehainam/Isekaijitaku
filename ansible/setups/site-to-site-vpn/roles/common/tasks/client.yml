@@ -1,7 +1,4 @@
 ---
-# roles/common/tasks/client.yml
-# Included by main.yml for hosts in groups['tailscale_clients']
-
 - name: Ensure networkd-dispatcher scripts directory exists
   ansible.builtin.file:
     path: /etc/networkd-dispatcher/routable.d
@@ -12,16 +9,12 @@
   ansible.builtin.copy:
     src: "99-tailscale-route-rule.sh"
     dest: /etc/networkd-dispatcher/routable.d/99-tailscale-route-rule.sh
-    owner: root
-    group: root
     mode: '0755'
 
 - name: Template static routes script for clients
   ansible.builtin.template:
     src: 99-static-routes.sh.j2
     dest: /etc/networkd-dispatcher/routable.d/99-static-routes.sh
-    owner: root
-    group: root
     mode: '0755'
   vars:
     _tailscale_router_host_ip: "{{ tailscale_router_host_ip | default(omit) }}"
@@ -29,7 +22,7 @@
 
 - name: Bring Tailscale up (Client)
   ansible.builtin.include_role:
-    name: artis3n.tailscale
+    name: artis3n.tailscale.machine
   vars:
     tailscale_authkey: "{{ tailscale_auth_key }}"
     tailscale_args: >
