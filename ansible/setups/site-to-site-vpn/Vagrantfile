@@ -22,7 +22,6 @@ Vagrant.configure("2") do |config|
     v.customize ["modifyvm", :id, "--cableconnected1", "on"]
   end
 
-  # Define three Ubuntu test machines
   (1..2).each do |i|
     config.vm.define "ubuntu#{i}" do |node|
       node.vm.hostname = "ubuntu#{i}"
@@ -47,6 +46,13 @@ Vagrant.configure("2") do |config|
           systemctl restart sshd
         fi
       SHELL
+    end
+  end
+
+  (1..2).each do |i|
+    config.vm.define "ubuntu#{2+i}" do |node|
+      node.vm.hostname = "ubuntu#{2+i}"
+      node.vm.network "private_network", ip: "192.168.57.#{10+i}"
     end
   end
 

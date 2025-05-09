@@ -1,0 +1,13 @@
+---
+ansible_host: 192.168.56.12
+
+tailscale_auth_key: "tskey-auth-yyyyyyyyyyyyyyyyyyyyyy" # USE VAULT! Replace with actual key for ubuntu2
+
+# LAN IP of the Tailscale router ('ubuntu3') on the same network segment as ubuntu2
+tailscale_router_host_ip: "192.168.57.11" # Example: LAN IP of 'ubuntu3'
+
+# Subnets ubuntu4 needs to reach via its local Tailscale router (ubuntu3)
+# These are subnets advertised by *other* Tailscale routers in your tailnet
+remote_subnets:
+  - "192.168.56.0/24" # Example: Subnet advertised by another site's router
+  # Add other remote subnets as needed

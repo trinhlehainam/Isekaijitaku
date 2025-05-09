@@ -21,7 +21,7 @@
     group: root
     mode: '0644'
   vars:
-    _nat_rules: "{{ nat_rules|default([]) }}"
+    _nat_rules: "{{ iptables_nat_rules|default([]) }}"
 
 - name: Bring Tailscale up (Router)
   ansible.builtin.include_role:
@@ -29,7 +29,11 @@
   vars:
     tailscale_authkey: "{{ tailscale_auth_key }}"
     tailscale_args: >
+      {% if headscale_url|default(false) %}
+      --login-server='{{ headscale_url }}'
+      {% endif %}
       --ssh
-      --advertise-routes={{ tailscale_advertise_routes|default([])|join(',') }}
-      --snat-subnet-routes={{ tailscale_snat_subnet_routes|default(false) }}
-      --accept-routes={{ tailscale_accept_routes_router|default(true) }}
+      --snat-subnet-routes='{{ tailscale_snat_subnet_routes|default(false) }}'
+      --advertise-routes='{{ tailscale_advertise_routes|default([])|join(',') }}'
+      --accept-routes='{{ tailscale_accept_routes_router|default(true) }}'
+      --accept-dns='{{ tailscale_accept_dns_router|default(false) }}'

@@ -33,6 +33,9 @@
   vars:
     tailscale_authkey: "{{ tailscale_auth_key }}"
     tailscale_args: >
+      {% if headscale_url|default(false) %}
+      --login-server='{{ headscale_url }}'
+      {% endif %}
       --ssh
       --accept-routes={{ tailscale_accept_routes_client|default(false) }}
       --accept-dns={{ tailscale_accept_dns_client|default(false) }}

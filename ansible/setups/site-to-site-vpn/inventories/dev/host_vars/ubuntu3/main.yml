@@ -19,14 +19,14 @@ ansible_become_password: !vault |
 tailscale_auth_key: "tskey-auth-yyyyyyyyyyyyyyyyyyyyyy" # USE VAULT! Replace with actual key for ubuntu1
 
 tailscale_advertise_routes:
-  - "192.168.56.0/24"
+  - "192.168.57.0/24"
 
 iptables_nat_rules:
-  - description: "Allow LAN (192.168.56.0/24) to access entire Tailscale network"
-    source: "192.168.56.0/24"
+  - description: "Allow LAN (192.168.57.0/24) to access entire Tailscale network"
+    source: "192.168.57.0/24"
     destination: "100.64.0.0/10"
     interface: "tailscale0"
-  - description: "Allow LAN (192.168.56.0/24) to access another subnet (192.168.57.0/24) via Tailscale"
-    source: "192.168.56.0/24"
-    destination: "192.168.57.0/24"
+  - description: "Allow LAN (192.168.57.0/24) to access another subnet (192.168.56.0/24) via Tailscale"
+    source: "192.168.57.0/24"
+    destination: "192.168.56.0/24"
     interface: "tailscale0"
