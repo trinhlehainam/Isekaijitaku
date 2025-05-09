@@ -5,10 +5,10 @@
     
 - name: "Set up {{ project_name|upper }} bind mount variables"
   ansible.builtin.set_fact:
-    headplane_config_path: "{{ headplane_config_dir if headplane_config_dir is defined and (headplane_config_dir.startswith('/') or headplane_config_dir.startswith('./')) else './config' }}"
-    headplane_data_dir: "{{ headplane_data_dir if headplane_data_dir is defined and (headplane_data_dir.startswith('/') or headplane_data_dir.startswith('./')) else './assets' }}"
-    headscale_config_dir: "{{ headscale_config_dir if headscale_config_dir is defined and (headscale_config_dir.startswith('/') or headscale_config_dir.startswith('./')) else './config' }}"
-    headscale_data_dir: "{{ headscale_data_dir if headscale_data_dir is defined and (headscale_data_dir.startswith('/') or headscale_data_dir.startswith('./')) else './assets' }}"
+    headplane_config_path: "{{ headplane_config_dir if headplane_config_dir is defined and (headplane_config_dir.startswith('/') or headplane_config_dir.startswith('./')) else './config.yml' }}"
+    headplane_data_dir: "{{ headplane_data_dir if headplane_data_dir is defined and (headplane_data_dir.startswith('/') or headplane_data_dir.startswith('./')) else './headplane-data' }}"
+    headscale_config_dir: "{{ headscale_config_dir if headscale_config_dir is defined and (headscale_config_dir.startswith('/') or headscale_config_dir.startswith('./')) else './headscale-config' }}"
+    headscale_data_dir: "{{ headscale_data_dir if headscale_data_dir is defined and (headscale_data_dir.startswith('/') or headscale_data_dir.startswith('./')) else './headscale-data' }}"
 
 - name: Resolve {{ project_name|upper }} bind mount from relative paths to absolute paths
   ansible.builtin.set_fact:

@@ -22,7 +22,7 @@
 - name: "Validate '{{ project_name|upper }}' variables"
   ansible.builtin.assert:
     that:
-      - headplane_config_dir is defined
+      - headplane_config_path is defined
       - headplane_data_dir is defined
       - headscale_config_dir is defined
       - headscale_data_dir is defined
@@ -80,21 +80,21 @@
       Access via Traefik:
         Public:
         {% if use_traefik_router_public|default(false) and public_apex_domain|default(false) %}
-        - Headplane: https://{{ headplane_service_name|default('headplane') }}.{{ public_apex_domain }}
+        - Headplane: https://{{ service_name|default('headplane') }}.{{ public_apex_domain }}/admin
         {% endif %}
         {% if use_traefik_router_public|default(false) and public_apex_domain|default(false) %}
-        - Headscale: https://{{ headscale_service_name|default('headscale') }}.{{ public_apex_domain }}
+        - Headscale: https://{{ service_name|default('headscale') }}.{{ public_apex_domain }}
         {% endif %}
         Private:
         {% if use_traefik_router_private|default(false) and private_apex_domain|default(false) %}
-        - Headplane: https://{{ headplane_service_name|default('headplane') }}.{{ private_apex_domain }}
+        - Headplane: https://{{ service_name|default('headplane') }}.{{ private_apex_domain }}/admin
         {% endif %}
         {% if use_traefik_router_private|default(false) and private_apex_domain|default(false) %}
-        - Headscale: https://{{ headscale_service_name|default('headscale') }}.{{ private_apex_domain }}
+        - Headscale: https://{{ service_name|default('headscale') }}.{{ private_apex_domain }}
         {% endif %}
       {% else %}
       Direct access:
-        - Headplane: http://{{ ansible_host }}:3000
+        - Headplane: http://{{ ansible_host }}:3000/admin/
         - Headscale: http://{{ ansible_host }}:8080
       {% endif %}
       =============================================

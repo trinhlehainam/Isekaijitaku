@@ -10,7 +10,7 @@
         docker_users:
           - "{{ ansible_user }}"
 
-- name: "Deploy '{{ project_name|upper }}' services"
+- name: "Deploy Headscale services"
   hosts: all
   gather_facts: true
   tags: [never, deploy]
@@ -19,7 +19,7 @@
       vars:
         operation_mode: deploy
         
-- name: "Check '{{ project_name|upper }}' services status"
+- name: "Check Headscale services status"
   hosts: all
   gather_facts: true
   tags: [never, check]
@@ -28,7 +28,7 @@
       vars:
         operation_mode: check
 
-- name: "Destroy '{{ project_name|upper }}' services"
+- name: "Destroy Headscale services"
   hosts: all
   gather_facts: true
   tags: [never, destroy]
