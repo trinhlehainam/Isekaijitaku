@@ -186,7 +186,7 @@ To ensure `ServiceNode` can reliably route replies back to `ClientNode` and main
 
         subgraph SubnetRouterMachine [SubnetRouterNode<br><b>192.168.10.0/24</b>]
             direction TB
-            SRN_TS["`Tailscale Interface (100.A.B.C)"]
+            SRN_TS["`Tailscale Interface (100.A.B.C)`"]
             SRN_LAN["`LAN Interface (192.168.10.200)`"]
             SRN_TS -- "Internal Forwarding" --- SRN_LAN
         end
