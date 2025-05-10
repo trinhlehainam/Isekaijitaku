@@ -32,3 +32,10 @@
       --ssh
       --accept-routes={{ tailscale_accept_routes_client|default(false) }}
       --accept-dns={{ tailscale_accept_dns_client|default(false) }}
+      --reset
+      
+- name: Apply route rules
+  ansible.builtin.command: "{{ item }}"
+  loop:
+    - "/etc/networkd-dispatcher/routable.d/99-tailscale-route-rule.sh"
+    - "/etc/networkd-dispatcher/routable.d/99-static-routes.sh"

@@ -18,18 +18,6 @@
   vars:
     _nat_rules: "{{ iptables_nat_rules|default([]) }}"
     
-- name: "Add NAT rules"
-  ansible.builtin.iptables:
-    chain: "POSTROUTING"
-    table: "nat"
-    source: "{{ item.source }}"
-    destination: "{{ item.destination }}"
-    out_interface: "{{ item.interface }}"
-    jump: "MASQUERADE"
-  loop: "{{ iptables_nat_rules|default([]) }}"
-  loop_control:
-    label: "{{ item.description }}"
-
 - name: Bring Tailscale up (Router)
   ansible.builtin.include_role:
     name: artis3n.tailscale.machine
@@ -42,5 +30,21 @@
       --ssh
       --snat-subnet-routes='{{ tailscale_snat_subnet_routes|default(false) }}'
       --advertise-routes='{{ tailscale_advertise_routes|default([])|join(',') }}'
+      {% if tailscale_advertise_exit_node|default(false) %}
+      --advertise-exit-node
+      {% endif %}
       --accept-routes='{{ tailscale_accept_routes_router|default(true) }}'
       --accept-dns='{{ tailscale_accept_dns_router|default(false) }}'
+      --reset
+
+- name: "Add NAT rules"
+  ansible.builtin.iptables:
+    chain: "POSTROUTING"
+    table: "nat"
+    source: "{{ item.source }}"
+    destination: "{{ item.destination }}"
+    out_interface: "{{ item.interface }}"
+    jump: "MASQUERADE"
+  loop: "{{ iptables_nat_rules|default([]) }}"
+  loop_control:
+    label: "{{ item.description }}"
