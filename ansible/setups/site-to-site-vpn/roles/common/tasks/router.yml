@@ -31,12 +31,12 @@
       {% if tailscale_advertise_exit_node|default(false) %}
       --advertise-exit-node
       {% endif %}
-      --snat-subnet-routes='{{ tailscale_snat_subnet_routes|bool|default(false) }}'
+      --snat-subnet-routes='{{ tailscale_snat_subnet_routes|default(false)|bool }}'
       {% if tailscale_advertise_routes|default([])|length > 0 %}
       --advertise-routes='{{ tailscale_advertise_routes|default([])|join(',') }}'
       {% endif %}
-      --accept-routes='{{ tailscale_accept_routes_router|bool|default(true) }}'
-      --accept-dns='{{ tailscale_accept_dns_router|bool|default(false) }}'
+      --accept-routes='{{ tailscale_accept_routes_router|default(true)|bool }}'
+      --accept-dns='{{ tailscale_accept_dns_router|default(false)|bool }}'
       --reset
 
 - name: "Add NAT rules"
