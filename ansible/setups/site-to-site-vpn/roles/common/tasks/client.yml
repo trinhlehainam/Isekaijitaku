@@ -30,8 +30,8 @@
       --login-server='{{ headscale_url }}'
       {% endif %}
       --ssh
-      --accept-routes={{ tailscale_accept_routes_client|default(false) }}
-      --accept-dns={{ tailscale_accept_dns_client|default(false) }}
+      --accept-routes={{ tailscale_accept_routes_client|bool|default(false) }}
+      --accept-dns={{ tailscale_accept_dns_client|bool|default(false) }}
       --reset
       
 - name: Apply route rules

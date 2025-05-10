@@ -28,13 +28,15 @@
       --login-server='{{ headscale_url }}'
       {% endif %}
       --ssh
-      --snat-subnet-routes='{{ tailscale_snat_subnet_routes|default(false) }}'
-      --advertise-routes='{{ tailscale_advertise_routes|default([])|join(',') }}'
       {% if tailscale_advertise_exit_node|default(false) %}
       --advertise-exit-node
       {% endif %}
-      --accept-routes='{{ tailscale_accept_routes_router|default(true) }}'
-      --accept-dns='{{ tailscale_accept_dns_router|default(false) }}'
+      --snat-subnet-routes='{{ tailscale_snat_subnet_routes|bool|default(false) }}'
+      {% if tailscale_advertise_routes|default([])|length > 0 %}
+      --advertise-routes='{{ tailscale_advertise_routes|default([])|join(',') }}'
+      {% endif %}
+      --accept-routes='{{ tailscale_accept_routes_router|bool|default(true) }}'
+      --accept-dns='{{ tailscale_accept_dns_router|bool|default(false) }}'
       --reset
 
 - name: "Add NAT rules"
