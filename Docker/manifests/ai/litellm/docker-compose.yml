@@ -7,7 +7,7 @@ services:
     # NOTE: Always use the main-stable tag for production environments
     # For specific versions, search for tags that also include main-stable (e.g., main-v1.XX.X-stable)
     # https://github.com/BerriAI/litellm/pkgs/container/litellm
-    image: ghcr.io/berriai/litellm:main-v1.65.0-stable
+    image: ghcr.io/berriai/litellm:main-v1.69.0-stable
     depends_on:
       # Indicates that this service depends on the 'litellm-postgres' service, ensuring 'litellm-postgres' has started successfully and is healthy
       litellm-postgres:

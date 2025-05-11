@@ -1,0 +1,36 @@
+# https://github.com/u14app/deep-research
+
+services:
+  deep-research:
+    # https://hub.docker.com/r/xiangfa/deep-research/tags
+    image: "xiangfa/deep-research:v0.8.2"
+    container_name: deep-research
+    restart: unless-stopped
+    secrets:
+      - access_password
+    # https://github.com/u14app/deep-research/blob/main/Dockerfile
+    entrypoint:
+      - /bin/sh
+      - -c
+      - |
+        export ACCESS_PASSWORD=$$(cat /run/secrets/access_password)
+        exec node server.js
+    # ports:
+    #   - "3000:3000"
+    networks:
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.services.deep-research.loadbalancer.server.port=3000"
+      - "traefik.http.routers.deep-research-local.rule=Host(`deep-research.yourdomain.local`)"
+      - "traefik.http.routers.deep-research-local.entrypoints=websecure"
+      - "traefik.http.routers.deep-research-local.tls.certresolver=stepca"
+
+networks:
+  proxy:
+    external: true
+
+secrets:
+  access_password:
+    file: ./secrets/access_password
