@@ -6,7 +6,7 @@ services:
   jellyfin:
     container_name: jellyfin
     # https://hub.docker.com/r/jellyfin/jellyfin/tags
-    image: jellyfin/jellyfin:10.10.1
+    image: jellyfin/jellyfin:10.10.7
     # user: uid:gid
     user: 1000:1000
     volumes:
@@ -46,9 +46,15 @@ services:
     # extra_hosts:
     #   - 'host.docker.internal:host-gateway'
     networks:
-      openwrt_vlan:
-        ipv4_address: 10.10.10.34
+      - proxy
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=proxy"
+      - "traefik.http.services.jellyfin.loadbalancer.server.port=8096"
+      - "traefik.http.routers.jellyfin-local.rule=Host(`jellyfin.yourdomain.local`)"
+      - "traefik.http.routers.jellyfin-local.entrypoints=websecure"
+      - "traefik.http.routers.jellyfin-local.tls.certresolver=stepca"
 
 networks:
-  openwrt_vlan:
+  proxy:
     external: true
