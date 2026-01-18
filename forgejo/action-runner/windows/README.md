@@ -1,3 +1,10 @@
+---
+aliases:
+  - "Gitea Runner Windows Setup Guide"
+tags:
+  - manifest
+---
+
 # Gitea Runner Setup Guide for Windows
 
 ## Overview

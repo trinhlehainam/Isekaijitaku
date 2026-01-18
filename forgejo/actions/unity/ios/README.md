@@ -1,3 +1,10 @@
+---
+aliases:
+  - "Unity iOS Build Pipeline with Gitea Actions"
+tags:
+  - manifest
+---
+
 # Unity iOS Build Pipeline with Gitea Actions
 
 This directory contains the necessary configuration files to set up an automated build pipeline for Unity iOS projects using Gitea Actions.

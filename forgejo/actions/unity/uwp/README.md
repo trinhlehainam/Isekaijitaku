@@ -1,3 +1,10 @@
+---
+aliases:
+  - "Unity UWP Build Action"
+tags:
+  - manifest
+---
+
 # Unity UWP Build Action
 
 This action is designed to build Unity UWP (Universal Windows Platform) projects using GameCI and MSBuild.

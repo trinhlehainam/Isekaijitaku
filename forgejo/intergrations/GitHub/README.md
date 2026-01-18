@@ -1,3 +1,10 @@
+---
+aliases:
+  - "Forgejo-GitHub Integration Guide"
+tags:
+  - manifest
+---
+
 # Forgejo-GitHub Integration Guide
 
 This guide explains how to integrate Forgejo with GitHub, focusing on repository migration and mirroring options.

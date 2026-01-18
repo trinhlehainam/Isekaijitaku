@@ -1,3 +1,10 @@
+---
+aliases:
+  - "Windows Gitea Action Runner Setup"
+tags:
+  - manifest
+---
+
 # Windows Gitea Action Runner
 
 ## Important Notice About Windows Container Support

@@ -1,3 +1,10 @@
+---
+aliases:
+  - "Windows Runner Images for Gitea Actions"
+tags:
+  - manifest
+---
+
 # Windows Runner Images for Gitea Actions
 
 This directory contains the source for the Windows container images used by Gitea Actions runners. These images are based on the architecture and implementation of [GitHub Actions Runner Images](https://github.com/actions/runner-images).

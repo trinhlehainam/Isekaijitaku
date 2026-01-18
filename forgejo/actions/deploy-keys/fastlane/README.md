@@ -1,3 +1,10 @@
+---
+aliases:
+  - "iOS Certificate Management with Fastlane Match"
+tags:
+  - manifest
+---
+
 # iOS Certificate Management with Fastlane Match
 
 This guide explains how to set up and use fastlane match for managing iOS code signing certificates and provisioning profiles using deploy keys.

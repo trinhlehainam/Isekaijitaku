@@ -1,3 +1,10 @@
+---
+aliases:
+  - "Wazuh Docker Single Node Deployment"
+tags:
+  - manifest
+---
+
 # Deploy Wazuh Docker in single node configuration
 
 This deployment is defined in the `docker-compose.yml` file with one Wazuh manager containers, one Wazuh indexer containers, and one Wazuh dashboard container. It can be deployed by following these steps: 

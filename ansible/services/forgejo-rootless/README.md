@@ -1,3 +1,10 @@
+---
+aliases:
+  - "Forgejo Rootless Ansible Deployment"
+tags:
+  - manifest
+---
+
 # Forgejo Rootless Ansible Configuration
 
 This Ansible configuration manages the deployment of a rootless Forgejo instance using Docker Compose.

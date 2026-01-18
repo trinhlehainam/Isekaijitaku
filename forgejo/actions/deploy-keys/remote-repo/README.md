@@ -1,3 +1,10 @@
+---
+aliases:
+  - "Deploy Keys in Forgejo Actions"
+tags:
+  - manifest
+---
+
 # Deploy Keys in Forgejo/Gitea Actions
 
 This guide explains how to set up and use deploy keys in Forgejo/Gitea Actions for secure repository access during CI/CD workflows.

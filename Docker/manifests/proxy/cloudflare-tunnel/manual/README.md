@@ -1,3 +1,10 @@
+---
+aliases:
+  - "Cloudflare Tunnel Docker Manual Setup"
+tags:
+  - manifest
+---
+
 # Cloudflare Tunnel Manual Setup
 
 This directory contains configuration files for setting up a Cloudflare Tunnel manually using Docker. The setup allows you to securely expose your local services to the internet through Cloudflare's network.

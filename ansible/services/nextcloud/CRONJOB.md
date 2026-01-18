@@ -1,3 +1,10 @@
+---
+aliases:
+  - "Nextcloud Docker Cron Job Setup"
+tags:
+  - manifest
+---
+
 # Nextcloud Cron Job Setup
 
 This directory contains scripts and configuration files for managing Nextcloud cron jobs and maintenance windows in a Docker environment.

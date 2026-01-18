@@ -1,3 +1,10 @@
+---
+aliases:
+  - "Self-Hosting Renovate with Forgejo"
+tags:
+  - manifest
+---
+
 # Self-Hosting Renovate with Forgejo/Gitea CI/CD Runner
 
 This guide explains how to set up a self-hosted Renovate instance that works with Forgejo (or Gitea) using Forgejo's built-in CI/CD runner instead of Docker. This approach solves the scheduling limitation of Docker Compose and allows you to store Renovate configuration directly in your Forgejo repository.

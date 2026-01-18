@@ -1,3 +1,10 @@
+---
+aliases:
+  - "Gitea Forgejo Action Runner Linux Setup"
+tags:
+  - manifest
+---
+
 # Setup Gitea/Forgejo Action Runner on Linux
 
 This guide explains how to set up a Gitea/Forgejo Action Runner on a Linux system. The setup process is divided into several scripts for better maintainability and flexibility.

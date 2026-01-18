@@ -1,3 +1,10 @@
+---
+aliases:
+  - "Docker Samples for Renovate Testing"
+tags:
+  - manifest
+---
+
 # Docker Samples for Renovate Testing
 
 This directory contains Docker configuration examples that demonstrate various update patterns that Renovate can detect and manage.

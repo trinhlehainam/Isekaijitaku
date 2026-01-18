@@ -1,3 +1,10 @@
+---
+aliases:
+  - "UWP GitHub Actions Workflows"
+tags:
+  - manifest
+---
+
 # UWP GitHub Actions Workflows
 
 This directory contains GitHub Actions workflows for building and deploying Universal Windows Platform (UWP) applications.

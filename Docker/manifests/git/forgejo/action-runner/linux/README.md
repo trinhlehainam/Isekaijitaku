@@ -1,3 +1,10 @@
+---
+aliases:
+  - "Forgejo Linux Action Runner Setup"
+tags:
+  - manifest
+---
+
 # Forgejo Runner Setup Guide
 
 This guide explains how to set up and register a Forgejo runner for your CI/CD workflows.

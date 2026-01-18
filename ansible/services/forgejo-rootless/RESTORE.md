@@ -1,3 +1,10 @@
+---
+aliases:
+  - "Forgejo Rootless Restore Process"
+tags:
+  - manifest
+---
+
 # Forgejo Rootless Restore Process
 
 This document outlines the Forgejo rootless service restore process implemented in the Ansible roles.

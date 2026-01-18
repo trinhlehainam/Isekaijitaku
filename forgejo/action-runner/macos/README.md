@@ -1,3 +1,10 @@
+---
+aliases:
+  - "Gitea Action Runner macOS Setup"
+tags:
+  - manifest
+---
+
 # Setting Up Gitea Action Runner on MacOS for Forgejo Instance
 
 This guide explains how to set up Gitea Action Runner on MacOS to work with a Forgejo instance. There are two setup options:

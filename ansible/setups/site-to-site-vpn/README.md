@@ -1,4 +1,6 @@
 ---
+aliases:
+  - "Tailscale Site-to-Site VPN Routing Configuration"
 Title: Set up routing rules of Tailscale nodes to resolve real private IP in site-to-site VPN
 Creation Date: 2024-11-30 7:13
 Last Modified Date: 2024-11-30 7:13

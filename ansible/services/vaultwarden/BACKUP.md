@@ -1,3 +1,10 @@
+---
+aliases:
+  - "Vaultwarden Backup Process"
+tags:
+  - manifest
+---
+
 # Vaultwarden Backup Process
 
 This document outlines the automated backup strategy for the Vaultwarden service, ensuring the preservation of both the database and critical application files.

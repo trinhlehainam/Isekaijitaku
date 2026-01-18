@@ -1,3 +1,10 @@
+---
+aliases:
+  - "Nextcloud Automated Backup Process"
+tags:
+  - manifest
+---
+
 # Nextcloud Automated Backup Process
 
 This document details the automated backup procedure for the Nextcloud service, managed via the Ansible role located in `roles/common`.

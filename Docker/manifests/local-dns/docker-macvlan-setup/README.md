@@ -1,3 +1,10 @@
+---
+aliases:
+  - "AdGuard Home Macvlan Setup Service"
+tags:
+  - manifest
+---
+
 # AdGuard Home Macvlan Setup Service
 
 This directory contains scripts and systemd service files for manually configuring Docker macvlan network interface for AdGuard Home container. The service will automatically create and configure the macvlan interface on system boot.

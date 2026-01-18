@@ -1,3 +1,10 @@
+---
+aliases:
+  - "Forgejo Standard to Rootless Migration"
+tags:
+  - manifest
+---
+
 # Migrating from Standard to Rootless Image
 
 This guide explains how to migrate from the standard Forgejo Docker image to the rootless image.

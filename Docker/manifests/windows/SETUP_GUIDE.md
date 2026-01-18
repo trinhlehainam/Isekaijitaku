@@ -1,3 +1,10 @@
+---
+aliases:
+  - "Windows Game Dev Container Setup Guide"
+tags:
+  - manifest
+---
+
 # Detailed Setup Guide for Game Development Container
 
 This guide provides detailed instructions for setting up and customizing the Windows container for Unity and Unreal Engine development.

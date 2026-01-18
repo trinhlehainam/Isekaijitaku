@@ -1,3 +1,10 @@
+---
+aliases:
+  - "Docker Mount Point Monitor"
+tags:
+  - manifest
+---
+
 # Mount Point Monitor
 
 A Docker-based solution that monitors multiple mount points and integrates with docker-autoheal for automatic recovery. Other services can depend on mountcheck to ensure their volumes are properly mounted before starting.

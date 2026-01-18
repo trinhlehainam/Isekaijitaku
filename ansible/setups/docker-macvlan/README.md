@@ -1,4 +1,6 @@
 ---
+aliases:
+  - "Setup Docker macvlan network on Linux"
 Title: Setup Docker macvlan network on Linux
 Creation Date: 2025-05-07 4:46
 tags:

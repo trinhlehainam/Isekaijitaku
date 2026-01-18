@@ -1,3 +1,10 @@
+---
+aliases:
+  - "Automated macOS VM Provisioning"
+tags:
+  - manifest
+---
+
 # Automated macOS VM Provisioning
 
 The Vagrant configuration in this repository enables fully automated provisioning of macOS virtual machines without GUI interaction, creating a foundation for Ansible-managed development environments.

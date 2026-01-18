@@ -1,3 +1,10 @@
+---
+aliases:
+  - "Windows Runner Example Workflows"
+tags:
+  - manifest
+---
+
 # Example Actions for Windows Runner
 
 This directory contains sample GitHub Actions workflows that demonstrate various use cases for the Windows runner. These workflows can be used as templates for your own projects.

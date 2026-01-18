@@ -1,3 +1,10 @@
+---
+aliases:
+  - "Tailscale Network Routing Configuration"
+tags:
+  - manifest
+---
+
 # Tailscale Network Configuration
 
 This repository contains scripts for managing Tailscale network configuration using networkd-dispatcher. It handles both routing rules and static routes to ensure proper traffic flow in a Tailscale network with subnet routers.

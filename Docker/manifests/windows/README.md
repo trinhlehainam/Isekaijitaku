@@ -1,3 +1,10 @@
+---
+aliases:
+  - "Windows Development Docker Container"
+tags:
+  - manifest
+---
+
 # Windows Development Docker Container
 
 This repository contains Dockerfile and scripts for creating Windows containers with Visual Studio Build Tools and necessary components for Unity and Unreal Engine development.

@@ -1,3 +1,10 @@
+---
+aliases:
+  - "Forgejo Rootless Backup System"
+tags:
+  - manifest
+---
+
 # Forgejo Backup System
 
 This document describes the backup functionality for Forgejo and PostgreSQL databases in a Docker-based deployment. The system implements a hierarchical error handling approach with service state preservation that ensures data consistency, failure handling, and service state rollback.

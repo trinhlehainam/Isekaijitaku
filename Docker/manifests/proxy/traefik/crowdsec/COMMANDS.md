@@ -1,3 +1,10 @@
+---
+aliases:
+  - "CrowdSec Docker Commands Reference"
+tags:
+  - manifest
+---
+
 # CrowdSec Docker Commands Guide
 
 This document provides common commands for managing and monitoring CrowdSec in a Docker environment.

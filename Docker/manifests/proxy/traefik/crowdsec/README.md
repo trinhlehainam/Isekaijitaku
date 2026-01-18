@@ -1,3 +1,10 @@
+---
+aliases:
+  - "CrowdSec with Traefik Docker Setup"
+tags:
+  - manifest
+---
+
 # Setting up CrowdSec with Traefik in Docker
 
 This guide explains how to set up CrowdSec security engine with Traefik proxy using Docker Compose.

@@ -1,3 +1,10 @@
+---
+aliases:
+  - "Ubuntu Update Management with Ansible"
+tags:
+  - manifest
+---
+
 # Ubuntu Update Management with Ansible
 
 Demonstrates Ansible configuration for managing Ubuntu VMs using both password and SSH key authentication methods, including sudo privilege escalation.

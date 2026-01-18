@@ -1,3 +1,10 @@
+---
+aliases:
+  - "Mount Windows SMB Share with Ansible"
+tags:
+  - manifest
+---
+
 # Mount Windows SMB Share with Ansible and Vagrant
 
 This project demonstrates how to use Vagrant and Ansible to automatically mount a Windows SMB share onto an Ubuntu virtual machine.

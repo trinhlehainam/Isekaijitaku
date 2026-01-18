@@ -1,3 +1,10 @@
+---
+aliases:
+  - "Semaphore Docker Container Configuration"
+tags:
+  - manifest
+---
+
 # Semaphore Docker Container Configuration
 
 This document explains how to configure and run the Semaphore Docker container with custom arguments.

@@ -1,3 +1,10 @@
+---
+aliases:
+  - "Keycloak SSO Integration with Nextcloud"
+tags:
+  - manifest
+---
+
 # Keycloak SSO Integration with Nextcloud
 
 This document describes how to integrate Keycloak SSO with Nextcloud, particularly focusing on scenarios with multiple SSO providers.

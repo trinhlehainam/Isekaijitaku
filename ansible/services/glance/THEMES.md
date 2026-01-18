@@ -1,3 +1,10 @@
+---
+aliases:
+  - "Glance Dashboard Theme Configuration"
+tags:
+  - manifest
+---
+
 ## Locating Theme Configuration
 
 Glance theme settings are defined within the main configuration file, typically `/mnt/c/Users/NamVice/Documents/Personal/Zettelkasten/Manifests/ansible/services/glance/roles/common/files/config/glance.yml`. Theme customization is managed under a top-level `theme:` key in this YAML file. If this key is absent, Glance uses its default theme.

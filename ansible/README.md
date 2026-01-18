@@ -1,3 +1,10 @@
+---
+aliases:
+  - "Ansible Project Structure and Role Sharing"
+tags:
+  - manifest
+---
+
 # Ansible Project Structure and Role Sharing
 
 This document details a recommended structure for managing multiple Ansible projects within a single repository, specifically addressing how to effectively share common roles across these projects.

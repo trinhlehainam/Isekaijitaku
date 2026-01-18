@@ -1,3 +1,10 @@
+---
+aliases:
+  - "AdGuard Home Docker with Macvlan"
+tags:
+  - manifest
+---
+
 # AdGuard Home with Docker Network Options
 
 This directory contains two Docker Compose configurations for running AdGuard Home with different networking options:

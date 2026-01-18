@@ -1,3 +1,10 @@
+---
+aliases:
+  - "Dozzle Log Monitoring Ansible Deployment"
+tags:
+  - manifest
+---
+
 # Dozzle Docker Log Monitoring System
 
 This implementation deploys a distributed Dozzle log monitoring system using Ansible automation. The architecture enables centralized access to container logs from multiple Docker hosts through a single web interface with real-time log streaming, filtering, and search capabilities.

@@ -1,3 +1,10 @@
+---
+aliases:
+  - "Kopia Backup Server Ansible Deployment"
+tags:
+  - manifest
+---
+
 # Ansible Playbook for Kopia Deployment
 
 This repository contains an Ansible playbook designed to deploy and manage a Kopia backup server instance using Docker and Docker Compose.

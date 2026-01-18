@@ -1,3 +1,10 @@
+---
+aliases:
+  - "Vaultwarden Ansible Setup"
+tags:
+  - manifest
+---
+
 # Vaultwarden Ansible Setup
 
 This playbook deploys Vaultwarden using Docker Compose.
