@@ -18,9 +18,8 @@ tags:
 - To connect to another subnets through Tailscale router, we need to set up routing table.
 - For example, we have Tailscale subnet router has LAN IP as `192.168.0.100`, and we want to access `192.168.1.0/24` subnet and [Tailscale IPs](https://tailscale.com/kb/1015/100.x-addresses) `100.64.0.0/10` that in another Tailscale subnet router. So we routing traffic destinate to `192.168.1.0/24` in our machine to Tailcsale router machine `192.168.0.100`
 
-```ad-note
-Some machines don't accept all incomming trafic by default, we may need to set up to accept another subnets in Firewall manually.
-```
+> [!note]
+> Some machines don't accept all incomming trafic by default, we may need to set up to accept another subnets in Firewall manually.
 
 #### Linux
 - [Tailscale Document](https://tailscale.com/kb/1214/site-to-site#example-scenario)
@@ -48,12 +47,11 @@ network:
 
 ```
 
-```ad-caution
-Title: Netplan on Proxmox VMs & cloud-init
-On Proxmox Virtual Machines, `cloud-init` often manages network configuration and can overwrite manual changes made to `/etc/netplan/50-cloud-init.yaml` (or similar files) upon reboot. This can lead to static routes defined in `netplan` not persisting as expected.
-
-For more reliable and persistent route configuration in Proxmox VMs, consider using the `networkd-dispatcher` method detailed later in this document (see section "Implementation"). This approach is less susceptible to `cloud-init` overwrites for dynamic route management.
-```
+> [!caution]
+> Title: Netplan on Proxmox VMs & cloud-init
+> On Proxmox Virtual Machines, `cloud-init` often manages network configuration and can overwrite manual changes made to `/etc/netplan/50-cloud-init.yaml` (or similar files) upon reboot. This can lead to static routes defined in `netplan` not persisting as expected.
+>
+> For more reliable and persistent route configuration in Proxmox VMs, consider using the `networkd-dispatcher` method detailed later in this document (see section "Implementation"). This approach is less susceptible to `cloud-init` overwrites for dynamic route management.
 
 - [[Linux Security Improved. Create professional Netfilter Iptables Firewalls. All you need to know about Netfilter Iptables#16. Listing the Firewall | Check iptables INPUT chain]] ACCEPT other subnets
 ```sh

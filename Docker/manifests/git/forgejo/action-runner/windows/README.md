@@ -261,8 +261,8 @@ Optional:
 - Work directory: `$HOME/.cache/act` if not specified in config
 - Config file: `config.yaml` in runner's working directory
 
-```ad-note
-In Windows Server Core container, `$HOME` is `C:\Users\ContainerAdministrator`
+>[!note]
+>In Windows Server Core container, `$HOME` is `C:\Users\ContainerAdministrator`
 ```
 
 ### Runner Configuration
